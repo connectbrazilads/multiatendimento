@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import { SOCKET_URL } from '../services/socket';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export default function Layout() {
     const tenantId = localStorage.getItem('tenantId');
     if (tenantId) {
       const token = localStorage.getItem('token');
-      const s = io({ auth: { token } });
+      const s = io(SOCKET_URL, { auth: { token } });
 
       s.on('new_message', ({ message, contact, fromMe }) => {
         if (fromMe) return;

@@ -6,6 +6,7 @@ import {
   getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage
 } from '../services/api';
 import io from 'socket.io-client';
+import { SOCKET_URL } from '../services/socket';
 
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);
@@ -93,7 +94,7 @@ export default function Inbox() {
   useEffect(() => {
     loadInitial();
     const token = localStorage.getItem('token');
-    const s = io({ auth: { token } });
+    const s = io(SOCKET_URL, { auth: { token } });
     socketRef.current = s;
     s.on('new_message', ({ message, ticket: t }) => {
       if (t.id === selectedId) {
