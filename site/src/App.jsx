@@ -152,10 +152,10 @@ const Hero = () => {
 
 const Partners = () => {
   return (
-    <div style={{ padding: '5rem 0', background: 'white', borderBottom: '1px solid #F1F3F5' }}>
-      <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#999', letterSpacing: '0.2em', marginBottom: '3rem' }}>PARCEIROS TECNOLÓGICOS</p>
+    <div style={{ padding: '4rem 0', background: 'white', borderBottom: '1px solid #F1F3F5' }}>
+      <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#999', letterSpacing: '0.2em', marginBottom: '2.5rem' }}>PARCEIROS TECNOLÓGICOS</p>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 5%' }}>
-        <img src={LogosBannerImg} alt="Parceiros" style={{ maxWidth: '100%', height: 'auto', opacity: 0.8 }} />
+        <img src={LogosBannerImg} alt="Parceiros" style={{ maxWidth: '80%', height: 'auto', opacity: 0.9 }} />
       </div>
     </div>
   );
@@ -165,17 +165,17 @@ const Services = () => {
   const items = [
     { 
       icon: <Printer size={36} color="var(--primary)" />, 
-      title: "Locação (Outsourcing)", 
-      desc: "Equipamentos de última geração com manutenção e suporte inclusos no contrato.",
-      img: HeroImg,
-      tag: "Solução Completa"
+      title: "Locação Profissional", 
+      desc: "Equipamentos de alta performance como a Xerox C8100 para grandes demandas.",
+      img: Xerox8100Img,
+      tag: "Alta Produção"
     },
     { 
-      icon: <Zap size={36} color="var(--primary)" />, 
+      icon: <Truck size={36} color="var(--primary)" />, 
       title: "Gestão de Insumos", 
-      desc: "Toners e peças de alta qualidade com logística ágil para sua empresa nunca parar.",
+      desc: "Toners e peças originais com logística inteligente para sua empresa nunca parar.",
       img: SuprimentosImg,
-      tag: "Sempre Ativo"
+      tag: "Logística Ágil"
     },
     { 
       icon: <BarChart3 size={36} color="var(--primary)" />, 
