@@ -9,8 +9,9 @@
   --bg-card-hover: #F1F3F5;
   --text-main: #1A1A1B;
   --text-muted: #6C757D;
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(0, 0, 0, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
   --accent-gold: #B8860B;
   --font-main: 'Inter', sans-serif;
   --font-title: 'Outfit', sans-serif;
@@ -59,16 +60,43 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
 .premium-gradient {
   background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
 }
 
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(227, 30, 36, 0.08);
+  border-color: rgba(227, 30, 36, 0.2);
 }
 
 .text-gradient {
@@ -92,16 +120,19 @@ button {
 }
 
 .secondary-button {
-  background: #F1F3F5;
-  border: 1px solid var(--glass-border);
+  background: #FFFFFF;
+  border: 1px solid #E9ECEF;
   color: var(--text-main);
   padding: 0.8rem 2rem;
   border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
 }
 
 .secondary-button:hover {
-  background: #E9ECEF;
+  background: #F8F9FA;
   border-color: #dee2e6;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
 }
 
 /* Custom Scrollbar */
