@@ -301,25 +301,27 @@ async function handleWebhook(req, res) {
     }
 
     if (ticket.status === 'bot' && tenant.settings?.botEnabled && tenant.settings?.geminiKey && !fromMe) {
-      // Lógica de Debounce (Aguardar o cliente terminar de digitar)
+      console.log(`[bot] Iniciando debounce para ticket ${ticket.id} (12s)...`);
       if (pendingReplies[ticket.id]) {
         clearTimeout(pendingReplies[ticket.id]);
       }
 
       pendingReplies[ticket.id] = setTimeout(async () => {
         try {
-          // Se for mídia, espera o processamento dela terminar ou passa o body
+          console.log(`[bot] Executando resposta para ticket ${ticket.id}`);
           if (!media) {
             await handleBotReply(tenant, waInstance, ticket, contact, body, message);
           } else if (media.type === 'image' || media.type === 'audio') {
-            // O processamento de mídia já tem sua própria lógica ou chamará o bot
+            console.log(`[bot] Mídia detectada, aguardando transcrição/visão para responder.`);
           }
           delete pendingReplies[ticket.id];
         } catch (err) {
-          console.error('[bot-debounce] erro:', err.message);
+          console.error('[bot-debounce] erro fatal:', err.message);
           delete pendingReplies[ticket.id];
         }
-      }, 12000); // 12 segundos de espera
+      }, 12000);
+    } else if (ticket.status !== 'bot' && !fromMe) {
+      console.log(`[bot] Ignorado: Ticket ${ticket.id} está com status "${ticket.status}" (não é bot).`);
     }
   } catch (err) {
     console.error('[webhook] erro:', err.message);
