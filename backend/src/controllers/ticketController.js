@@ -30,7 +30,18 @@ async function list(req, res) {
 
   if (status) {
     if (status === 'pending') {
-      where.status = { in: ['pending', 'bot'] };
+      const pendingCondition = {
+        OR: [
+          { status: { in: ['pending', 'bot'] } },
+          { status: 'open', agentId: null }
+        ]
+      };
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, pendingCondition];
+        delete where.OR;
+      } else {
+        where.OR = pendingCondition.OR;
+      }
     } else {
       where.status = status;
     }
@@ -87,7 +98,15 @@ async function list(req, res) {
   // Busca as contagens globais para os badges
   const [countMine, countPending, countResolved] = await Promise.all([
     prisma.ticket.count({ where: { tenantId: req.user.tenantId, agentId: req.user.userId, status: 'open' } }),
-    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: { in: ['pending', 'bot'] } } }),
+    prisma.ticket.count({ 
+      where: { 
+        tenantId: req.user.tenantId, 
+        OR: [
+          { status: { in: ['pending', 'bot'] } },
+          { status: 'open', agentId: null }
+        ]
+      } 
+    }),
     prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: 'resolved' } })
   ]);
 
