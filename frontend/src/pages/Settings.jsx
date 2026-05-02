@@ -9,6 +9,7 @@ const TABS = ['Robô IA', 'Atendimento', 'Respostas Rápidas', 'Etiquetas', 'Min
 
 export default function Settings() {
   const isMobile = window.innerWidth <= 768;
+  const isAdmin = localStorage.getItem('role') === 'admin' || localStorage.getItem('role') === 'superadmin';
   const [tab, setTab] = useState(0);
   const [form, setForm] = useState({ 
     botEnabled: false, 
@@ -158,15 +159,19 @@ export default function Settings() {
           <div style={s.card}>
             <h2 style={s.cardTitle}>⚙️ Configurações Gerais</h2>
             <form onSubmit={handleSave} style={s.form}>
-              <div style={s.field}>
-                <label style={s.label}>URL da API (Evolution)</label>
-                <input style={s.input} value={form.evolutionUrl} onChange={e => setForm({ ...form, evolutionUrl: e.target.value })} placeholder="https://api.sua-instancia.com" />
-              </div>
+              {isAdmin && (
+                <>
+                  <div style={s.field}>
+                    <label style={s.label}>URL da API (Evolution)</label>
+                    <input style={s.input} value={form.evolutionUrl} onChange={e => setForm({ ...form, evolutionUrl: e.target.value })} placeholder="https://api.sua-instancia.com" />
+                  </div>
 
-              <div style={s.field}>
-                <label style={s.label}>Chave Global da API (Evolution)</label>
-                <input style={s.input} type="password" value={form.evolutionKey} onChange={e => setForm({ ...form, evolutionKey: e.target.value })} placeholder="42-caracteres..." />
-              </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Chave Global da API (Evolution)</label>
+                    <input style={s.input} type="password" value={form.evolutionKey} onChange={e => setForm({ ...form, evolutionKey: e.target.value })} placeholder="42-caracteres..." />
+                  </div>
+                </>
+              )}
 
               <div style={s.field}>
                 <label style={s.label}>Habilitar Robô de IA</label>

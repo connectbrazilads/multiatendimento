@@ -4,12 +4,17 @@ async function getSettings(req, res) {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: req.user.tenantId },
   });
-  
-  if (!settings) return res.json({});
 
-  // Mapeia para os nomes que o frontend espera
+  if (!settings) return res.json({
+    evolutionUrl: process.env.DEFAULT_EVOLUTION_URL || '',
+    evolutionKey: process.env.DEFAULT_EVOLUTION_KEY || '',
+  });
+
+  // Injeta os padrões do servidor se o tenant não tiver configurado
   res.json({
     ...settings,
+    evolutionUrl: settings.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL || '',
+    evolutionKey: settings.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY || '',
     systemPrompt: settings.botSystemPrompt,
     transferKeyword: settings.botTransferWord,
     outOfOfficeMessage: settings.outOfOfficeMessage
