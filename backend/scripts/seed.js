@@ -6,8 +6,8 @@ const prisma = new PrismaClient();
 async function main() {
   const tenant = await prisma.tenant.create({
     data: {
-      name: 'Empresa Demo',
-      slug: 'demo',
+      name: 'LCD Digital',
+      slug: 'lcddigital',
       settings: {
         create: {
           botEnabled: false,
@@ -22,14 +22,15 @@ async function main() {
     data: {
       tenantId: tenant.id,
       name: 'Admin',
-      email: 'admin@demo.com',
+      email: 'admin@lcddigital.com.br',
       password: hash,
       role: 'admin',
     },
   });
 
   console.log('Tenant criado:', tenant.id);
-  console.log('Login: admin@demo.com / admin123');
+  console.log('Login: admin@lcddigital.com.br / admin123');
+  console.log('URL:   /lcddigital/login');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());
