@@ -109,7 +109,7 @@ async function generateTransferSummary(apiKey, history) {
 async function getEmbedding(apiKey, text) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'embedding-001' });
+    const model = genAI.getGenerativeModel({ model: 'embedding-001' }, { apiVersion: 'v1' });
     const result = await model.embedContent(text);
     return result.embedding.values;
   } catch (err) {

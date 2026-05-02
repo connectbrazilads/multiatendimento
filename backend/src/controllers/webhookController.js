@@ -292,7 +292,17 @@ async function handleWebhook(req, res) {
       }).catch(err => console.error('[webhook] erro ao processar mídia:', err.message));
     }
 
-    if (io) io.to(tenant.id).emit('new_message', { ticket, message, contact });
+    if (io) {
+      // Busca o ticket atualizado para garantir que o status e dados batam com o banco
+      const freshTicket = await prisma.ticket.findUnique({ 
+        where: { id: ticket.id },
+        include: { contact: true, agent: { select: { name: true } } }
+      });
+      console.log(`[socket] emitindo new_message para tenant ${tenant.id} | Ticket: ${freshTicket.id} | Status: ${freshTicket.status}`);
+      io.to(tenant.id).emit('new_message', { ticket: freshTicket, message, contact });
+    } else {
+      console.warn('[socket] aviso: objeto io não inicializado no webhookController');
+    }
     
     // Auto-tagueamento (IA) - roda se for a 5ª mensagem para ter contexto
     const msgCount = await prisma.message.count({ where: { ticketId: ticket.id } });

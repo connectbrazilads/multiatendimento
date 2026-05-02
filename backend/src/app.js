@@ -32,7 +32,15 @@ app.use('/api/report', require('./routes/report'));
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5174', credentials: true },
+  cors: { 
+    origin: process.env.FRONTEND_URL || '*', 
+    credentials: true,
+    methods: ["GET", "POST"]
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000,
+  transports: ['websocket', 'polling']
 });
 
 setIoWebhook(io);
@@ -91,8 +99,10 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   const { tenantId } = socket.user;
   socket.join(tenantId);
-  console.log(`[socket] usuário ${socket.user.userId} conectado ao tenant ${tenantId}`);
-  
+  socket.on('disconnect', (reason) => {
+    console.log(`[socket] usuário ${socket.user.userId} DESCONECTADO do tenant ${tenantId}. Motivo: ${reason}`);
+  });
+
   socket.on('send_internal', (message) => {
     socket.to(tenantId).emit('new_internal', message);
   });
