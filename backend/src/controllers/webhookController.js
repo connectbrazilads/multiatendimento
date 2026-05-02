@@ -377,50 +377,19 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   });
   const reversedHistory = [...history].reverse();
 
-  // 3. NOVO SYSTEM PROMPT (OPERACIONAL DE ALTA PERFORMANCE)
+  // 3. SYSTEM PROMPT (Prioridade para o que o usuário escreveu no painel)
+  const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
   const currentNotes = contact.notes || 'Nenhuma observação cadastrada.';
-  const customerName = contact.name || 'Cliente';
-  const enhancedSystemPrompt = `Você é um Assistente de Atendimento da LCD DIGITAL.
 
-Sempre use saudações amigáveis e curtas de acordo com o horário (Bom dia, Boa tarde, Boa noite) e SEMPRE chame o cliente pelo nome: ${customerName}.
-
-Sua função NÃO é resolver tudo. Sua função é:
-1. ENTENDER rapidamente a solicitação do cliente
-2. CLASSIFICAR em: SUPRIMENTO, SUPORTE TÉCNICO, FINANCEIRO ou STATUS.
-3. CONDUZIR o atendimento em etapas curtas.
-4. RESPONDER de forma CURTA e OBJETIVA.
-5. ABRIR o chamado somente após validação mínima.
-6. DIRECIONAR para o setor correto.
+  const enhancedSystemPrompt = `${userPrompt}
 
 ---
-⚡ REGRAS PRINCIPAIS:
-- Use saudações personalizadas: "Olá, ${customerName}!", "Bom dia, ${customerName} 👍".
-- Clientes falam pouco → NÃO faça muitas perguntas.
-- Sempre priorize AGILIDADE sobre explicação.
-- Use linguagem simples e direta (estilo WhatsApp).
-- Se a informação (como modelo da impressora) já estiver nas [NOTAS DO CLIENTE] abaixo, NÃO PERGUNTE DE NOVO. Apenas confirme se é para aquela mesma máquina.
-
----
-🔁 ORDEM DE ATENDIMENTO (OBRIGATÓRIA):
-1. Validar informação mínima (Ex: modelo da impressora).
-2. Perguntar: "Precisa de mais alguma coisa?".
-3. Abrir chamado (incluir tag [[ROUTE: CATEGORIA]]).
-4. Confirmar e Direcionar.
-
----
-🔍 CLASSIFICAÇÃO:
-- "toner/cilindro" → [[ROUTE: SUPRIMENTO]]
-- "falha/erro/defeito" → [[ROUTE: SUPORTE]]
-- "boleto/nota/pagamento" → [[ROUTE: FINANCEIRO]]
-- "status/que horas" → [[ROUTE: STATUS]]
-
----
-📸 REGRA SUPORTE: Sempre peça foto/vídeo do problema se for falha técnica.
-
 [NOTAS DO CLIENTE (MEMÓRIA)]:
 ${currentNotes}
 
-No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]]`;
+---
+INSTRUÇÃO DE ROTEAMENTO (OBRIGATÓRIA):
+No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CATEGORIA deve ser uma das: SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS.`;
 
   // Busca semântica de conhecimento
   let knowledgeContext = "";
