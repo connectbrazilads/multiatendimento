@@ -143,9 +143,9 @@ const Hero = () => {
           style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
         >
           <img 
-            src={Xerox8100Img} 
-            alt="Equipamento de Alta Performance" 
-            style={{ width: '100%', maxWidth: '550px', filter: 'drop-shadow(0 30px 40px rgba(0,0,0,0.15))', animation: 'float 6s ease-in-out infinite' }} 
+            src={LogoImg} 
+            alt="LCD Digital Logo" 
+            style={{ width: '100%', maxWidth: '450px', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.1))', animation: 'float 6s ease-in-out infinite' }} 
           />
         </motion.div>
       </div>
@@ -253,8 +253,18 @@ const Equipment = () => {
               className="glass-card"
               style={{ borderRadius: '24px', overflow: 'hidden', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff' }}
             >
-              <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', width: '100%' }}>
-                <img src={brand.img} alt={brand.name} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+              <div style={{ height: '220px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', overflow: 'hidden', borderRadius: '12px', background: '#fff' }}>
+                <img 
+                  src={brand.img} 
+                  alt={brand.name} 
+                  style={{ 
+                    width: '100%',
+                    height: '100%',
+                    objectFit: brand.name === 'Xerox' ? 'contain' : 'cover', 
+                    objectPosition: brand.name === 'Xerox' ? 'center' : 'right center',
+                    transform: brand.name !== 'Xerox' ? 'scale(1.2)' : 'none'
+                  }} 
+                />
               </div>
               <h4 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#333' }}>{brand.name}</h4>
             </motion.div>
