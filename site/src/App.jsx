@@ -25,6 +25,7 @@ import ScannerImg from './assets/SCANNER.png';
 import LexmarkImg from './assets/LEXMARK.png';
 import PantumImg from './assets/PANTUM.png';
 import CanonImg from './assets/canon.png';
+import LogosBannerImg from './assets/logos.png';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -51,7 +52,7 @@ const Navbar = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <a href="https://wa.me/555181156612" target="_blank" className="primary-button hidden-mobile" style={{ padding: '0.7rem 1.8rem', fontSize: '0.85rem' }}>
+          <a href="https://wa.me/555194412679" target="_blank" className="primary-button hidden-mobile" style={{ padding: '0.7rem 1.8rem', fontSize: '0.85rem' }}>
             Solicitar Orçamento
           </a>
           <button className="mobile-only" onClick={() => setMobileMenuOpen(true)} style={{ background: 'transparent', color: '#000' }}>
@@ -77,7 +78,7 @@ const Navbar = () => {
               <a href="#diferenciais" onClick={() => setMobileMenuOpen(false)}>Diferenciais</a>
               <a href="#sobre" onClick={() => setMobileMenuOpen(false)}>Quem Somos</a>
               <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" style={{ color: 'var(--primary)' }}>Área do Cliente</a>
-              <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ textAlign: 'center', marginTop: '1rem' }}>Falar com Consultor</a>
+              <a href="https://wa.me/555194412679" target="_blank" className="primary-button" style={{ textAlign: 'center', marginTop: '1rem' }}>Falar com Consultor</a>
             </div>
           </motion.div>
         )}
@@ -107,7 +108,7 @@ const Hero = () => {
             Tecnologia de ponta e gestão inteligente para o seu negócio. Reduza custos e aumente a produtividade com a LCD Digital.
           </p>
           <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap' }}>
-            <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem' }}>
+            <a href="https://wa.me/555194412679" target="_blank" className="primary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem' }}>
               Solicitar Orçamento <ChevronRight size={20} />
             </a>
             <a href="#servicos" className="secondary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', background: '#fff' }}>
@@ -150,16 +151,11 @@ const Hero = () => {
 };
 
 const Partners = () => {
-  const logos = [CanonImg, LexmarkImg, PantumImg];
   return (
     <div style={{ padding: '5rem 0', background: 'white', borderBottom: '1px solid #F1F3F5' }}>
       <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#999', letterSpacing: '0.2em', marginBottom: '3rem' }}>PARCEIROS TECNOLÓGICOS</p>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '5rem', padding: '0 5%' }}>
-        {logos.map((img, i) => (
-          <img key={i} src={img} alt="Partner" style={{ height: '40px', opacity: 0.6, filter: 'grayscale(1)', transition: '0.3s' }} onMouseOver={e => e.currentTarget.style.filter='grayscale(0)'} onMouseOut={e => e.currentTarget.style.filter='grayscale(1)'} />
-        ))}
-        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#DDD' }}>RICOH</span>
-        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#DDD' }}>BROTHER</span>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 5%' }}>
+        <img src={LogosBannerImg} alt="Parceiros" style={{ maxWidth: '100%', height: 'auto', opacity: 0.8 }} />
       </div>
     </div>
   );
@@ -221,7 +217,7 @@ const Services = () => {
                 </div>
                 <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#111' }}>{item.title}</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1.6 }}>{item.desc}</p>
-                <a href="https://wa.me/555181156612" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>
+                <a href="https://wa.me/555194412679" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>
                   Saber mais <ArrowUpRight size={16} />
                 </a>
               </div>
@@ -276,7 +272,7 @@ const FeatureHighlight = () => {
         <div style={{ background: 'white', padding: '4rem', borderRadius: '40px', boxShadow: '0 30px 60px rgba(0,0,0,0.08)', border: '1px solid #E9ECEF' }}>
           <h3 style={{ fontSize: '1.8rem', marginBottom: '2rem', color: '#111' }}>Solicite um Diagnóstico de Custos</h3>
           <p style={{ color: 'var(--text-muted)', marginBottom: '2.5rem' }}>Entenda como podemos reduzir sua conta de impressão em até 40% com um parque otimizado.</p>
-          <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ width: '100%', textAlign: 'center', display: 'block', fontSize: '1.1rem' }}>Falar com Especialista</a>
+          <a href="https://wa.me/555194412679" target="_blank" className="primary-button" style={{ width: '100%', textAlign: 'center', display: 'block', fontSize: '1.1rem' }}>Falar com Especialista</a>
           
           <div style={{ marginTop: '3rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div style={{ textAlign: 'center', padding: '1.5rem', background: '#F8F9FA', borderRadius: '20px' }}>
@@ -315,7 +311,7 @@ const Footer = () => {
             <div>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Telefones</p>
               <p style={{ fontWeight: 700 }}>Fixo: (51) 3028-4222</p>
-              <p style={{ fontWeight: 700 }}>Whats: (51) 8115-6612</p>
+              <p style={{ fontWeight: 700 }}>Whats: (51) 9441-2679</p>
             </div>
           </div>
         </div>
@@ -348,7 +344,7 @@ const WhatsAppWidget = () => {
       style={{ position: 'fixed', bottom: '40px', right: '40px', zIndex: 1000 }}
     >
       <a 
-        href="https://wa.me/555181156612?text=Ol%C3%A1%2C%20gostaria%20de%20um%20or%C3%A7amento!" 
+        href="https://wa.me/555194412679?text=Ol%C3%A1%2C%20gostaria%20de%20um%20or%C3%A7amento!" 
         target="_blank"
         rel="noopener noreferrer"
         style={{ 
