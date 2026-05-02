@@ -3,7 +3,8 @@ import {
   getTickets, getMessages, sendMessage, sendMediaMessage, 
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
-  getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage
+  getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
+  getTags, getSettings
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getContacts, createContact, createTicket } from '../services/api';
+import { getContacts, createContact, createTicket, updateContact } from '../services/api';
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -8,6 +8,8 @@ export default function Contacts() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingContact, setEditingContact] = useState({ id: null, name: '', phone: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,6 +38,23 @@ export default function Contacts() {
     } catch (err) {
       alert(err.response?.data?.error || 'Erro ao criar contato');
     }
+  }
+
+  async function handleUpdate() {
+    if (!editingContact.name || !editingContact.phone) return alert('Preencha nome e telefone');
+    try {
+      await updateContact(editingContact.id, { name: editingContact.name, phone: editingContact.phone });
+      setShowEditModal(false);
+      setEditingContact({ id: null, name: '', phone: '' });
+      loadContacts();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao atualizar contato');
+    }
+  }
+
+  function openEditModal(contact) {
+    setEditingContact({ id: contact.id, name: contact.name || '', phone: contact.phone || '' });
+    setShowEditModal(true);
   }
 
   async function startChat(contact) {
@@ -107,8 +126,19 @@ export default function Contacts() {
         <div style={s.grid}>
           {Array.isArray(contacts) && contacts.map(c => (
             <div key={c.id} style={s.card}>
-              <div style={s.cardName}>{c.name || 'Sem nome'}</div>
-              <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={s.cardName}>{c.name || 'Sem nome'}</div>
+                  <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
+                </div>
+                <button 
+                  onClick={() => openEditModal(c)}
+                  style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0 0 10px' }}
+                  title="Editar Contato"
+                >
+                  ✏️
+                </button>
+              </div>
               <div style={s.cardTags}>
                 {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
               </div>
@@ -143,6 +173,30 @@ export default function Contacts() {
             />
             <button style={s.saveBtn} onClick={handleCreate}>Salvar Contato</button>
             <button style={s.cancelBtn} onClick={() => setShowAddModal(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div style={s.overlay}>
+          <div style={s.modal}>
+            <h2 style={s.modalTitle}>Editar Contato</h2>
+            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NOME DO CLIENTE</label>
+            <input 
+              style={s.input} 
+              placeholder="Ex: João da Silva" 
+              value={editingContact.name} 
+              onChange={e => setEditingContact({...editingContact, name: e.target.value})}
+            />
+            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
+            <input 
+              style={s.input} 
+              placeholder="Ex: 5551999999999" 
+              value={editingContact.phone} 
+              onChange={e => setEditingContact({...editingContact, phone: e.target.value})}
+            />
+            <button style={s.saveBtn} onClick={handleUpdate}>Atualizar Contato</button>
+            <button style={s.cancelBtn} onClick={() => setShowEditModal(false)}>Cancelar</button>
           </div>
         </div>
       )}
