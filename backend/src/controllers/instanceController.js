@@ -3,8 +3,10 @@ const evolution = require('../services/evolutionService');
 
 async function getSettings(tenantId) {
   const s = await prisma.tenantSettings.findUnique({ where: { tenantId } });
-  if (!s?.evolutionUrl || !s?.evolutionKey) throw new Error('Evolution API não configurada');
-  return s;
+  const evolutionUrl = s?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+  const evolutionKey = s?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+  if (!evolutionUrl || !evolutionKey) throw new Error('Evolution API não configurada. Contate o administrador.');
+  return { ...s, evolutionUrl, evolutionKey };
 }
 
 async function list(req, res) {
