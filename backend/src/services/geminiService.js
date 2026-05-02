@@ -111,7 +111,7 @@ async function getEmbedding(apiKey, text) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     // Para sua chave de elite, vamos usar o 004 na v1
-    const model = genAI.getGenerativeModel({ model: 'text-embedding-004' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'embedding-001' });
     const result = await model.embedContent(text);
     return result.embedding.values;
   } catch (err) {
