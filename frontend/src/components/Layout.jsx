@@ -24,7 +24,11 @@ export default function Layout() {
     const tenantId = localStorage.getItem('tenantId');
     if (tenantId) {
       const token = localStorage.getItem('token');
-      const s = io(SOCKET_URL, { auth: { token } });
+      const s = io(SOCKET_URL, { 
+        auth: { token },
+        transports: ['websocket'],
+        upgrade: false
+      });
 
       s.on('new_message', ({ message, contact, fromMe }) => {
         if (fromMe) return;

@@ -91,13 +91,22 @@ export default function Inbox() {
 
   const [counts, setCounts] = useState({ mine: 0, pending: 0, resolved: 0 });
 
+  const selectedIdRef = React.useRef(selectedId);
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+
   useEffect(() => {
     loadInitial();
     const token = localStorage.getItem('token');
-    const s = io(SOCKET_URL, { auth: { token } });
+    // Força transporte websocket para maior estabilidade em VPS
+    const s = io(SOCKET_URL, { 
+      auth: { token },
+      transports: ['websocket'],
+      upgrade: false
+    });
     socketRef.current = s;
+
     s.on('new_message', ({ message, ticket: t }) => {
-      if (t.id === selectedId) {
+      if (t.id === selectedIdRef.current) {
         setMessages(prev => {
           const exists = prev.find(m => m.id === message.id);
           if (exists) return prev.map(m => m.id === message.id ? message : m);
@@ -110,9 +119,17 @@ export default function Inbox() {
     s.on('message_updated', ({ message }) => {
       setMessages(prev => prev.map(m => m.id === message.id ? message : m));
     });
-    s.on('ticket_updated', () => loadTickets());
+
+    s.on('ticket_updated', () => {
+      loadTickets();
+    });
+
+    s.on('connect_error', (err) => {
+      console.error('[socket] erro de conexão:', err.message);
+    });
+
     return () => s.disconnect();
-  }, [selectedId]);
+  }, []); // Roda apenas uma vez no mount
   useEffect(() => {
     loadTickets();
     const params = new URLSearchParams(window.location.search);
