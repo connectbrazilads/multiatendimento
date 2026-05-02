@@ -100,8 +100,7 @@ export default function Inbox() {
     // Força transporte websocket para maior estabilidade em VPS
     const s = io(SOCKET_URL, { 
       auth: { token },
-      transports: ['websocket'],
-      upgrade: false
+      reconnectionDelayMax: 10000,
     });
     socketRef.current = s;
 
@@ -114,6 +113,15 @@ export default function Inbox() {
         });
       }
       loadTickets();
+    });
+
+    s.on('connect', () => {
+      loadTickets();
+      if (selectedIdRef.current) {
+        getMessages(selectedIdRef.current).then(res => {
+          setMessages(res.data);
+        }).catch(e => console.error(e));
+      }
     });
 
     s.on('message_updated', ({ message }) => {

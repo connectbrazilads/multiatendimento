@@ -26,8 +26,7 @@ export default function Layout() {
       const token = localStorage.getItem('token');
       const s = io(SOCKET_URL, { 
         auth: { token },
-        transports: ['websocket'],
-        upgrade: false
+        reconnectionDelayMax: 10000,
       });
 
       s.on('new_message', ({ message, contact, fromMe }) => {
