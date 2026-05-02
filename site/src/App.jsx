@@ -325,12 +325,22 @@ const Footer = () => {
         <div>
           <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Contato</h5>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>atendimento@lcddigital.com.br</p>
-          <p style={{ color: 'white', fontWeight: 700 }}>(51) 8115-6612</p>
+          <p style={{ color: 'white', fontWeight: 700, marginBottom: '0.2rem' }}>Fixo: (51) 3028-4222</p>
+          <p style={{ color: 'white', fontWeight: 700 }}>Whats: (51) 8115-6612</p>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
             <a href="https://wa.me/555181156612" target="_blank" style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1A1A1B', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #333' }}>
               <MessageSquare size={18} />
             </a>
           </div>
+        </div>
+
+        <div>
+          <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Localização</h5>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+            Rua Vinte e Quatro de Agosto, 103<br />
+            Jardim Itu, Porto Alegre - RS<br />
+            CEP: 91215-280
+          </p>
         </div>
       </div>
       <div style={{ textAlign: 'center', marginTop: '5rem', paddingTop: '2rem', borderTop: '1px solid #1A1A1B', color: '#444', fontSize: '0.75rem' }}>
