@@ -17,6 +17,15 @@ import {
   BarChart3
 } from 'lucide-react';
 
+// Importando imagens reais da pasta assets
+import LogoImg from './assets/logo lcd.png';
+import HeroImg from './assets/c70.png';
+import SuprimentosImg from './assets/suprimentos.png';
+import ScannerImg from './assets/SCANNER.png';
+import LexmarkImg from './assets/LEXMARK.png';
+import PantumImg from './assets/PANTUM.png';
+import CanonImg from './assets/canon.png';
+
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,32 +37,25 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'glass py-4 shadow-2xl' : 'py-6'}`} style={{ padding: '0 5%' }}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'glass py-3 shadow-lg' : 'py-5'}`} style={{ padding: '0 5%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1400px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* LOGO LCD DIGITAL VETORIZADO */}
-          <svg width="140" height="40" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 5H2V35H20V30H7V5H10Z" fill="#E31E24"/>
-            <path d="M25 5H38C42 5 45 8 45 12V28C45 32 42 35 38 35H25V5ZM30 10V30H38C39 30 40 29 40 28V12C40 11 39 10 38 10H30Z" fill="#E31E24"/>
-            <path d="M50 5H65V10H55V17H63V22H55V30H65V35H50V5Z" fill="white"/>
-            <text x="50" y="30" fill="white" fontSize="12" fontWeight="800" fontFamily="Inter">Digital</text>
-            <text x="2" y="38" fill="#555" fontSize="4" fontWeight="600" fontFamily="Inter" letterSpacing="1">OUTSOURCING DE IMPRESSÃO</text>
-          </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <img src={LogoImg} alt="LCD Digital" style={{ height: isScrolled ? '45px' : '55px', transition: '0.3s' }} />
         </div>
 
-        <div className="hidden-mobile" style={{ display: 'flex', gap: '2rem', fontWeight: 500, fontSize: '0.85rem', color: isScrolled ? '#fff' : '#a0a0a5' }}>
-          <a href="#servicos" style={{ ':hover': { color: '#fff' } }}>Serviços</a>
-          <a href="#diferenciais" style={{ ':hover': { color: '#fff' } }}>Diferenciais</a>
-          <a href="#sobre" style={{ ':hover': { color: '#fff' } }}>Quem Somos</a>
-          <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" style={{ color: 'var(--accent-gold)', fontWeight: 700 }}>Área do Cliente</a>
+        <div className="hidden-mobile" style={{ display: 'flex', gap: '2.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
+          <a href="#servicos" style={{ color: 'inherit' }}>Serviços</a>
+          <a href="#diferenciais" style={{ color: 'inherit' }}>Diferenciais</a>
+          <a href="#sobre" style={{ color: 'inherit' }}>Quem Somos</a>
+          <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" style={{ color: 'var(--primary)', fontWeight: 800 }}>Área do Cliente</a>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <a href="https://wa.me/555181156612" target="_blank" className="primary-button hidden-mobile" style={{ padding: '0.6rem 1.5rem', fontSize: '0.85rem' }}>
+          <a href="https://wa.me/555181156612" target="_blank" className="primary-button hidden-mobile" style={{ padding: '0.7rem 1.8rem', fontSize: '0.85rem' }}>
             Solicitar Orçamento
           </a>
-          <button className="mobile-only" onClick={() => setMobileMenuOpen(true)} style={{ background: 'transparent', color: 'white' }}>
-            <Menu size={24} />
+          <button className="mobile-only" onClick={() => setMobileMenuOpen(true)} style={{ background: 'transparent', color: '#000' }}>
+            <Menu size={28} />
           </button>
         </div>
       </div>
@@ -65,16 +67,17 @@ const Navbar = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 300 }}
             className="glass"
-            style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '80%', zIndex: 100, padding: '2rem' }}
+            style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '85%', zIndex: 100, padding: '2rem', background: 'white' }}
           >
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2rem' }}>
-              <X onClick={() => setMobileMenuOpen(false)} />
+              <X onClick={() => setMobileMenuOpen(false)} size={32} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontSize: '1.2rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', fontSize: '1.3rem', fontWeight: 700 }}>
               <a href="#servicos" onClick={() => setMobileMenuOpen(false)}>Serviços</a>
               <a href="#diferenciais" onClick={() => setMobileMenuOpen(false)}>Diferenciais</a>
               <a href="#sobre" onClick={() => setMobileMenuOpen(false)}>Quem Somos</a>
-              <button className="primary-button" style={{ marginTop: '1rem' }}>Falar com Consultor</button>
+              <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" style={{ color: 'var(--primary)' }}>Área do Cliente</a>
+              <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ textAlign: 'center', marginTop: '1rem' }}>Falar com Consultor</a>
             </div>
           </motion.div>
         )}
@@ -85,70 +88,61 @@ const Navbar = () => {
 
 const Hero = () => {
   return (
-    <section style={{ minHeight: '90vh', display: 'flex', alignItems: 'center', paddingTop: '100px', paddingLeft: '5%', paddingRight: '5%' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '4rem', alignItems: 'center' }}>
+    <section style={{ minHeight: '95vh', display: 'flex', alignItems: 'center', paddingTop: '120px', paddingLeft: '5%', paddingRight: '5%', background: 'var(--bg-secondary)' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '4rem', alignItems: 'center' }}>
         <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(227, 30, 36, 0.1)', borderRadius: '100px', border: '1px solid rgba(227, 30, 36, 0.2)', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(227, 30, 36, 0.08)', borderRadius: '100px', border: '1px solid rgba(227, 30, 36, 0.15)', marginBottom: '1.5rem' }}>
             <Zap size={14} color="var(--primary)" />
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.05em' }}>LÍDER EM OUTSOURCING NO SUL</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em' }}>OUTSOURCING DE ALTA PERFORMANCE</span>
           </div>
-          <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.1, marginBottom: '1.5rem' }}>
-            Inteligência e Economia em <br />
-            <span style={{ color: 'var(--primary)' }}>Impressão Corporativa</span>
+          <h1 style={{ fontSize: 'clamp(2.8rem, 6vw, 4.5rem)', lineHeight: 1.05, marginBottom: '1.5rem', color: '#111' }}>
+            A Solução Ideal em <br />
+            <span style={{ color: 'var(--primary)' }}>Impressão Digital</span>
           </h1>
-          <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '2.5rem', maxWidth: '600px' }}>
-            Reduza custos em até 40% com gestão automatizada de suprimentos e suporte técnico especializado. Sua infraestrutura focada em alta performance.
+          <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '2.5rem', maxWidth: '600px', fontWeight: 400 }}>
+            Tecnologia de ponta e gestão inteligente para o seu negócio. Reduza custos e aumente a produtividade com a LCD Digital.
           </p>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              Solicitar Orçamento <ChevronRight size={18} />
+          <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap' }}>
+            <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem' }}>
+              Solicitar Orçamento <ChevronRight size={20} />
             </a>
-            <a href="#servicos" className="secondary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              Ver Soluções <ArrowUpRight size={18} />
+            <a href="#servicos" className="secondary-button" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', background: '#fff' }}>
+              Ver Equipamentos <ArrowUpRight size={20} />
             </a>
           </div>
 
-          <div style={{ marginTop: '3rem', display: 'flex', gap: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+          <div style={{ marginTop: '3.5rem', display: 'flex', gap: '3rem', borderTop: '1px solid #E9ECEF', paddingTop: '2rem' }}>
             <div>
-              <h4 style={{ fontSize: '1.5rem', color: 'white' }}>+20 Anos</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>de experiência</p>
+              <h4 style={{ fontSize: '1.8rem', color: '#111' }}>+20 Anos</h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>de experiência</p>
             </div>
             <div>
-              <h4 style={{ fontSize: '1.5rem', color: 'white' }}>99%</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Satisfação (CSAT)</p>
+              <h4 style={{ fontSize: '1.8rem', color: '#111' }}>40%</h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Economia Média</p>
             </div>
           </div>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.2 }}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}
         >
           <div style={{ 
-            position: 'absolute', width: '100%', height: '100%', 
-            background: 'radial-gradient(circle, rgba(227,30,36,0.1) 0%, transparent 70%)',
-            filter: 'blur(50px)', zIndex: -1
+            position: 'absolute', width: '80%', height: '80%', 
+            background: 'radial-gradient(circle, rgba(227,30,36,0.05) 0%, transparent 70%)',
+            filter: 'blur(40px)', zIndex: -1
           }}></div>
           <img 
-            src="https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=2070&auto=format&fit=crop" 
-            alt="Office Printer" 
-            style={{ width: '100%', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', border: '1px solid var(--glass-border)' }} 
+            src={HeroImg} 
+            alt="Multifuncional LCD Digital" 
+            style={{ width: '100%', maxWidth: '600px', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))' }} 
           />
-          <div className="glass" style={{ position: 'absolute', bottom: '-30px', left: '-30px', padding: '1.5rem', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div style={{ background: '#00C853', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 color="white" />
-            </div>
-            <div>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Suporte Ativo</p>
-              <p style={{ fontSize: '0.9rem', fontWeight: 800 }}>Reposição em 4h</p>
-            </div>
-          </div>
         </motion.div>
       </div>
     </section>
@@ -156,14 +150,16 @@ const Hero = () => {
 };
 
 const Partners = () => {
-  const partners = ["RICOH", "LEXMARK", "XEROX", "BROTHER", "SAMSUNG", "CANON"];
+  const logos = [CanonImg, LexmarkImg, PantumImg];
   return (
-    <div style={{ padding: '4rem 0', borderY: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.01)' }}>
-      <p style={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#555', letterSpacing: '0.3em', marginBottom: '2rem' }}>MARCAS QUE CONFIAM EM NÓS</p>
-      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '3rem', padding: '0 5%' }}>
-        {partners.map(p => (
-          <span key={p} style={{ fontSize: '1.5rem', fontWeight: 900, color: '#222', filter: 'grayscale(1)' }}>{p}</span>
+    <div style={{ padding: '5rem 0', background: 'white', borderBottom: '1px solid #F1F3F5' }}>
+      <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#999', letterSpacing: '0.2em', marginBottom: '3rem' }}>PARCEIROS TECNOLÓGICOS</p>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '5rem', padding: '0 5%' }}>
+        {logos.map((img, i) => (
+          <img key={i} src={img} alt="Partner" style={{ height: '40px', opacity: 0.6, filter: 'grayscale(1)', transition: '0.3s' }} onMouseOver={e => e.currentTarget.style.filter='grayscale(0)'} onMouseOut={e => e.currentTarget.style.filter='grayscale(1)'} />
         ))}
+        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#DDD' }}>RICOH</span>
+        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#DDD' }}>BROTHER</span>
       </div>
     </div>
   );
@@ -172,54 +168,63 @@ const Partners = () => {
 const Services = () => {
   const items = [
     { 
-      icon: <Printer size={32} color="var(--primary)" />, 
+      icon: <Printer size={36} color="var(--primary)" />, 
       title: "Locação (Outsourcing)", 
-      desc: "Parque tecnológico sempre atualizado sem imobilização de capital. Máquinas novas com manutenção inclusa.",
-      tag: "Mais Vendido"
+      desc: "Equipamentos de última geração com manutenção e suporte inclusos no contrato.",
+      img: HeroImg,
+      tag: "Solução Completa"
     },
     { 
-      icon: <Zap size={32} color="var(--primary)" />, 
+      icon: <Zap size={36} color="var(--primary)" />, 
       title: "Gestão de Insumos", 
-      desc: "Monitoramento remoto inteligente. O toner chega antes de acabar, garantindo que sua empresa nunca pare.",
-      tag: "Inteligente"
+      desc: "Toners e peças de alta qualidade com logística ágil para sua empresa nunca parar.",
+      img: SuprimentosImg,
+      tag: "Sempre Ativo"
     },
     { 
-      icon: <Headphones size={32} color="var(--primary)" />, 
-      title: "Suporte Especializado", 
-      desc: "Time técnico certificado com SLA agressivo. Assistência remota e presencial em tempo recorde.",
-      tag: "Prioritário"
-    },
-    { 
-      icon: <BarChart3 size={32} color="var(--primary)" />, 
-      title: "Software de Gestão", 
-      desc: "Controle total de quem imprime, o que e quanto custa. Relatórios detalhados para tomada de decisão.",
-      tag: "Controle"
+      icon: <BarChart3 size={36} color="var(--primary)" />, 
+      title: "Digitalização e Scanners", 
+      desc: "Transforme documentos físicos em digitais com alta velocidade e organização.",
+      img: ScannerImg,
+      tag: "Tecnologia"
     }
   ];
 
   return (
-    <section id="servicos" style={{ padding: '100px 5%' }}>
+    <section id="servicos" style={{ padding: '120px 5%', background: '#fff' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-          <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>Nossas <span style={{ color: 'var(--primary)' }}>Soluções</span></h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto' }}>Tudo o que sua empresa precisa para gerenciar documentos com eficiência e baixo custo.</p>
+        <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
+          <h2 style={{ fontSize: '2.8rem', marginBottom: '1rem', color: '#111' }}>Nossas <span style={{ color: 'var(--primary)' }}>Soluções</span></h2>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '700px', margin: '0 auto', fontSize: '1.1rem' }}>A excelência técnica que sua empresa merece, com o suporte que você confia.</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '3rem' }}>
           {items.map((item, idx) => (
             <motion.div
               key={idx}
-              whileHover={{ translateY: -10 }}
-              className="glass"
-              style={{ padding: '2.5rem', borderRadius: '24px', transition: '0.3s' }}
+              whileHover={{ y: -15 }}
+              style={{ 
+                background: '#F8F9FA', 
+                borderRadius: '32px', 
+                overflow: 'hidden',
+                border: '1px solid #E9ECEF',
+                transition: '0.4s'
+              }}
             >
-              <div style={{ marginBottom: '1.5rem' }}>{item.icon}</div>
-              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', background: 'rgba(227,30,36,0.1)', padding: '4px 8px', borderRadius: '4px' }}>{item.tag}</span>
-              <h3 style={{ fontSize: '1.4rem', marginTop: '1rem', marginBottom: '1rem' }}>{item.title}</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7 }}>{item.desc}</p>
-              <button style={{ background: 'transparent', color: 'white', marginTop: '1.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                Saiba mais <ArrowUpRight size={14} />
-              </button>
+              <div style={{ height: '240px', overflow: 'hidden', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                <img src={item.img} alt={item.title} style={{ height: '100%', objectFit: 'contain' }} />
+              </div>
+              <div style={{ padding: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                   {item.icon}
+                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', background: 'rgba(227,30,36,0.08)', padding: '4px 10px', borderRadius: '6px' }}>{item.tag}</span>
+                </div>
+                <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#111' }}>{item.title}</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1.6 }}>{item.desc}</p>
+                <a href="https://wa.me/555181156612" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>
+                  Saber mais <ArrowUpRight size={16} />
+                </a>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -230,56 +235,59 @@ const Services = () => {
 
 const FeatureHighlight = () => {
   return (
-    <section id="diferenciais" style={{ padding: '100px 5%', background: '#0D0D0E' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '5rem', alignItems: 'center' }}>
+    <section id="diferenciais" style={{ padding: '120px 5%', background: 'var(--bg-secondary)' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '6rem', alignItems: 'center' }}>
         <div>
-          <h2 style={{ fontSize: '2.5rem', marginBottom: '2rem' }}>Por que a <br /> <span style={{ color: 'var(--primary)' }}>LCD Digital</span> é diferente?</h2>
+          <h2 style={{ fontSize: '3rem', marginBottom: '2.5rem', color: '#111', lineHeight: 1.1 }}>Por que escolher a <br /> <span style={{ color: 'var(--primary)' }}>LCD Digital</span>?</h2>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             <div style={{ display: 'flex', gap: '1.5rem' }}>
-              <div style={{ flexShrink: 0, width: '48px', height: '48px', background: 'rgba(227,30,36,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Clock size={24} color="var(--primary)" />
+              <div style={{ flexShrink: 0, width: '56px', height: '56px', background: 'white', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.05)' }}>
+                <Clock size={28} color="var(--primary)" />
               </div>
               <div>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Atendimento Ultra-Rápido</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Suporte técnico via IA e humano com resposta imediata. Seu negócio não pode esperar.</p>
+                <h4 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#111' }}>SLA de Atendimento Recorde</h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Temos o compromisso de resposta rápida para garantir que seu fluxo de trabalho nunca sofra interrupções.</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '1.5rem' }}>
-              <div style={{ flexShrink: 0, width: '48px', height: '48px', background: 'rgba(227,30,36,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldCheck size={24} color="var(--primary)" />
+              <div style={{ flexShrink: 0, width: '56px', height: '56px', background: 'white', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.05)' }}>
+                <ShieldCheck size={28} color="var(--primary)" />
               </div>
               <div>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Hardware de Elite</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Trabalhamos apenas com as melhores marcas mundiais: Ricoh, Canon e Lexmark.</p>
+                <h4 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#111' }}>Peças e Insumos Originais</h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Utilizamos apenas componentes originais para garantir a maior vida útil dos equipamentos e qualidade de impressão.</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '1.5rem' }}>
-              <div style={{ flexShrink: 0, width: '48px', height: '48px', background: 'rgba(227,30,36,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Settings size={24} color="var(--primary)" />
+              <div style={{ flexShrink: 0, width: '56px', height: '56px', background: 'white', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.05)' }}>
+                <Headphones size={28} color="var(--primary)" />
               </div>
               <div>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Contratos Flexíveis</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Modelos de contrato que se ajustam ao tamanho da sua demanda, de pequenas a grandes empresas.</p>
+                <h4 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#111' }}>Suporte Técnico Especializado</h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Nossa equipe é constantemente treinada pelos fabricantes para resolver qualquer desafio técnico.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="glass" style={{ padding: '3rem', borderRadius: '32px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '-20px', right: '40px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 800 }}>
-            SIMULADOR DE ECONOMIA
+        <div style={{ background: 'white', padding: '4rem', borderRadius: '40px', boxShadow: '0 30px 60px rgba(0,0,0,0.08)', border: '1px solid #E9ECEF' }}>
+          <h3 style={{ fontSize: '1.8rem', marginBottom: '2rem', color: '#111' }}>Solicite um Diagnóstico de Custos</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '2.5rem' }}>Entenda como podemos reduzir sua conta de impressão em até 40% com um parque otimizado.</p>
+          <a href="https://wa.me/555181156612" target="_blank" className="primary-button" style={{ width: '100%', textAlign: 'center', display: 'block', fontSize: '1.1rem' }}>Falar com Especialista</a>
+          
+          <div style={{ marginTop: '3rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div style={{ textAlign: 'center', padding: '1.5rem', background: '#F8F9FA', borderRadius: '20px' }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>100%</p>
+              <p style={{ fontSize: '0.75rem', color: '#666', fontWeight: 600 }}>Insumos Originais</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '1.5rem', background: '#F8F9FA', borderRadius: '20px' }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>24h</p>
+              <p style={{ fontSize: '0.75rem', color: '#666', fontWeight: 600 }}>Suporte Ativo</p>
+            </div>
           </div>
-          <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>O que sua empresa ganha?</h3>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><CheckCircle2 color="var(--primary)" size={20} /> Zero custo com manutenção e peças</li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><CheckCircle2 color="var(--primary)" size={20} /> Abatimento de até 100% no IR (Lucro Real)</li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><CheckCircle2 color="var(--primary)" size={20} /> Equipamentos reserva garantidos</li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><CheckCircle2 color="var(--primary)" size={20} /> Controle total de impressões por usuário</li>
-          </ul>
-          <button className="primary-button" style={{ width: '100%', marginTop: '2rem' }}>Fazer um Diagnóstico Grátis</button>
         </div>
       </div>
     </section>
@@ -288,62 +296,43 @@ const FeatureHighlight = () => {
 
 const Footer = () => {
   return (
-    <footer style={{ background: '#070708', padding: '80px 5% 40px', borderTop: '1px solid var(--glass-border)' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4rem' }}>
+    <footer style={{ background: 'white', padding: '100px 5% 50px', borderTop: '1px solid #E9ECEF' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '5rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
-            <div style={{ background: 'var(--primary)', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Printer size={16} color="white" />
-            </div>
-            <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>LCD <span style={{ color: 'var(--primary)' }}>Digital</span></span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '250px' }}>
-            Transformando o caos documental em eficiência digital. Sua parceira estratégica em outsourcing.
+          <img src={LogoImg} alt="LCD Digital" style={{ height: '60px', marginBottom: '2rem' }} />
+          <p style={{ color: 'var(--text-muted)', fontSize: '1rem', maxWidth: '300px', lineHeight: 1.7 }}>
+            Excelência em outsourcing de impressão e soluções digitais para empresas que buscam alta performance.
           </p>
         </div>
 
         <div>
-          <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Soluções</h5>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            <li>Locação de Impressoras</li>
-            <li>Venda de Insumos</li>
-            <li>Assistência Técnica</li>
-            <li>Softwares de Bilhetagem</li>
-          </ul>
-        </div>
-
-        <div>
-          <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Empresa</h5>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            <li>Sobre nós</li>
-            <li>Política de Privacidade</li>
-            <li>Trabalhe Conosco</li>
-            <li>LGPD</li>
-          </ul>
-        </div>
-
-        <div>
-          <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Contato</h5>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>atendimento@lcddigital.com.br</p>
-          <p style={{ color: 'white', fontWeight: 700, marginBottom: '0.2rem' }}>Fixo: (51) 3028-4222</p>
-          <p style={{ color: 'white', fontWeight: 700 }}>Whats: (51) 8115-6612</p>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-            <a href="https://wa.me/555181156612" target="_blank" style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1A1A1B', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #333' }}>
-              <MessageSquare size={18} />
-            </a>
+          <h5 style={{ marginBottom: '2rem', fontSize: '1.1rem', color: '#111' }}>Contato</h5>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.3rem' }}>E-mail</p>
+              <p style={{ fontWeight: 700 }}>atendimento@lcddigital.com.br</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Telefones</p>
+              <p style={{ fontWeight: 700 }}>Fixo: (51) 3028-4222</p>
+              <p style={{ fontWeight: 700 }}>Whats: (51) 8115-6612</p>
+            </div>
           </div>
         </div>
 
         <div>
-          <h5 style={{ marginBottom: '1.5rem', color: 'white' }}>Localização</h5>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+          <h5 style={{ marginBottom: '2rem', fontSize: '1.1rem', color: '#111' }}>Localização</h5>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1.8 }}>
             Rua Vinte e Quatro de Agosto, 103<br />
             Jardim Itu, Porto Alegre - RS<br />
             CEP: 91215-280
           </p>
+          <a href="https://maps.google.com" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '1.5rem', color: 'var(--primary)', fontWeight: 700 }}>
+            Ver no Mapa <ArrowUpRight size={16} />
+          </a>
         </div>
       </div>
-      <div style={{ textAlign: 'center', marginTop: '5rem', paddingTop: '2rem', borderTop: '1px solid #1A1A1B', color: '#444', fontSize: '0.75rem' }}>
+      <div style={{ textAlign: 'center', marginTop: '6rem', paddingTop: '2.5rem', borderTop: '1px solid #F1F3F5', color: '#999', fontSize: '0.85rem' }}>
         © 2026 LCD DIGITAL - OUTSOURCING DE IMPRESSÃO. TODOS OS DIREITOS RESERVADOS.
       </div>
     </footer>
@@ -355,22 +344,22 @@ const WhatsAppWidget = () => {
     <motion.div 
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 2 }}
-      style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 1000 }}
+      transition={{ delay: 2.5 }}
+      style={{ position: 'fixed', bottom: '40px', right: '40px', zIndex: 1000 }}
     >
       <a 
         href="https://wa.me/555181156612?text=Ol%C3%A1%2C%20gostaria%20de%20um%20or%C3%A7amento!" 
         target="_blank"
         rel="noopener noreferrer"
         style={{ 
-          background: '#25D366', width: '64px', height: '64px', borderRadius: '50%', 
+          background: '#25D366', width: '70px', height: '70px', borderRadius: '50%', 
           display: 'flex', alignItems: 'center', justifyContent: 'center', 
-          boxShadow: '0 10px 30px rgba(37, 211, 102, 0.4)',
+          boxShadow: '0 15px 40px rgba(37, 211, 102, 0.4)',
           position: 'relative'
         }}
       >
-        <MessageSquare color="white" size={30} />
-        <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'white', color: '#25D366', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 900 }}>1</span>
+        <MessageSquare color="white" size={32} />
+        <span style={{ position: 'absolute', top: '0', right: '0', background: 'var(--primary)', color: 'white', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 900, border: '2px solid white' }}>1</span>
       </a>
     </motion.div>
   );
@@ -378,7 +367,7 @@ const WhatsAppWidget = () => {
 
 function App() {
   return (
-    <div className="premium-gradient" style={{ minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
       <Navbar />
       <Hero />
       <Partners />
@@ -387,7 +376,6 @@ function App() {
       <Footer />
       <WhatsAppWidget />
 
-      {/* Estilos responsivos rápidos inline */}
       <style>{`
         @media (max-width: 768px) {
           .hidden-mobile { display: none !important; }
@@ -396,6 +384,7 @@ function App() {
         @media (min-width: 769px) {
           .mobile-only { display: none !important; }
         }
+        html { scroll-behavior: smooth; }
       `}</style>
     </div>
   );
