@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  plan           String          @default("trial") // trial, starter, pro, enterprise
+  active         Boolean         @default(true)
+  maxConnections Int             @default(1)
+  primaryColor   String?         @default("#D4AF37")
+  logoUrl        String?
+  createdAt      DateTime        @default(now())
+  contacts       Contact[]
+  quickResponses QuickResponse[]
+  scheduledMessages ScheduledMessage[]
+  internalMessages InternalMessage[]
+  teams          Team[]
+  settings       TenantSettings?
+  tickets        Ticket[]
+  users          User[]
+  instances      WaInstance[]
+  knowledges     Knowledge[]
+  businessHours  BusinessHour[]
+  knowledgeLogs  KnowledgeLog[]
+  tags           Tag[]
+}
+
+model TenantSettings {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  evolutionUrl      String?
+  evolutionKey      String?
+  geminiKey         String?
+  botEnabled        Boolean  @default(false)
+  botName           String?  @default("LCD Bot")
+  botSystemPrompt   String?  @db.Text
+  botTransferWord   String?  @default("atendente")
+  webhookUrl        String?
+  outOfOfficeMessage String?  @db.Text
+  notificationPhone  String?
+  ratingEnabled      Boolean  @default(false)
+  ratingMessage      String?  @default("Como você avalia nosso atendimento de 1 a 5?") @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+}
+
+model User {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  email       String
+  password    String
+  role        String       @default("agent")
+  phone       String?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  messages    Message[]
+  sentInternalMessages InternalMessage[] @relation("InternalSender")
+  receivedInternalMessages InternalMessage[] @relation("InternalReceiver")
+  teamMembers TeamMember[]
+  tickets     Ticket[]
+  ticketEvents TicketEvent[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, email])
+}
+
+model Team {
+  id       String       @id @default(cuid())
+  tenantId String
+  name     String
+  tenant   Tenant       @relation(fields: [tenantId], references: [id])
+  members  TeamMember[]
+  tickets  Ticket[]
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  userId String
+  team   Team   @relation(fields: [teamId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
+model WaInstance {
+  id           String    @id @default(cuid())
+  tenantId     String
+  instanceName String
+  phone        String?
+  status       String    @default("disconnected")
+  qrCode       String?
+  contacts     Contact[]
+  tickets      Ticket[]
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+}
+
+model Contact {
+  id         String     @id @default(cuid())
+  tenantId   String
+  instanceId String
+  phone      String
+  name       String?
+  avatarUrl  String?
+  createdAt  DateTime   @default(now())
+  notes      String?
+  tags       String     @default("[]")
+  instance   WaInstance @relation(fields: [instanceId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  tickets    Ticket[]
+  scheduledMessages ScheduledMessage[]
+
+  @@unique([tenantId, instanceId, phone])
+}
+
+model Ticket {
+  id         String     @id @default(cuid())
+  tenantId   String
+  instanceId String
+  contactId  String
+  teamId     String?
+  agentId    String?
+  status     String     @default("pending")
+  priority   String     @default("medium") // low, medium, high, urgent
+  subject    String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  resolvedAt DateTime?
+  
+  // SLA Fields
+  slaDueAt             DateTime?
+  firstResponseAt      DateTime?
+  lastCustomerMessageAt DateTime?
+
+  // Avaliação do Atendimento (CSAT)
+  rating               Int?
+  ratingAt             DateTime?
+  ratingFeedback       String?
+
+  messages   Message[]
+  events     TicketEvent[]
+  agent      User?      @relation(fields: [agentId], references: [id])
+  contact    Contact    @relation(fields: [contactId], references: [id])
+  instance   WaInstance @relation(fields: [instanceId], references: [id])
+  team       Team?      @relation(fields: [teamId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+}
+
+model TicketEvent {
+  id        String   @id @default(cuid())
+  ticketId  String
+  tenantId  String
+  userId    String?
+  type      String   // assigned, transferred, resolved, reopened, note, etc.
+  payload   String?  @db.Text // JSON string with extra details (ex: "from team X to team Y")
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Knowledge {
+  id        String   @id @default(cuid())
+  tenantId  String
+  question  String   @db.Text
+  answer    String   @db.Text
+  tags      String?
+  embedding Json?    // Array de números para busca semântica
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model BusinessHour {
+  id        String   @id @default(cuid())
+  tenantId  String
+  dayOfWeek Int
+  start     String   @default("08:00")
+  end       String   @default("18:00")
+  active    Boolean  @default(true)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, dayOfWeek])
+}
+
+model Tag {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  color    String @default("#D4AF37")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  ticketId   String
+  agentId    String?
+  fromBot    Boolean  @default(false)
+  fromMe     Boolean  @default(false)
+  body          String
+  transcription String?
+  mediaUrl      String?
+  mediaType  String?
+  externalId String?
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  agent      User?    @relation(fields: [agentId], references: [id])
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+}
+
+model QuickResponse {
+  id       String @id @default(cuid())
+  tenantId String
+  shortcut String
+  message  String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, shortcut])
+}
+
+model ScheduledMessage {
+  id         String   @id @default(cuid())
+  tenantId   String
+  contactId  String
+  body       String
+  sendAt     DateTime
+  processed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  contact    Contact  @relation(fields: [contactId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model InternalMessage {
+  id         String   @id @default(cuid())
+  tenantId   String
+  senderId   String
+  receiverId String?
+  body       String
+  createdAt  DateTime @default(now())
+  receiver   User?    @relation("InternalReceiver", fields: [receiverId], references: [id])
+  sender     User     @relation("InternalSender", fields: [senderId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model KnowledgeLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  query      String
+  content    String?
+  similarity Float?
+  found      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}

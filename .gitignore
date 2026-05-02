@@ -1,0 +1,67 @@
+# ===========================
+# Dependências
+# ===========================
+node_modules/
+.pnp
+.pnp.js
+
+# ===========================
+# Variáveis de Ambiente (NUNCA suba para o GitHub!)
+# ===========================
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+backend/.env
+frontend/.env
+
+# ===========================
+# Build do Frontend
+# ===========================
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# ===========================
+# Uploads e Mídia (arquivos dos clientes)
+# ===========================
+backend/uploads/
+uploads/
+
+# ===========================
+# Logs
+# ===========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# ===========================
+# Prisma - Migrations locais de dev
+# ===========================
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# ===========================
+# Sistema Operacional
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# IDEs e Editores
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===========================
+# Temporários
+# ===========================
+tmp/
+temp/
+*.tmp
