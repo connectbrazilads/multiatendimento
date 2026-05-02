@@ -26,6 +26,7 @@ import LexmarkImg from './assets/LEXMARK.png';
 import PantumImg from './assets/PANTUM.png';
 import CanonImg from './assets/canon.png';
 import LogosBannerImg from './assets/logos.png';
+import Xerox8100Img from './assets/xerox c8100.jpeg';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
