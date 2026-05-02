@@ -98,7 +98,7 @@ const Hero = () => {
       {/* Background Glow */}
       <div style={{ position: 'absolute', top: '10%', right: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(227,30,36,0.05) 0%, transparent 60%)', borderRadius: '50%', filter: 'blur(60px)', zIndex: 0 }}></div>
       
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '4rem', alignItems: 'center', zIndex: 1 }}>
+      <div className="responsive-grid" style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '4rem', alignItems: 'center', zIndex: 1 }}>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,7 +156,7 @@ const Hero = () => {
 const AboutUs = () => {
   return (
     <section id="sobre" style={{ padding: '120px 5%', background: '#fff', borderTop: '1px solid #F1F3F5' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '5rem', alignItems: 'center' }}>
+      <div className="responsive-grid" style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '5rem', alignItems: 'center' }}>
         
         <motion.div
           initial={{ opacity: 0, x: -50 }}
@@ -242,7 +242,7 @@ const Equipment = () => {
           <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto', fontSize: '1.1rem' }}>Trabalhamos com as marcas líderes mundiais para garantir a melhor qualidade de impressão e robustez para a sua operação.</p>
         </motion.div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+        <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
           {brands.map((brand, idx) => (
             <motion.div
               key={idx}
@@ -327,7 +327,7 @@ const Services = () => {
           <p style={{ color: 'var(--text-muted)', maxWidth: '700px', margin: '0 auto', fontSize: '1.1rem' }}>A excelência técnica que sua empresa merece, com o suporte que você confia.</p>
         </motion.div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '3rem' }}>
+        <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '3rem' }}>
           {items.map((item, idx) => (
             <motion.div
               key={idx}
@@ -368,7 +368,7 @@ const FeatureHighlight = () => {
     <section id="diferenciais" style={{ padding: '120px 5%', background: '#111', color: 'white', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(227,30,36,0.1))', zIndex: 0 }}></div>
       
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '6rem', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+      <div className="responsive-grid" style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '6rem', alignItems: 'center', position: 'relative', zIndex: 1 }}>
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           whileInView={{ opacity: 1, x: 0 }}
@@ -440,7 +440,7 @@ const FeatureHighlight = () => {
 const Footer = () => {
   return (
     <footer style={{ background: 'white', padding: '100px 5% 50px', borderTop: '1px solid #E9ECEF' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '5rem' }}>
+      <div className="responsive-grid" style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '5rem' }}>
         <div>
           <img src={LogoImg} alt="LCD Digital" style={{ height: '60px', marginBottom: '2rem' }} />
           <p style={{ color: 'var(--text-muted)', fontSize: '1rem', maxWidth: '300px', lineHeight: 1.7 }}>
@@ -539,6 +539,11 @@ function App() {
           .hidden-mobile { display: none !important; }
           .mobile-only { display: block !important; }
           
+          .responsive-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2.5rem !important;
+          }
+
           /* Ajustes de tipografia e padding para mobile */
           h1 { font-size: 2.2rem !important; }
           h2 { font-size: 2rem !important; }
