@@ -1,0 +1,9 @@
+{
+  "providers": ["node"],
+  "apt": {
+    "packages": ["ffmpeg"]
+  },
+  "variables": {
+    "NIXPACKS_NODE_VERSION": "20"
+  }
+}

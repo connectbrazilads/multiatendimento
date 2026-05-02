@@ -2,7 +2,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function chat(apiKey, systemPrompt, history, userMessage) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  // USANDO O MOTOR ELITE 2.5 FLASH
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
 
   let combinedHistory = [];
@@ -110,7 +109,6 @@ async function generateTransferSummary(apiKey, history) {
 async function getEmbedding(apiKey, text) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Para sua chave de elite, vamos usar o 004 na v1
     const model = genAI.getGenerativeModel({ model: 'embedding-001' });
     const result = await model.embedContent(text);
     return result.embedding.values;
