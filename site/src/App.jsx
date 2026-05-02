@@ -133,17 +133,17 @@ const Hero = () => {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.2 }}
-          style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}
+          style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
         >
           <div style={{ 
             position: 'absolute', width: '80%', height: '80%', 
-            background: 'radial-gradient(circle, rgba(227,30,36,0.05) 0%, transparent 70%)',
-            filter: 'blur(40px)', zIndex: -1
+            background: 'radial-gradient(circle, rgba(227,30,36,0.08) 0%, transparent 70%)',
+            filter: 'blur(50px)', zIndex: -1
           }}></div>
           <img 
-            src={Xerox8100Img} 
-            alt="Multifuncional Xerox C8100" 
-            style={{ width: '100%', maxWidth: '600px', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))' }} 
+            src={LogoImg} 
+            alt="LCD Digital Logo" 
+            style={{ width: '100%', maxWidth: '450px', filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.08))' }} 
           />
         </motion.div>
       </div>
