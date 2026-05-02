@@ -141,8 +141,8 @@ const Hero = () => {
             filter: 'blur(40px)', zIndex: -1
           }}></div>
           <img 
-            src={HeroImg} 
-            alt="Multifuncional LCD Digital" 
+            src={Xerox8100Img} 
+            alt="Multifuncional Xerox C8100" 
             style={{ width: '100%', maxWidth: '600px', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))' }} 
           />
         </motion.div>
@@ -167,9 +167,9 @@ const Services = () => {
     { 
       icon: <Printer size={36} color="var(--primary)" />, 
       title: "Locação Profissional", 
-      desc: "Equipamentos de alta performance como a Xerox C8100 para grandes demandas.",
-      img: Xerox8100Img,
-      tag: "Alta Produção"
+      desc: "Equipamentos de última geração com manutenção e suporte inclusos no contrato.",
+      img: HeroImg,
+      tag: "Solução Completa"
     },
     { 
       icon: <Truck size={36} color="var(--primary)" />, 
