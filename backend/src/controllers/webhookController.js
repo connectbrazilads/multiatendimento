@@ -398,6 +398,10 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 ${currentNotes}
 
 ---
+REGRA ANTI-ALUCINAÇÃO (OBRIGATÓRIA):
+Se a resposta exata para a pergunta do cliente não estiver no Conhecimento da Empresa ou nas Notas do Cliente, NÃO INVENTE DADOS, PREÇOS OU POLÍTICAS. Diga educadamente que não tem essa informação no momento e que vai transferir para um especialista.
+
+---
 INSTRUÇÃO DE ROTEAMENTO (OBRIGATÓRIA):
 No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CATEGORIA deve ser uma das: SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS.`;
 
@@ -450,6 +454,20 @@ No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CAT
 
   const finalPrompt = `${enhancedSystemPrompt}${knowledgeContext}`;
   let botReply = await geminiService.chat(settings.geminiKey, finalPrompt, reversedHistory, userMessage);
+
+  // EXTRAÇÃO DE MEMÓRIA DE LONGO PRAZO (Background Task)
+  const extractionHistory = [...reversedHistory, { fromMe: false, body: userMessage }];
+  geminiService.extractClientInfo(settings.geminiKey, extractionHistory, contact.notes)
+    .then(async (newNotes) => {
+      if (newNotes) {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { notes: newNotes }
+        });
+        if (io) io.to(tenant.id).emit('contact_updated', { contactId: contact.id });
+      }
+    })
+    .catch(err => console.error('[webhook] erro na extração de memória:', err.message));
 
   // 4. LÓGICA DE ROTEAMENTO E SALVAMENTO
   const routeMatch = botReply.match(/\[\[ROUTE:\s*(.*?)\]\]/);

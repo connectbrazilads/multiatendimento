@@ -22,7 +22,11 @@ async function chat(apiKey, systemPrompt, history, userMessage) {
   try {
     const chatSession = model.startChat({
       history: combinedHistory,
-      generationConfig: { maxOutputTokens: 1000 },
+      generationConfig: { 
+        maxOutputTokens: 1000,
+        temperature: 0.1,
+        topK: 1
+      },
     });
 
     const result = await chatSession.sendMessage(userMessage);
@@ -176,7 +180,53 @@ Texto: "${text}"`;
   }
 }
 
+async function extractClientInfo(apiKey, history, currentNotes) {
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { 
+      apiVersion: 'v1',
+      generationConfig: { temperature: 0.1 }
+    });
+    
+    const historyText = history.map(m => `${m.fromMe ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
+    
+    const prompt = `Você é um analista de dados. Sua tarefa é extrair informações permanentes do cliente desta conversa e atualizar as anotações existentes dele.
+
+ANOTAÇÕES ATUAIS DO CLIENTE:
+"""
+${currentNotes || 'Nenhuma'}
+"""
+
+CONVERSA RECENTE:
+"""
+${historyText}
+"""
+
+INSTRUÇÕES:
+1. Identifique se o cliente mencionou informações perenes relevantes, como:
+   - Modelos de impressoras que ele possui ou aluga.
+   - Tipos de suprimentos/cartuchos que ele usa.
+   - Endereço, departamento, ou restrições técnicas.
+2. Se houver informações novas, reescreva as "ANOTAÇÕES ATUAIS" mesclando com as novas informações de forma concisa e em tópicos.
+3. Se não houver NENHUMA informação nova relevante na conversa recente, responda EXATAMENTE com a palavra: IGNORAR
+4. Não inclua saudações, apenas a ficha técnica consolidada do cliente.`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().trim();
+    
+    if (responseText === 'IGNORAR' || responseText.toLowerCase() === 'ignorar') {
+      return null;
+    }
+    
+    return responseText;
+  } catch (err) {
+    console.error('[gemini] erro ao extrair infos do cliente:', err.message);
+    return null;
+  }
+}
+
 module.exports = { 
   chat, summarize, transcribeAudio, analyzeImage,
-  generateTags, generateTransferSummary, getEmbedding, cosineSimilarity, spellCheck 
+  generateTags, generateTransferSummary, getEmbedding, cosineSimilarity, spellCheck,
+  extractClientInfo
 };
