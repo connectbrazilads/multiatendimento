@@ -258,6 +258,15 @@ export default function Inbox() {
     } catch (e) { alert('Erro ao encerrar'); }
   }
 
+  async function handleReopen() {
+    if (!window.confirm('Reabrir este atendimento?')) return;
+    try {
+      const { data } = await reopenTicket(selectedTicket.contactId);
+      setSelectedId(data.id);
+      loadTickets();
+    } catch (e) { alert('Erro ao reabrir'); }
+  }
+
   async function handleSummarize() {
     setSummarizing(true);
     try {
@@ -394,10 +403,19 @@ export default function Inbox() {
       </aside>
 
       {/* Main Chat */}
-      <main style={{ 
-        ...s.main,
-        display: (isMobile && view === 'list') ? 'none' : 'flex'
-      }}>
+      <main 
+        style={{ 
+          ...s.main,
+          display: (isMobile && view === 'list') ? 'none' : 'flex'
+        }}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => {
+          e.preventDefault();
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            setFile(e.dataTransfer.files[0]);
+          }
+        }}
+      >
         {selectedTicket ? (
           <>
             <header style={{ ...s.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
@@ -413,7 +431,7 @@ export default function Inbox() {
                 <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleSummarize} disabled={summarizing}>
                   {isMobile ? '✨' : '✨ Resumo IA'}
                 </button>
-                {selectedTicket.status !== 'resolved' && (
+                {selectedTicket.status !== 'resolved' ? (
                   <>
                     <button style={{ ...s.transferBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={() => setTransferModal(true)}>
                       {isMobile ? '➡️' : '➡️ Transferir'}
@@ -422,6 +440,10 @@ export default function Inbox() {
                       {isMobile ? '✅' : '✅ Encerrar'}
                     </button>
                   </>
+                ) : (
+                  <button style={{ ...s.resolveBtn, background: 'var(--text-muted)', padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleReopen}>
+                    {isMobile ? '🔄' : '🔄 Reabrir'}
+                  </button>
                 )}
                 <button style={s.infoBtn} onClick={() => setShowInfo(!showInfo)}>ℹ️</button>
               </div>
@@ -489,7 +511,7 @@ export default function Inbox() {
                          fontWeight: 600,
                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                        }}>
-                          {m.user?.name || 'Sistema'} • {eventLabel}
+                          {m.user?.name || 'Sistema'} • {eventLabel} {m.createdAt ? `em ${new Date(m.createdAt).toLocaleDateString('pt-BR')} às ${new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                        </div>
                     </div>
                   );
