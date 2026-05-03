@@ -4,7 +4,7 @@ import {
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
   getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
-  getTags, getSettings
+  getTags, getSettings, getMediaUrl
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
@@ -714,9 +714,10 @@ function Avatar({ name, src, size = 40 }) {
 }
 
 function MediaContent({ message: m, onImageClick }) {
-  if (m.mediaUrl && m.mediaType === 'image') return <img src={m.mediaUrl} alt="" style={s.imgMedia} onClick={() => onImageClick(m.mediaUrl)} />;
-  if (m.mediaUrl && m.mediaType === 'audio') return <AudioPlayer src={m.mediaUrl} fromMe={m.fromMe} transcription={m.transcription} />;
-  if (m.mediaUrl && m.mediaType === 'document') return <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={s.docLink}>📎 Documento: {m.body || 'Ver arquivo'}</a>;
+  const url = getMediaUrl(m.mediaUrl);
+  if (url && m.mediaType === 'image') return <img src={url} alt="" style={s.imgMedia} onClick={() => onImageClick(url)} />;
+  if (url && m.mediaType === 'audio') return <AudioPlayer src={url} fromMe={m.fromMe} transcription={m.transcription} />;
+  if (url && m.mediaType === 'document') return <a href={url} target="_blank" rel="noreferrer" style={s.docLink}>📎 Documento: {m.body || 'Ver arquivo'}</a>;
   return null;
 }
 

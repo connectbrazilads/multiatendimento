@@ -2,8 +2,15 @@ import axios from 'axios';
 
 // Em produção usa a URL do backend via variável de ambiente
 // Em desenvolvimento usa proxy do Vite (/api → localhost:3002)
-const BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+const BASE_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 const api = axios.create({ baseURL: BASE_URL });
+
+export const getMediaUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `${BACKEND_URL}${url}`;
+};
 
 // Dashboard
 

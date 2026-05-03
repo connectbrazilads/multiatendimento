@@ -171,10 +171,12 @@ async function fetchInstanceInfo(url, key, instanceName) {
 
 async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
   const client = getClient(url, key);
+  const jid = remoteJid.includes('@') ? remoteJid : `${remoteJid}@s.whatsapp.net`;
+  
   const { data } = await client.post(`/chat/revokeMessage/${instanceName}`, {
     message: {
       key: {
-        remoteJid,
+        remoteJid: jid,
         id: messageId,
         fromMe: true
       }
