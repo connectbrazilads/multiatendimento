@@ -9,6 +9,9 @@ import {
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 
+import AudioPlayer from '../components/AudioPlayer';
+import CreateOsModal from '../components/CreateOsModal';
+
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);
   const [tab, setTab] = useState('mine'); // mine, pending, resolved
@@ -20,6 +23,7 @@ export default function Inbox() {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [transferModal, setTransferModal] = useState(false);
+  const [showOsModal, setShowOsModal] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [summary, setSummary] = useState(null);
@@ -428,6 +432,9 @@ export default function Inbox() {
                 {!isMobile && <div style={s.chatPhone}>{selectedTicket.contact.phone} · Conexão: {selectedTicket.instance?.instanceName?.split('_').pop().toUpperCase()}</div>}
               </div>
               <div style={{ ...s.headerActions, gap: isMobile ? '4px' : '0.75rem' }}>
+                <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={() => setShowOsModal(true)}>
+                  🔧 {isMobile ? 'O.S.' : 'Gerar O.S.'}
+                </button>
                 <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleSummarize} disabled={summarizing}>
                   {isMobile ? '✨' : '✨ Resumo IA'}
                 </button>
@@ -700,6 +707,27 @@ export default function Inbox() {
             </div>
           </div>
         </div>
+        </div>
+      )}
+
+      {transferModal && (
+        <TransferModal 
+          users={users}
+          teams={teams}
+          onClose={() => setTransferModal(false)}
+          onTransfer={handleTransfer}
+        />
+      )}
+
+      {showOsModal && selectedTicket && (
+        <CreateOsModal
+          ticket={selectedTicket}
+          onClose={() => setShowOsModal(false)}
+          onCreated={(os) => {
+            setShowOsModal(false);
+            window.open(`/api/os/${os.id}/pdf`, '_blank');
+          }}
+        />
       )}
 
     </div>

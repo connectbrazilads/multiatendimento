@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getContacts, createContact, createTicket, updateContact } from '../services/api';
-import { Edit2, MessageSquare, Plus, Search, BookUser } from 'lucide-react';
+import { Edit2, MessageSquare, Plus, Search, BookUser, Upload } from 'lucide-react';
+import axios from 'axios';
+import ContactProfileModal from '../components/ContactProfileModal';
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -9,8 +11,8 @@ export default function Contacts() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingContact, setEditingContact] = useState({ id: null, name: '', phone: '' });
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,21 +43,30 @@ export default function Contacts() {
     }
   }
 
-  async function handleUpdate() {
-    if (!editingContact.name || !editingContact.phone) return alert('Preencha nome e telefone');
-    try {
-      await updateContact(editingContact.id, { name: editingContact.name, phone: editingContact.phone });
-      setShowEditModal(false);
-      setEditingContact({ id: null, name: '', phone: '' });
-      loadContacts();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao atualizar contato');
-    }
+  function openProfileModal(contact) {
+    setSelectedContact(contact);
+    setShowProfileModal(true);
   }
 
-  function openEditModal(contact) {
-    setEditingContact({ id: contact.id, name: contact.name || '', phone: contact.phone || '' });
-    setShowEditModal(true);
+  async function handleImportExcel(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setLoading(true);
+    try {
+      const res = await axios.post('/api/contacts/import', formData, { 
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true 
+      });
+      alert(res.data.message);
+      loadContacts();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao importar planilha');
+    } finally {
+      setLoading(false);
+      e.target.value = null; // reset input
+    }
   }
 
   async function startChat(contact) {
@@ -140,9 +151,9 @@ export default function Contacts() {
                   <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
                 </div>
                 <button 
-                  onClick={() => openEditModal(c)}
+                  onClick={() => openProfileModal(c)}
                   style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 0 0 10px' }}
-                  title="Editar Contato"
+                  title="Perfil do Contato"
                 >
                   <Edit2 size={16} />
                 </button>
@@ -187,28 +198,12 @@ export default function Contacts() {
         </div>
       )}
 
-      {showEditModal && (
-        <div style={s.overlay}>
-          <div className="glass-panel" style={s.modal}>
-            <h2 style={s.modalTitle}>Editar Contato</h2>
-            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NOME DO CLIENTE</label>
-            <input 
-              style={s.input} 
-              placeholder="Ex: João da Silva" 
-              value={editingContact.name} 
-              onChange={e => setEditingContact({...editingContact, name: e.target.value})}
-            />
-            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
-            <input 
-              style={s.input} 
-              placeholder="Ex: 5551999999999" 
-              value={editingContact.phone} 
-              onChange={e => setEditingContact({...editingContact, phone: e.target.value})}
-            />
-            <button style={s.saveBtn} onClick={handleUpdate}>Atualizar Contato</button>
-            <button style={s.cancelBtn} onClick={() => setShowEditModal(false)}>Cancelar</button>
-          </div>
-        </div>
+      {showProfileModal && selectedContact && (
+        <ContactProfileModal 
+          contact={selectedContact} 
+          onClose={() => setShowProfileModal(false)}
+          onUpdated={loadContacts}
+        />
       )}
     </div>
   );

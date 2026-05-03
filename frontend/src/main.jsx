@@ -16,6 +16,7 @@ import LandingPage from './pages/LandingPage';
 import KnowledgeBase from './pages/KnowledgeBase';
 import Campaigns from './pages/Campaigns';
 import Contacts from './pages/Contacts';
+import ServiceOrders from './pages/ServiceOrders';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/connections" element={<Connections />} />
         <Route path="/knowledge" element={<KnowledgeBase />} />
         <Route path="/campaigns" element={<Campaigns />} />
+        <Route path="/os" element={<ServiceOrders />} />
         <Route path="/superadmin" element={<SuperAdmin />} />
       </Route>
 

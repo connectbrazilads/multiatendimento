@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma');
 const PdfPrinter = require('pdfmake');
 const path = require('path');
 const fs = require('fs');
+const { draftServiceOrder } = require('../services/geminiService');
 
 async function getEquipments(req, res) {
   const { contactId } = req.params;
@@ -181,4 +182,30 @@ async function generatePdf(req, res) {
   pdfDoc.end();
 }
 
-module.exports = { getEquipments, addEquipment, updateEquipment, getOSList, createOS, updateOS, generatePdf };
+async function draftOS(req, res) {
+  const { contactId, ticketId } = req.body;
+  const { tenantId } = req.user;
+
+  try {
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+    if (!settings || !settings.geminiKey) return res.status(400).json({ error: 'Chave do Gemini não configurada' });
+
+    const equipments = await prisma.equipment.findMany({ where: { contactId, tenantId, isActive: true } });
+    const messages = await prisma.message.findMany({
+      where: { ticketId, tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    
+    // As mensagens vêm desc, o history espera asc (antigas primeiro)
+    const history = messages.reverse();
+
+    const draft = await draftServiceOrder(settings.geminiKey, history, equipments);
+    res.json(draft);
+  } catch (err) {
+    console.error('[draftOS]', err);
+    res.status(500).json({ error: 'Erro ao gerar rascunho de O.S.' });
+  }
+}
+
+module.exports = { getEquipments, addEquipment, updateEquipment, getOSList, createOS, updateOS, generatePdf, draftOS };
