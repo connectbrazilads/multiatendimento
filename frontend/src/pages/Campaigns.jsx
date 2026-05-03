@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { getContactTags, getContacts, sendCampaign } from '../services/api';
+import { getTags, createTag, updateContact, getContacts, sendCampaign, getQuickResponses } from '../services/api';
 
 export default function Campaigns() {
   const [tag, setTag] = useState('');
@@ -44,7 +44,7 @@ export default function Campaigns() {
 
   async function loadTemplates() {
     try {
-      const { data } = await axios.get('/api/quick-responses');
+      const { data } = await getQuickResponses();
       setTemplates(data);
     } catch { /* erro silencioso */ }
   }
@@ -122,30 +122,30 @@ export default function Campaigns() {
   }
 
   const s = {
-    container: { padding: '24px', maxWidth: '800px', margin: '0 auto', color: '#fff', width: '100%', display: 'block' },
-    card: { background: '#1A1A1A', padding: '32px', borderRadius: '24px', border: '1px solid rgba(212,175,55,0.1)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' },
-    title: { fontSize: '1.8rem', fontWeight: 800, marginBottom: '8px', background: 'linear-gradient(45deg, #FFF, #D4AF37)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-    subtitle: { color: '#717171', marginBottom: '32px', fontSize: '0.95rem' },
-    label: { display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 700, color: '#D4AF37', textTransform: 'uppercase', letterSpacing: '1px' },
-    input: { width: '100%', background: '#252525', border: '1px solid #333', borderRadius: '12px', padding: '14px', color: '#fff', marginBottom: '20px', fontSize: '1rem', outline: 'none', transition: 'border 0.2s' },
-    textarea: { width: '100%', background: '#252525', border: '1px solid #333', borderRadius: '12px', padding: '14px', color: '#fff', marginBottom: '20px', fontSize: '1rem', outline: 'none', minHeight: '150px', resize: 'vertical' },
-    hint: { fontSize: '0.75rem', color: '#555', marginTop: '-15px', marginBottom: '20px', fontStyle: 'italic' },
-    btn: { width: '100%', padding: '16px', borderRadius: '14px', border: 'none', background: 'linear-gradient(45deg, #D4AF37, #F2D06B)', color: '#000', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' },
-    progressBox: { marginTop: '32px', padding: '24px', background: 'rgba(212,175,55,0.05)', borderRadius: '16px', border: '1px solid rgba(212,175,55,0.1)' },
-    progressBar: { height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden', marginTop: '16px' },
-    progressFill: { height: '100%', background: '#D4AF37', transition: 'width 0.3s' },
+    container: { padding: '24px', maxWidth: '800px', margin: '0 auto', color: 'var(--text-main)', width: '100%', display: 'block' },
+    card: { background: 'var(--bg-panel)', padding: '32px', borderRadius: '24px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' },
+    title: { fontSize: '1.8rem', fontWeight: 800, marginBottom: '8px', background: 'linear-gradient(45deg, var(--text-main), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+    subtitle: { color: 'var(--text-muted)', marginBottom: '32px', fontSize: '0.95rem' },
+    label: { display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '1px' },
+    input: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', color: 'var(--text-main)', marginBottom: '20px', fontSize: '1rem', outline: 'none', transition: 'border 0.2s' },
+    textarea: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', color: 'var(--text-main)', marginBottom: '20px', fontSize: '1rem', outline: 'none', minHeight: '150px', resize: 'vertical' },
+    hint: { fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-15px', marginBottom: '20px', fontStyle: 'italic' },
+    btn: { width: '100%', padding: '16px', borderRadius: '14px', border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' },
+    progressBox: { marginTop: '32px', padding: '24px', background: 'var(--accent-light)', borderRadius: '16px', border: '1px solid var(--accent-border)' },
+    progressBar: { height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden', marginTop: '16px' },
+    progressFill: { height: '100%', background: 'var(--accent)', transition: 'width 0.3s' },
     stats: { display: 'flex', justifyContent: 'space-between', marginTop: '12px', fontSize: '0.9rem', fontWeight: 600 },
     searchBox: { position: 'relative', marginBottom: '20px' },
-    results: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#252525', border: '1px solid #333', borderRadius: '12px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' },
-    resultItem: { padding: '12px', borderBottom: '1px solid #333', cursor: 'pointer', transition: 'background 0.2s' },
-    selectedChip: { display: 'inline-flex', alignItems: 'center', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', margin: '4px', color: '#D4AF37' },
+    results: { position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
+    resultItem: { padding: '12px', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', transition: 'background 0.2s' },
+    selectedChip: { display: 'inline-flex', alignItems: 'center', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', margin: '4px', color: 'var(--accent)' },
     removeChip: { marginLeft: '8px', cursor: 'pointer', fontWeight: 900 },
     overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
   };
 
   return (
     <div style={s.container}>
-      <div style={s.card}>
+      <div className="glass-panel" style={s.card}>
         <h1 style={s.title}>🚀 Disparo em Massa</h1>
         <p style={s.subtitle}>Envie mensagens personalizadas para grupos de clientes.</p>
 
@@ -272,7 +272,7 @@ export default function Campaigns() {
 
       {showSaveTag && (
         <div style={s.overlay}>
-          <div style={{ ...s.card, width: '400px' }}>
+          <div className="glass-panel" style={{ ...s.card, width: '400px' }}>
             <h2 style={{ ...s.title, fontSize: '1.4rem' }}>💾 Salvar Novo Grupo</h2>
             <p style={s.subtitle}>Dê um nome para este grupo de {selectedContacts.length} contatos.</p>
             

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getContacts, createContact, createTicket, updateContact } from '../services/api';
+import { Edit2, MessageSquare, Plus, Search, BookUser } from 'lucide-react';
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -82,41 +83,48 @@ export default function Contacts() {
   };
 
   const s = {
-    container: { padding: '24px', color: '#fff', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' },
+    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexShrink: 0 },
-    title: { fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(45deg, #FFF, #D4AF37)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-    addBtn: { background: 'linear-gradient(45deg, #D4AF37, #F2D06B)', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: '#000' },
-    search: { background: '#1A1A1A', border: '1px solid #333', padding: '12px 20px', borderRadius: '12px', color: '#fff', width: '300px', outline: 'none' },
+    title: { fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(45deg, var(--text-main), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'flex', alignItems: 'center', gap: '12px' },
+    addBtn: { background: 'var(--accent)', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: '#000', display: 'flex', alignItems: 'center', gap: '8px' },
+    searchWrap: { position: 'relative' },
+    search: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', padding: '12px 20px 12px 40px', borderRadius: '12px', color: 'var(--text-main)', width: '300px', outline: 'none' },
+    searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' },
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' },
-    card: { background: '#1A1A1A', padding: '24px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.2s, border 0.2s', cursor: 'default' },
-    cardName: { fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    cardPhone: { color: '#717171', fontSize: '0.9rem', marginBottom: '16px' },
+    card: { padding: '24px', transition: 'transform 0.2s', cursor: 'default' },
+    cardName: { fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' },
+    cardPhone: { color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' },
     cardTags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', minHeight: '24px' },
-    tag: { fontSize: '0.7rem', background: 'rgba(212,175,55,0.1)', color: '#D4AF37', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 },
-    chatBtn: { width: '100%', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.2)', color: '#D4AF37', padding: '10px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' },
+    tag: { fontSize: '0.7rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 },
+    chatBtn: { width: '100%', background: 'transparent', border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '10px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
     overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-    modal: { background: '#1A1A1A', padding: '32px', borderRadius: '24px', width: '400px', border: '1px solid #333' },
-    modalTitle: { fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' },
-    input: { width: '100%', background: '#252525', border: '1px solid #333', borderRadius: '12px', padding: '14px', color: '#fff', marginBottom: '16px', outline: 'none' },
-    saveBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#D4AF37', color: '#000', fontWeight: 800, cursor: 'pointer' },
-    cancelBtn: { width: '100%', padding: '10px', marginTop: '8px', background: 'transparent', border: 'none', color: '#717171', cursor: 'pointer' }
+    modal: { background: 'var(--bg-panel)', padding: '32px', borderRadius: '24px', width: '400px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' },
+    modalTitle: { fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', color: 'var(--text-main)' },
+    input: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', color: 'var(--text-main)', marginBottom: '16px', outline: 'none' },
+    saveBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 800, cursor: 'pointer' },
+    cancelBtn: { width: '100%', padding: '10px', marginTop: '8px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }
   };
 
   return (
     <div style={s.container}>
       <div style={s.header}>
         <div>
-          <h1 style={s.title}>📔 Agenda de Contatos</h1>
-          <p style={{ color: '#717171' }}>Gerencie seus clientes e inicie novas conversas.</p>
+          <h1 style={s.title}><BookUser size={32} /> Agenda de Contatos</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Gerencie seus clientes e inicie novas conversas.</p>
         </div>
         <div style={{ display: 'flex', gap: '16px' }}>
-          <input 
-            style={s.search} 
-            placeholder="Pesquisar contatos..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)}
-          />
-          <button style={s.addBtn} onClick={() => setShowAddModal(true)}>+ Novo Contato</button>
+          <div style={s.searchWrap}>
+            <Search size={18} style={s.searchIcon} />
+            <input 
+              style={s.search} 
+              placeholder="Pesquisar contatos..." 
+              value={search} 
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button style={s.addBtn} onClick={() => setShowAddModal(true)}>
+            <Plus size={20} /> Novo Contato
+          </button>
         </div>
       </div>
 
@@ -125,7 +133,7 @@ export default function Contacts() {
       ) : (
         <div style={s.grid}>
           {Array.isArray(contacts) && contacts.map(c => (
-            <div key={c.id} style={s.card}>
+            <div className="glass-panel" key={c.id} style={s.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={s.cardName}>{c.name || 'Sem nome'}</div>
@@ -133,20 +141,22 @@ export default function Contacts() {
                 </div>
                 <button 
                   onClick={() => openEditModal(c)}
-                  style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0 0 10px' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 0 0 10px' }}
                   title="Editar Contato"
                 >
-                  ✏️
+                  <Edit2 size={16} />
                 </button>
               </div>
               <div style={s.cardTags}>
                 {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
               </div>
-              <button style={s.chatBtn} onClick={() => startChat(c)}>💬 Abrir Conversa</button>
+              <button style={s.chatBtn} onClick={() => startChat(c)}>
+                <MessageSquare size={16} /> Abrir Conversa
+              </button>
             </div>
           ))}
           {contacts.length === 0 && !loading && (
-            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#555' }}>
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
               Nenhum contato encontrado.
             </div>
           )}
@@ -155,16 +165,16 @@ export default function Contacts() {
 
       {showAddModal && (
         <div style={s.overlay}>
-          <div style={s.modal}>
+          <div className="glass-panel" style={s.modal}>
             <h2 style={s.modalTitle}>Novo Contato</h2>
-            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NOME DO CLIENTE</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NOME DO CLIENTE</label>
             <input 
               style={s.input} 
               placeholder="Ex: João da Silva" 
               value={newContact.name} 
               onChange={e => setNewContact({...newContact, name: e.target.value})}
             />
-            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
             <input 
               style={s.input} 
               placeholder="Ex: 5551999999999" 
@@ -179,16 +189,16 @@ export default function Contacts() {
 
       {showEditModal && (
         <div style={s.overlay}>
-          <div style={s.modal}>
+          <div className="glass-panel" style={s.modal}>
             <h2 style={s.modalTitle}>Editar Contato</h2>
-            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NOME DO CLIENTE</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NOME DO CLIENTE</label>
             <input 
               style={s.input} 
               placeholder="Ex: João da Silva" 
               value={editingContact.name} 
               onChange={e => setEditingContact({...editingContact, name: e.target.value})}
             />
-            <label style={{ fontSize: '0.8rem', color: '#D4AF37', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
             <input 
               style={s.input} 
               placeholder="Ex: 5551999999999" 

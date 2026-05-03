@@ -135,10 +135,10 @@ export default function Settings() {
   }
 
   return (
-    <div style={s.container}>
-      <div style={{ ...s.header, marginBottom: isMobile ? '2rem' : '3rem' }}>
-        <h2 style={{ ...s.title, fontSize: isMobile ? '1.5rem' : '1.8rem' }}>⚙️ Configurações</h2>
-        <div style={s.subtitle}>Gerencie o comportamento do seu robô e preferências da conta.</div>
+    <div className="settings-container" style={s.container}>
+      <div className="settings-header" style={s.header}>
+        <h2 className="settings-title" style={s.title}>⚙️ Configurações</h2>
+        <div className="settings-subtitle" style={s.subtitle}>Gerencie o comportamento do seu robô e preferências da conta.</div>
       </div>
 
       <div style={{ 

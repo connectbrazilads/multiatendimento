@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
+import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -15,6 +16,13 @@ export default function Layout() {
   }
 
   const role = localStorage.getItem('role');
+
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  React.useEffect(() => {
+    document.body.className = theme === 'dark' ? 'dark-theme' : 'light-theme';
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   React.useEffect(() => {
     if (Notification.permission === 'default') {
@@ -72,10 +80,10 @@ export default function Layout() {
   const isMobile = window.innerWidth <= 768;
 
   const mobileLinks = [
-    { to: '/dashboard', icon: '📊', label: 'Dash' },
-    { to: '/inbox', icon: '💬', label: 'Chat' },
-    { to: '/contacts', icon: '📔', label: 'Contatos' },
-    { to: '/settings', icon: '⚙️', label: 'Ajustes' },
+    { to: '/dashboard', icon: <LayoutDashboard size={24} />, label: 'Dash' },
+    { to: '/inbox', icon: <MessageSquare size={24} />, label: 'Chat' },
+    { to: '/contacts', icon: <Users size={24} />, label: 'Contatos' },
+    { to: '/settings', icon: <Settings size={24} />, label: 'Ajustes' },
   ];
 
   return (
@@ -91,32 +99,44 @@ export default function Layout() {
         {!isMobile && (
           <div style={styles.links}>
             <NavLink to="/dashboard" end style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              📊 Dashboard
+              <LayoutDashboard size={18} /> Dashboard
             </NavLink>
             <NavLink to="/inbox" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              💬 Chat
+              <MessageSquare size={18} /> Chat
             </NavLink>
             <NavLink to="/connections" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              🔌 Conexões
+              <LinkIcon size={18} /> Conexões
             </NavLink>
             <NavLink to="/contacts" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              📔 Contatos
+              <Users size={18} /> Contatos
             </NavLink>
             <NavLink to="/campaigns" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              📢 Campanhas
+              <Megaphone size={18} /> Campanhas
             </NavLink>
             <NavLink to="/knowledge" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              🧠 IA Training
+              <HelpCircle size={18} /> IA Training
             </NavLink>
             {role === 'admin' && (
               <NavLink to="/settings" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-                ⚙️ Ajustes
+                <Settings size={18} /> Ajustes
               </NavLink>
             )}
           </div>
         )}
 
-        <button style={{ ...styles.logout, padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1.25rem' }} onClick={logout}>Sair</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            style={styles.themeBtn}
+            title="Alternar Tema"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          
+          <button style={{ ...styles.logout, padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1.25rem' }} onClick={logout}>
+            {isMobile ? <LogOut size={18} /> : 'Sair'}
+          </button>
+        </div>
       </nav>
 
       <div style={{ ...styles.content, paddingBottom: isMobile ? '70px' : '0' }}>
@@ -136,7 +156,7 @@ export default function Layout() {
 
       {notification && (
         <div style={{ ...styles.toast, right: isMobile ? '1rem' : '2rem', left: isMobile ? '1rem' : 'auto' }} onClick={() => { navigate('/inbox'); setNotification(null); }}>
-          <div style={styles.toastIcon}>💬</div>
+          <div style={styles.toastIcon}><MessageSquare size={24} color="var(--accent)" /></div>
           <div style={styles.toastBody}>
             <div style={styles.toastName}>{notification.name}</div>
             <div style={styles.toastMsg}>{notification.body.slice(0, 50)}...</div>
@@ -148,24 +168,27 @@ export default function Layout() {
 }
 
 const styles = {
-  root: { display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'Inter', sans-serif", background: '#0F0F0F' },
+  root: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-base)' },
   nav: { 
     display: 'flex', 
     alignItems: 'center', 
     gap: '1.5rem', 
     padding: '0 2rem', 
     height: '64px', 
-    background: '#1A1A1B', 
-    borderBottom: '1px solid #333',
-    color: '#fff', 
+    background: 'var(--bg-panel)', 
+    borderBottom: '1px solid var(--border-color)',
+    color: 'var(--text-main)', 
     flexShrink: 0 
   },
   brandGroup: { display: 'flex', alignItems: 'center', gap: '0.75rem', marginRight: 'auto' },
   brandIcon: { fontSize: '1.2rem' },
-  brand: { fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em', color: '#fff' },
+  brand: { fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em', color: 'var(--text-main)' },
   links: { display: 'flex', gap: '0.5rem' },
   link: { 
-    color: '#A0A0A0', 
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    color: 'var(--text-muted)', 
     textDecoration: 'none', 
     padding: '0.5rem 1rem', 
     borderRadius: '8px', 
@@ -174,36 +197,49 @@ const styles = {
     transition: 'all 0.2s ease'
   },
   linkActive: { 
-    background: 'rgba(212, 175, 55, 0.1)', 
-    color: '#D4AF37', 
+    background: 'var(--accent-light)', 
+    color: 'var(--accent)', 
     fontWeight: 700,
-    boxShadow: 'inset 0 0 0 1px rgba(212, 175, 55, 0.2)'
+    boxShadow: 'inset 0 0 0 1px var(--accent-border)'
+  },
+  themeBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '8px',
+    borderRadius: '50%',
+    transition: 'all 0.2s',
   },
   logout: { 
     background: 'transparent', 
-    border: '1px solid #333', 
-    color: '#A0A0A0', 
+    border: '1px solid var(--border-color)', 
+    color: 'var(--text-muted)', 
     padding: '0.5rem 1.25rem', 
     borderRadius: '8px', 
     cursor: 'pointer', 
     fontSize: '0.85rem',
+    display: 'flex',
+    alignItems: 'center',
     transition: 'all 0.2s',
-    ':hover': { borderColor: '#D4AF37', color: '#D4AF37' }
   },
   content: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
   bottomNav: { 
     position: 'fixed', bottom: 0, left: 0, right: 0, height: '70px', 
-    background: '#1A1A1B', borderTop: '1px solid #333', 
+    background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)', 
     display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 1000 
   },
   bottomLink: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', textDecoration: 'none' },
   toast: { 
-    position: 'fixed', top: '80px', background: '#1A1A1B', border: '1px solid #D4AF37', 
+    position: 'fixed', top: '80px', background: 'var(--bg-panel)', border: '1px solid var(--accent)', 
     padding: '1rem', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '1rem', 
-    boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 9999, cursor: 'pointer',
+    boxShadow: 'var(--shadow-lg)', zIndex: 9999, cursor: 'pointer',
     animation: 'slideIn 0.3s ease-out'
   },
-  toastIcon: { fontSize: '1.5rem' },
-  toastName: { fontWeight: 800, color: '#D4AF37', fontSize: '0.9rem' },
-  toastMsg: { color: '#A0A0A0', fontSize: '0.8rem', marginTop: '2px' },
+  toastIcon: { display: 'flex', alignItems: 'center' },
+  toastName: { fontWeight: 800, color: 'var(--accent)', fontSize: '0.9rem' },
+  toastMsg: { color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' },
 };

@@ -18,17 +18,15 @@ export default function Dashboard() {
   if (!stats) return <div style={s.loading}>Erro ao carregar dashboard.</div>;
 
   const kpis = stats.kpis;
-  const isMobile = window.innerWidth <= 768;
-
   return (
-    <div style={{ ...s.container, padding: isMobile ? '20px' : '40px' }}>
-      <header style={{ ...s.header, marginBottom: isMobile ? '24px' : '40px' }}>
-        <h1 style={{ ...s.title, fontSize: isMobile ? '1.8rem' : '2.4rem' }}>📊 Dashboard de Performance</h1>
-        <p style={{ ...s.subtitle, fontSize: isMobile ? '0.9rem' : '1.1rem' }}>Acompanhe a economia de tempo e eficiência da sua operação.</p>
+    <div className="dashboard-container" style={s.container}>
+      <header className="dashboard-header" style={s.header}>
+        <h1 className="dashboard-title" style={s.title}>📊 Dashboard de Performance</h1>
+        <p className="dashboard-subtitle" style={s.subtitle}>Acompanhe a economia de tempo e eficiência da sua operação.</p>
       </header>
 
       <div style={s.grid}>
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>⏱️</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>Tempo Economizado</div>
@@ -37,7 +35,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>🤖</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>Taxa de Retenção IA</div>
@@ -46,7 +44,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>⚡</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>TMA Médio</div>
@@ -55,7 +53,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>💬</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>Atendimentos Ativos</div>
@@ -64,7 +62,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>⭐</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>Pontuação Média</div>
@@ -73,7 +71,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.card}>
+        <div className="glass-panel" style={s.card}>
           <div style={s.cardIcon}>📔</div>
           <div style={s.cardInfo}>
             <div style={s.cardLabel}>Total de Contatos</div>
@@ -83,8 +81,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={s.sections}>
-        <div style={s.sectionCard}>
+      <div className="dashboard-sections" style={s.sections}>
+        <div className="glass-panel dashboard-section-card" style={s.sectionCard}>
           <h2 style={s.sectionTitle}>🏆 Ranking de Agentes (Resolvidos)</h2>
           <div style={s.rankingList}>
             {stats.agentRanking.length > 0 ? stats.agentRanking.map((a, i) => (
@@ -100,14 +98,14 @@ export default function Dashboard() {
             <h2 style={s.sectionTitle}>📈 Volume de Mensagens (30 dias)</h2>
             <div style={s.chartBox}>
               <div style={s.chartRow}>
-                <div style={{ ...s.chartBar, width: `${(kpis.iaMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: '#D4AF37' }} />
+                <div style={{ ...s.chartBar, width: `${(kpis.iaMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: 'var(--accent)' }} />
                 <div style={s.chartLabel}>
                   <span>IA (Robô)</span>
                   <span>{kpis.iaMessages} mensagens</span>
                 </div>
               </div>
               <div style={s.chartRow}>
-                <div style={{ ...s.chartBar, width: `${(kpis.humanMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: '#444' }} />
+                <div style={{ ...s.chartBar, width: `${(kpis.humanMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: 'var(--text-muted)' }} />
                 <div style={s.chartLabel}>
                   <span>Humanos (Agentes)</span>
                   <span>{kpis.humanMessages} mensagens</span>
@@ -118,19 +116,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={s.sectionCard}>
+        <div className="glass-panel dashboard-section-card" style={s.sectionCard}>
           <h2 style={s.sectionTitle}>📡 Status Operacional</h2>
           <div style={s.statusList}>
             <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: '#D4AF37' }} />
+              <span style={{ ...s.statusDot, background: 'var(--accent)' }} />
               <span>Aguardando ({kpis.pendingTickets})</span>
             </div>
             <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: '#4CAF50' }} />
+              <span style={{ ...s.statusDot, background: 'var(--success)' }} />
               <span>Em Atendimento ({kpis.activeTickets})</span>
             </div>
             <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: '#717171' }} />
+              <span style={{ ...s.statusDot, background: 'var(--text-muted)' }} />
               <span>Resolvidos (Total: {stats.ticketsByStatus.find(t => t.status === 'resolved')?._count.id || 0})</span>
             </div>
           </div>
@@ -141,37 +139,37 @@ export default function Dashboard() {
 }
 
 const s = {
-  container: { padding: '40px', color: '#fff', flex: 1, overflowY: 'auto' },
+  container: { padding: '40px', color: 'var(--text-main)', flex: 1, overflowY: 'auto' },
   header: { marginBottom: '40px' },
-  title: { fontSize: '2.4rem', fontWeight: 900, background: 'linear-gradient(45deg, #FFF, #D4AF37)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '8px' },
-  subtitle: { color: '#717171', fontSize: '1.1rem' },
-  loading: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#717171' },
+  title: { fontSize: '2.4rem', fontWeight: 900, background: 'linear-gradient(45deg, var(--text-main), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '8px' },
+  subtitle: { color: 'var(--text-muted)', fontSize: '1.1rem' },
+  loading: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
   
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '40px' },
-  card: { background: '#1A1A1B', padding: '24px', borderRadius: '24px', border: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', gap: '20px', transition: 'transform 0.2s' },
+  card: { padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' },
   cardIcon: { fontSize: '2rem', opacity: 0.8 },
   cardInfo: { display: 'flex', flexDirection: 'column' },
-  cardLabel: { fontSize: '0.75rem', color: '#717171', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em' },
-  cardValue: { fontSize: '1.6rem', fontWeight: 900, margin: '4px 0', color: '#D4AF37' },
-  cardHint: { fontSize: '0.7rem', color: '#444' },
+  cardLabel: { fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em' },
+  cardValue: { fontSize: '1.6rem', fontWeight: 900, margin: '4px 0', color: 'var(--accent)' },
+  cardHint: { fontSize: '0.7rem', color: 'var(--text-muted)' },
 
-  sections: { display: 'grid', gridTemplateColumns: window.innerWidth <= 1024 ? '1fr' : '2fr 1fr', gap: '24px' },
-  sectionCard: { background: '#1A1A1B', padding: window.innerWidth <= 768 ? '24px' : '32px', borderRadius: '24px', border: '1px solid #2A2A2A' },
-  sectionTitle: { fontSize: '1rem', fontWeight: 800, marginBottom: '24px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  sections: { display: 'grid', gap: '24px' },
+  sectionCard: { },
+  sectionTitle: { fontSize: '1rem', fontWeight: 800, marginBottom: '24px', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em' },
   
   chartBox: { display: 'flex', flexDirection: 'column', gap: '32px', marginBottom: '24px' },
   chartRow: { display: 'flex', flexDirection: 'column', gap: '12px' },
   chartBar: { height: '12px', borderRadius: '6px', transition: 'width 1s ease-in-out' },
-  chartLabel: { display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#888' },
-  hint: { fontSize: '0.85rem', color: '#444', fontStyle: 'italic' },
+  chartLabel: { display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'var(--text-muted)' },
+  hint: { fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' },
 
   rankingList: { display: 'flex', flexDirection: 'column', gap: '16px' },
-  rankingItem: { display: 'flex', alignItems: 'center', gap: '16px', background: '#131314', padding: '12px 20px', borderRadius: '16px', border: '1px solid #222' },
-  rankingPos: { fontSize: '1.1rem', fontWeight: 900, color: '#D4AF37', width: '30px' },
-  rankingName: { flex: 1, fontWeight: 700, fontSize: '0.95rem' },
-  rankingCount: { fontSize: '0.85rem', color: '#717171', fontWeight: 600 },
+  rankingItem: { display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--bg-panel-hover)', padding: '12px 20px', borderRadius: '16px', border: '1px solid var(--border-color)' },
+  rankingPos: { fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)', width: '30px' },
+  rankingName: { flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' },
+  rankingCount: { fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 },
 
   statusList: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  statusItem: { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1rem', color: '#A0A0A0' },
+  statusItem: { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1rem', color: 'var(--text-muted)' },
   statusDot: { width: '10px', height: '10px', borderRadius: '50%' }
 };
