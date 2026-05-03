@@ -30,6 +30,8 @@ model Tenant {
   businessHours  BusinessHour[]
   knowledgeLogs  KnowledgeLog[]
   tags           Tag[]
+  equipments     Equipment[]
+  serviceOrders  ServiceOrder[]
 }
 
 model TenantSettings {
@@ -114,10 +116,21 @@ model Contact {
   createdAt  DateTime   @default(now())
   notes      String?
   tags       String     @default("[]")
+  
+  // Dados extras para CRM
+  cpfCnpj    String?
+  email      String?
+  address    String?
+  city       String?
+  state      String?
+  zipCode    String?
+
   instance   WaInstance @relation(fields: [instanceId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
   tickets    Ticket[]
   scheduledMessages ScheduledMessage[]
+  equipments Equipment[]
+  serviceOrders ServiceOrder[]
 
   @@unique([tenantId, instanceId, phone])
 }
@@ -153,6 +166,7 @@ model Ticket {
   instance   WaInstance @relation(fields: [instanceId], references: [id])
   team       Team?      @relation(fields: [teamId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  serviceOrders ServiceOrder[]
 }
 
 model TicketEvent {
@@ -259,4 +273,41 @@ model KnowledgeLog {
   similarity Float?
   found      Boolean  @default(false)
   createdAt  DateTime @default(now())
+}
+
+model Equipment {
+  id           String     @id @default(cuid())
+  tenantId     String
+  contactId    String
+  model        String
+  serialNumber String?
+  sector       String?
+  address      String?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  serviceOrders ServiceOrder[]
+}
+
+model ServiceOrder {
+  id             String     @id @default(cuid())
+  tenantId       String
+  contactId      String
+  equipmentId    String
+  ticketId       String?
+  defect         String?    // Descrição do defeito relatado
+  status         String     @default("PENDENTE") // PENDENTE, EM_ATENDIMENTO, AGUARDANDO_RETORNO, FINALIZADA
+  technicalNotes String?    // Notas do técnico (peças trocadas, pendências)
+  meters         String?    // Medidores em JSON (ex: {"mono": 1000, "cor": 500})
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  resolvedAt     DateTime?
+
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact        Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  equipment      Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  ticket         Ticket?    @relation(fields: [ticketId], references: [id], onDelete: SetNull)
 }

@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const xlsx = require('xlsx');
 
 async function list(req, res) {
   const { q } = req.query;
@@ -114,4 +115,81 @@ async function getTags(req, res) {
   res.json(Array.from(allTags));
 }
 
-module.exports = { list, getHistory, updateContact, getMedia, create, getTags };
+async function importExcel(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    const { tenantId } = req.user;
+
+    // Se não tiver instância padrão, pega a primeira ativa
+    const inst = await prisma.waInstance.findFirst({ where: { tenantId, status: 'CONNECTED' } });
+    if (!inst) return res.status(400).json({ error: 'Nenhuma conexão ativa do WhatsApp para vincular contatos' });
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    let importedContacts = 0;
+    let importedEquipments = 0;
+
+    for (const row of rows) {
+      // Mapeamento esperado: Nome, Telefone, CNPJ, Endereço, Modelo Equipamento, Número Série, Setor Equipamento
+      // Adaptar para nomes das colunas ou buscar chaves de forma flexível
+      const name = row['Nome'] || row['NOME'] || row['name'];
+      let phone = row['Telefone'] || row['TELEFONE'] || row['phone'] || row['celular'];
+      const cpfCnpj = row['CNPJ'] || row['CPF'] || row['cpfCnpj'];
+      const address = row['Endereço'] || row['ENDEREÇO'] || row['address'];
+      
+      const equipModel = row['Modelo Equipamento'] || row['Equipamento'] || row['Máquina'] || row['model'];
+      const equipSerial = row['Número Série'] || row['Série'] || row['serial'];
+      const equipSector = row['Setor'] || row['Departamento'] || row['sector'];
+
+      if (!phone) continue;
+      phone = String(phone).replace(/\D/g, '');
+
+      // Upsert do Contato
+      let contact = await prisma.contact.findFirst({ where: { tenantId, phone } });
+      if (!contact) {
+        contact = await prisma.contact.create({
+          data: { tenantId, instanceId: inst.id, phone, name, cpfCnpj, address }
+        });
+        importedContacts++;
+      } else {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { 
+            name: name || contact.name, 
+            cpfCnpj: cpfCnpj || contact.cpfCnpj, 
+            address: address || contact.address 
+          }
+        });
+      }
+
+      // Adiciona o Equipamento se existir
+      if (equipModel) {
+        const existEquip = await prisma.equipment.findFirst({
+          where: { contactId: contact.id, serialNumber: equipSerial ? String(equipSerial) : null, model: equipModel }
+        });
+
+        if (!existEquip) {
+          await prisma.equipment.create({
+            data: {
+              tenantId,
+              contactId: contact.id,
+              model: String(equipModel),
+              serialNumber: equipSerial ? String(equipSerial) : null,
+              sector: equipSector ? String(equipSector) : null
+            }
+          });
+          importedEquipments++;
+        }
+      }
+    }
+
+    res.json({ success: true, message: `Importação concluída. ${importedContacts} contatos e ${importedEquipments} equipamentos cadastrados/atualizados.` });
+  } catch (err) {
+    console.error('[importExcel] erro:', err.message);
+    res.status(500).json({ error: 'Erro ao importar planilha' });
+  }
+}
+
+module.exports = { list, getHistory, updateContact, getMedia, create, getTags, importExcel };

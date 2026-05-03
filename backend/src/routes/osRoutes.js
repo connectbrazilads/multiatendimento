@@ -1,0 +1,18 @@
+const router = require('express').Router();
+const authenticate = require('../middlewares/authenticate');
+const { getEquipments, addEquipment, updateEquipment, getOSList, createOS, updateOS, generatePdf } = require('../controllers/osController');
+
+router.use(authenticate);
+
+// Equipments (can be managed here or under contacts)
+router.get('/contacts/:contactId/equipments', getEquipments);
+router.post('/contacts/:contactId/equipments', addEquipment);
+router.patch('/equipments/:id', updateEquipment);
+
+// OS CRUD
+router.get('/', getOSList);
+router.post('/', createOS);
+router.patch('/:id', updateOS);
+router.get('/:id/pdf', generatePdf);
+
+module.exports = router;

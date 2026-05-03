@@ -225,8 +225,52 @@ INSTRUÇÕES:
   }
 }
 
+async function draftServiceOrder(apiKey, history, equipments) {
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { 
+      apiVersion: 'v1',
+      generationConfig: { temperature: 0.1 }
+    });
+    
+    const historyText = history.slice(-20).map(m => `${m.fromMe ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
+    const equipList = equipments.map(e => `[ID: ${e.id}] ${e.model} (Série: ${e.serialNumber || 'N/A'}) - Setor: ${e.sector || 'N/A'}`).join('\n');
+    
+    const prompt = `Você é um assistente técnico gerando um rascunho de Ordem de Serviço baseado em uma conversa de WhatsApp.
+
+CONVERSA RECENTE:
+"""
+${historyText}
+"""
+
+EQUIPAMENTOS DO CLIENTE:
+"""
+${equipList || 'Nenhum equipamento cadastrado.'}
+"""
+
+INSTRUÇÕES:
+1. Resuma o defeito ou solicitação reportada de forma técnica e direta no campo "defect".
+2. Tente identificar qual equipamento da lista o cliente está se referindo. Se não conseguir ter certeza, deixe "equipmentId" vazio (null).
+3. Responda ESTRITAMENTE num formato JSON válido:
+{
+  "defect": "string ou null",
+  "equipmentId": "string do ID ou null"
+}
+`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('[gemini] erro ao rascunhar O.S.:', err.message);
+    return { defect: null, equipmentId: null };
+  }
+}
+
 module.exports = { 
   chat, summarize, transcribeAudio, analyzeImage,
   generateTags, generateTransferSummary, getEmbedding, cosineSimilarity, spellCheck,
-  extractClientInfo
+  extractClientInfo, draftServiceOrder
 };

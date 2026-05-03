@@ -1,10 +1,12 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
-const { list, getHistory, updateContact, getMedia, create, getTags } = require('../controllers/contactController');
+const upload = require('../middlewares/upload');
+const { list, getHistory, updateContact, getMedia, create, getTags, importExcel } = require('../controllers/contactController');
 
 router.use(authenticate);
 router.get('/', list);
 router.post('/', create);
+router.post('/import', upload.single('file'), importExcel);
 router.get('/tags', getTags);
 router.get('/:id/history', getHistory);
 router.patch('/:id', updateContact);

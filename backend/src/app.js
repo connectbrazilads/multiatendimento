@@ -25,6 +25,7 @@ const campaignRoutes = require('./routes/campaignRoutes');
 const { setIo: setIoCampaign } = require('./controllers/campaignController');
 const tagRoutes = require('./routes/tagRoutes');
 const uploadRoutes = require('./routes/upload');
+const osRoutes = require('./routes/osRoutes');
 
 const app = express();
 app.use('/api/report', require('./routes/report'));
@@ -75,6 +76,7 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/knowledge', require('./routes/knowledge'));
 app.use('/api/upload', uploadRoutes);
+app.use('/api/os', osRoutes);
 
 const jwt = require('jsonwebtoken');
 
