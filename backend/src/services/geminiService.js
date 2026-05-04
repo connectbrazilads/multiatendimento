@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function chat(apiKey, systemPrompt, history, userMessage) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
 
   let combinedHistory = [];
   history.forEach((m) => {
@@ -40,7 +40,7 @@ async function chat(apiKey, systemPrompt, history, userMessage) {
 async function summarize(apiKey, systemPrompt, history, userMessage) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     const historyText = history.map(m => `${m.fromMe || m.fromBot ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
     const fullPrompt = `${systemPrompt}\n\nHistórico:\n${historyText}\n\nTarefa: ${userMessage}`;
     const result = await model.generateContent(fullPrompt);
@@ -54,7 +54,7 @@ async function summarize(apiKey, systemPrompt, history, userMessage) {
 async function transcribeAudio(apiKey, audioBase64, mimeType) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     const result = await model.generateContent([{ inlineData: { data: audioBase64, mimeType } }, 'Transcreva este áudio.']);
     return result.response.text();
   } catch (err) {
@@ -66,7 +66,7 @@ async function transcribeAudio(apiKey, audioBase64, mimeType) {
 async function generateTags(apiKey, history, allowedTags = []) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     const historyText = history.map(m => `${m.fromMe ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
     
     let prompt = `Analise esta conversa e sugira até 3 tags curtas para categorizá-la.\n\n`;
@@ -100,7 +100,7 @@ async function generateTags(apiKey, history, allowedTags = []) {
 async function generateTransferSummary(apiKey, history) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     const historyText = history.slice(-30).map(m => `${m.fromMe || m.fromBot ? 'Atendimento' : 'Cliente'}: ${m.body}`).join('\n');
     const result = await model.generateContent(`Gere um resumo curto desta conversa:\n${historyText}`);
     return result.response.text();
@@ -138,7 +138,7 @@ function cosineSimilarity(vecA, vecB) {
 async function analyzeImage(apiKey, imageBase64, mimeType, prompt = 'Descreva esta imagem.') {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     const result = await model.generateContent([{ inlineData: { data: imageBase64, mimeType } }, prompt]);
     return result.response.text();
   } catch (err) {
@@ -150,7 +150,7 @@ async function analyzeImage(apiKey, imageBase64, mimeType, prompt = 'Descreva es
 async function spellCheck(apiKey, text) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
     
     const prompt = `Você é um corretor ortográfico de português brasileiro para mensagens de atendimento ao cliente.
 
@@ -183,7 +183,7 @@ Texto: "${text}"`;
 async function extractClientInfo(apiKey, history, currentNotes) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { 
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { 
       apiVersion: 'v1',
       generationConfig: { temperature: 0.1 }
     });
@@ -228,7 +228,7 @@ INSTRUÇÕES:
 async function draftServiceOrder(apiKey, history, equipments) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { 
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { 
       apiVersion: 'v1',
       generationConfig: { temperature: 0.1 }
     });
