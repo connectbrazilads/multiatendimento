@@ -61,10 +61,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  next();
-});
+// Removido middleware que forçava JSON globalmente para não interferir em PDFs e estáticos
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
