@@ -22,7 +22,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   const [osHistory, setOsHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [newEquip, setNewEquip] = useState({ model: '', serialNumber: '', sector: '', address: '' });
+  const [newEquip, setNewEquip] = useState({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '' });
   const [editingEquipId, setEditingEquipId] = useState(null);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
       } else {
         await api.post(`/os/contacts/${contact.id}/equipments`, newEquip);
       }
-      setNewEquip({ model: '', serialNumber: '', sector: '', address: '' });
+      setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '' });
       loadEquipments();
     } catch (e) {
       alert('Erro ao salvar equipamento');
@@ -89,6 +89,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   function startEditEquip(e) {
     setEditingEquipId(e.id);
     setNewEquip({ 
+      manufacturer: e.manufacturer || '',
       model: e.model || '', 
       serialNumber: e.serialNumber || '', 
       sector: e.sector || '', 
@@ -180,11 +181,13 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                   {editingEquipId ? '✏️ Editando Equipamento' : '+ Novo Equipamento'}
                 </div>
                 <div style={s.inputGroup}>
-                  <input style={s.input} placeholder="Modelo (ex: Xerox 7845)" value={newEquip.model} onChange={e=>setNewEquip({...newEquip, model: e.target.value})}/>
-                  <input style={s.input} placeholder="Número de Série" value={newEquip.serialNumber} onChange={e=>setNewEquip({...newEquip, serialNumber: e.target.value})}/>
+                  <input style={s.input} placeholder="Marca (ex: Xerox)" value={newEquip.manufacturer} onChange={e=>setNewEquip({...newEquip, manufacturer: e.target.value})}/>
+                  <input style={s.input} placeholder="Modelo (ex: 7845)" value={newEquip.model} onChange={e=>setNewEquip({...newEquip, model: e.target.value})}/>
                 </div>
                 <div style={s.inputGroup}>
+                  <input style={s.input} placeholder="Número de Série" value={newEquip.serialNumber} onChange={e=>setNewEquip({...newEquip, serialNumber: e.target.value})}/>
                   <input style={s.input} placeholder="Setor (ex: Recepção)" value={newEquip.sector} onChange={e=>setNewEquip({...newEquip, sector: e.target.value})}/>
+                </div>
                   <input style={s.input} placeholder="Endereço Específico (opcional)" value={newEquip.address} onChange={e=>setNewEquip({...newEquip, address: e.target.value})}/>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
@@ -205,7 +208,11 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                     <button style={s.actionBtn('var(--accent)')} onClick={() => startEditEquip(e)} title="Editar"><Edit3 size={18} /></button>
                     <button style={s.actionBtn('#ff4d4f')} onClick={() => handleDeleteEquip(e.id)} title="Excluir"><Trash2 size={18} /></button>
                   </div>
-                  <div style={s.equipTitle}>{e.manufacturer ? `${e.manufacturer} ` : ''}{e.model}</div>
+                  <div style={s.equipTitle}>
+                    {e.model.toLowerCase().startsWith(e.manufacturer?.toLowerCase()) 
+                      ? e.model 
+                      : (e.manufacturer ? `${e.manufacturer} ${e.model}` : e.model)}
+                  </div>
                   <div style={{ color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>{e.type}</div>
                   <div style={s.equipText}>Série: {e.serialNumber || 'N/A'} | Setor: {e.sector || 'Geral'}</div>
                   {e.address && <div style={s.equipText}>📍 {e.address}</div>}

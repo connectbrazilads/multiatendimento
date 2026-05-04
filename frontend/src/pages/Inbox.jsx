@@ -1066,7 +1066,11 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLin
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {equipments.map(e => (
               <div key={e.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{e.manufacturer ? `${e.manufacturer} ` : ''}{e.model}</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                  {e.model.toLowerCase().startsWith(e.manufacturer?.toLowerCase()) 
+                    ? e.model 
+                    : (e.manufacturer ? `${e.manufacturer} ${e.model}` : e.model)}
+                </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{e.type || 'Equipamento'}</div>
                 <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Série: {e.serialNumber || 'S/N'}</div>
                 {e.sector && <div style={{ fontSize: '0.75rem', color: '#888' }}>Setor: {e.sector}</div>}
