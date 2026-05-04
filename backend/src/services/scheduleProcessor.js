@@ -1,3 +1,6 @@
+const cron = require('node-cron');
+const fs = require('fs');
+const path = require('path');
 const prisma = require('../lib/prisma');
 const evolutionService = require('./evolutionService');
 
@@ -64,10 +67,44 @@ async function processScheduledMessages() {
   }
 }
 
-// Roda a cada 1 minuto
+// Limpeza de Mídias (Fotos, Vídeos, Áudios) com mais de 7 dias
+async function nightlyCleanup() {
+  console.log('[cleanup] Iniciando limpeza noturna (03:00)...');
+  const mediaDir = path.join(__dirname, '../../uploads/media');
+  
+  try {
+    if (fs.existsSync(mediaDir)) {
+      const files = fs.readdirSync(mediaDir);
+      const now = Date.now();
+      const expiry = 7 * 24 * 60 * 60 * 1000; // 7 dias
+      
+      let count = 0;
+      files.forEach(file => {
+        const filePath = path.join(mediaDir, file);
+        const stats = fs.statSync(filePath);
+        if (now - stats.mtimeMs > expiry) {
+          fs.unlinkSync(filePath);
+          count++;
+        }
+      });
+      console.log(`[cleanup] ${count} arquivos de mídia antigos removidos.`);
+    }
+  } catch (err) {
+    console.error('[cleanup] erro na limpeza:', err.message);
+  }
+}
+
+// Roda o processador de mensagens a cada 1 minuto e a limpeza às 03:00
 function start() {
+  // Processador de Agendamentos
   setInterval(processScheduledMessages, 60000);
-  console.log('[schedule] processador iniciado (1 min)');
+  console.log('[schedule] processador de mensagens iniciado (1 min)');
+
+  // Limpeza Noturna (03:00 AM)
+  cron.schedule('0 3 * * *', () => {
+    nightlyCleanup();
+  });
+  console.log('[cleanup] Cron de limpeza noturna agendado (03:00)');
 }
 
 module.exports = { start };
