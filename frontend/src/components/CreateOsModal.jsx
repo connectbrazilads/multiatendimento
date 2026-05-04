@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { getEquipments } from '../services/api';
 import { FileText, Wand2 } from 'lucide-react';
 
 export default function CreateOsModal({ ticket, onClose, onCreated }) {
@@ -14,12 +14,13 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
 
   async function loadData() {
     try {
-      const resEquips = await axios.get(`/api/os/contacts/${ticket.contact.id}/equipments`, { withCredentials: true });
+      const contactId = ticket.contact.id;
+      const resEquips = await getEquipments(contactId);
       setEquipments(resEquips.data);
       
       // Auto-draft with AI
       setDrafting(true);
-      const resDraft = await axios.post('/api/os/draft', { contactId: ticket.contact.id, ticketId: ticket.id }, { withCredentials: true });
+      const resDraft = await api.post('/os/draft', { contactId, ticketId: ticket.id });
       
       const { defect, equipmentId } = resDraft.data;
       setFormData({
@@ -38,13 +39,13 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
     if (!formData.equipmentId) return alert('Selecione um equipamento');
     if (!formData.defect) return alert('Informe o defeito reportado');
     try {
-      const res = await axios.post('/api/os', {
+      const res = await api.post('/os', {
         contactId: ticket.contact.id,
         equipmentId: formData.equipmentId,
         ticketId: ticket.id,
         defect: formData.defect,
         status: 'PENDENTE'
-      }, { withCredentials: true });
+      });
       
       onCreated(res.data);
     } catch (e) {

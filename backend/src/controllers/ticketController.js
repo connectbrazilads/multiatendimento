@@ -66,6 +66,7 @@ async function list(req, res) {
   if (search) {
     const searchFilter = [
       { contact: { name: { contains: search, mode: 'insensitive' } } },
+      { contact: { fantasyName: { contains: search, mode: 'insensitive' } } },
       { contact: { phone: { contains: search } } }
     ];
     if (where.OR) {
@@ -609,6 +610,64 @@ async function deleteMessage(req, res) {
   }
 }
 
+async function linkContact(req, res) {
+  const { id } = req.params;
+  const { contactId } = req.body;
+  const { tenantId } = req.user;
+
+  try {
+    const ticket = await prisma.ticket.findFirst({ where: { id, tenantId }, include: { contact: true } });
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+
+    const targetContact = await prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+    if (!targetContact) return res.status(404).json({ error: 'Contato de destino não encontrado' });
+
+    const sourceContactId = ticket.contactId;
+    const whatsapp = ticket.contact.phone; // O número atual do ticket
+
+    // 1. NÃO reatribui o ticket para o contato do CRM. 
+    // Em vez disso, mantemos o contato original do WhatsApp, mas vinculamos ele via telefone no CRM.
+    
+    // 2. Atualiza o WhatsApp do contato de destino (CRM) com o número de quem está falando
+    const existingWithWa = await prisma.contact.findFirst({ where: { tenantId, whatsapp, NOT: { id: contactId } } });
+    if (existingWithWa) {
+      await prisma.contact.update({ where: { id: existingWithWa.id }, data: { whatsapp: null } });
+    }
+
+    await prisma.contact.update({
+      where: { id: contactId },
+      data: { whatsapp }
+    });
+
+    // 3. Opcional: Podemos marcar no contato original qual o ID do CRM dele (usando um campo ou metadado)
+    // Por enquanto, vamos usar a lógica de busca por telefone invertida.
+    
+    // Retorna o ticket atualizado (sem mudar o contactId)
+    const updatedTicket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { contact: true, agent: { select: { name: true } }, team: true, instance: { select: { instanceName: true } } }
+    });
+
+    // 3. Log de evento
+    await historyService.logEvent({
+      ticketId: id,
+      tenantId,
+      userId: req.user.userId,
+      type: 'contact_linked',
+      payload: { fromId: sourceContactId, toId: contactId, whatsapp }
+    });
+
+    if (io) {
+      io.to(tenantId).emit('ticket_updated', { ticketId: id, ticket: updatedTicket });
+    }
+
+    res.json(updatedTicket);
+  } catch (err) {
+    console.error('[linkContact] ERRO CRÍTICO:', err);
+    res.status(500).json({ error: 'Erro ao vincular contato: ' + err.message });
+  }
+}
+
 async function spellCheck(req, res) {
   const { text } = req.body;
   if (!text || text.trim().length < 3) return res.json({ corrected: null });
@@ -626,4 +685,4 @@ async function spellCheck(req, res) {
   }
 }
 
-module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, spellCheck, setIo };
+module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, spellCheck, linkContact, setIo };

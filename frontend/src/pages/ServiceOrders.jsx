@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Plus, Search, FileText, Settings, User } from 'lucide-react';
+import api from '../services/api';
+import { Plus, Search, FileText, Settings, User, Calendar, X, Archive, History, MapPin, Hash } from 'lucide-react';
 
 export default function ServiceOrders() {
+  const isMobile = window.innerWidth <= 768;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isSearchMode, setIsSearchMode] = useState(false);
   
-  // Modal states
   const [showModal, setShowModal] = useState(false);
   const [selectedOs, setSelectedOs] = useState(null);
   const [notes, setNotes] = useState('');
@@ -16,11 +19,17 @@ export default function ServiceOrders() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [startDate, endDate, search]);
 
   async function loadOrders() {
+    setLoading(true);
     try {
-      const res = await axios.get('/api/os', { withCredentials: true });
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (search) params.search = search;
+
+      const res = await api.get('/os', { params });
       setOrders(res.data);
     } catch (e) {
       console.error(e);
@@ -36,6 +45,39 @@ export default function ServiceOrders() {
     { id: 'FINALIZADA', title: 'Finalizadas', color: '#52c41a' }
   ];
 
+  // Adiciona coluna de arquivadas se estiver em busca/histórico
+  const activeColumns = [...columns];
+  if (isSearchMode || (search && search.trim() !== '')) {
+    activeColumns.push({ id: 'ARQUIVADA', title: 'Arquivadas', color: '#717171' });
+  }
+
+  // Drag and Drop Logic
+  function onDragStart(e, osId) {
+    e.dataTransfer.setData('osId', osId);
+  }
+
+  async function onDrop(e, newStatus) {
+    const osId = e.dataTransfer.getData('osId');
+    const os = orders.find(o => o.id === osId);
+    
+    // Se for arquivar/finalizar por drag, exige que já tenha nota
+    if ((newStatus === 'FINALIZADA' || newStatus === 'ARQUIVADA') && (!os.technicalNotes || os.technicalNotes.length < 5)) {
+      alert('Esta O.S. não pode ser fechada sem um Relatório Técnico. Abra a O.S. para preencher.');
+      return;
+    }
+
+    try {
+      await api.patch(`/os/${osId}`, { status: newStatus, technicalNotes: os.technicalNotes });
+      loadOrders();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao mover O.S.');
+    }
+  }
+
+  function allowDrop(e) {
+    e.preventDefault();
+  }
+
   function openOsModal(os) {
     setSelectedOs(os);
     setStatus(os.status);
@@ -45,77 +87,158 @@ export default function ServiceOrders() {
     setShowModal(true);
   }
 
-  async function handleUpdate() {
+  async function handleUpdate(newStatus = null) {
+    const finalStatus = newStatus || status;
+    
+    if ((finalStatus === 'FINALIZADA' || finalStatus === 'ARQUIVADA') && (!notes || notes.trim().length < 5)) {
+      alert('Relatório Técnico é obrigatório para finalizar ou arquivar a O.S.');
+      return;
+    }
+
     try {
-      await axios.patch(`/api/os/${selectedOs.id}`, { status, technicalNotes: notes, meters }, { withCredentials: true });
+      await api.patch(`/os/${selectedOs.id}`, { 
+        status: finalStatus, 
+        technicalNotes: notes, 
+        meters 
+      });
       setShowModal(false);
       loadOrders();
     } catch (e) {
-      alert('Erro ao atualizar O.S.');
+      alert(e.response?.data?.error || 'Erro ao atualizar O.S.');
     }
   }
 
-  const filteredOrders = orders.filter(o => 
-    o.id.toLowerCase().includes(search.toLowerCase()) || 
-    (o.contact?.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (o.equipment?.model || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOrders = orders.filter(o => {
+    if (isSearchMode || (search && search.trim() !== '')) return true;
+    return o.status !== 'ARQUIVADA';
+  });
 
   const s = {
-    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
-    title: { fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px' },
-    kanban: { display: 'flex', gap: '16px', flex: 1, overflowX: 'auto', minHeight: '500px' },
-    column: { flex: '0 0 300px', background: 'var(--bg-panel)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column' },
-    colHeader: (color) => ({ fontSize: '1.1rem', fontWeight: 800, color: color, marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }),
-    card: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '12px', cursor: 'pointer', transition: 'transform 0.1s' },
-    cardTitle: { fontWeight: 800, fontSize: '0.95rem', marginBottom: '4px' },
-    cardText: { fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' },
-    cardDefect: { fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '8px', background: 'var(--bg-panel)', padding: '6px', borderRadius: '4px' },
+    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', background: '#0F0F0F' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' },
+    title: { fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '12px' },
+    filterBar: { display: 'flex', gap: '12px', alignItems: 'center', background: '#1A1A1B', padding: '12px 20px', borderRadius: '16px', border: '1px solid #333' },
+    input: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#fff', outline: 'none', fontSize: '0.9rem' },
+    dateInput: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '8px', padding: '6px 10px', color: '#fff', outline: 'none', fontSize: '0.85rem' },
     
-    // modal
-    overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-    modal: { background: 'var(--bg-panel)', width: '600px', maxWidth: '95%', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column' },
-    input: { width: '100%', padding: '10px', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none', marginBottom: '12px' },
-    textarea: { width: '100%', padding: '10px', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none', marginBottom: '12px', minHeight: '100px', resize: 'vertical' },
-    btnGroup: { display: 'flex', gap: '12px', marginTop: '16px' },
-    saveBtn: { flex: 1, background: 'var(--accent)', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' },
-    pdfBtn: { flex: 1, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '12px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }
+    kanban: { display: 'flex', gap: '16px', flex: 1, overflowX: 'auto', minHeight: '500px', paddingBottom: '20px' },
+    column: { flex: '0 0 320px', background: '#131314', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', border: '1px solid #222' },
+    colHeader: (color) => ({ fontSize: '0.95rem', fontWeight: 800, color: color, marginBottom: '16px', display: 'flex', justifyContent: 'space-between', textTransform: 'uppercase', letterSpacing: '0.05em' }),
+    card: { background: '#1A1A1B', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', marginBottom: '12px', cursor: 'grab', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
+    cardTitle: { fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px', color: '#D4AF37', display: 'flex', justifyContent: 'space-between' },
+    cardText: { fontSize: '0.85rem', color: '#A0A0A0', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' },
+    cardDefect: { fontSize: '0.85rem', color: '#fff', marginTop: '10px', background: '#0F0F0F', padding: '8px', borderRadius: '8px', borderLeft: '3px solid #D4AF37' },
+    
+    overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
+    modal: { background: '#131314', width: '95%', maxWidth: '1150px', borderRadius: '24px', padding: '0', display: 'flex', flexDirection: 'column', border: '1px solid #333', overflow: 'hidden' },
+    modalHeader: { padding: '20px 32px', background: '#1A1A1B', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    modalContent: { padding: '24px 32px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '240px 1fr', gap: '32px', overflowY: 'auto', maxHeight: '80vh' },
+    
+    sidebar: { background: '#0F0F0F', padding: '24px', borderRadius: '16px', border: '1px solid #333', height: 'fit-content' },
+    btnGroup: { display: 'flex', gap: '12px', marginTop: '12px', padding: '0 32px 32px' },
+    saveBtn: { flex: 2, background: '#D4AF37', color: '#000', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' },
+    pdfBtn: { flex: 1, background: 'transparent', color: '#D4AF37', border: '1px solid #D4AF37', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }
+  };
+
+  const getClientName = (os) => {
+    const company = os.equipment?.contact;
+    if (company) return company.fantasyName || company.name;
+    return os.contact?.fantasyName || os.contact?.name;
   };
 
   return (
     <div style={s.container}>
       <div style={s.header}>
-        <div style={s.title}><FileText size={32} /> Ordens de Serviço</div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <input 
-            style={{...s.input, width: '250px', marginBottom: 0}} 
-            placeholder="Pesquisar O.S..." 
-            value={search} 
-            onChange={e=>setSearch(e.target.value)}
-          />
+        <div style={s.title}><FileText size={32} color="#D4AF37" /> Gestão de O.S.</div>
+        <div style={s.filterBar}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <Calendar size={16} color="#717171" />
+            <input type="date" style={s.dateInput} value={startDate} onChange={e=>setStartDate(e.target.value)} />
+            <span style={{color: '#717171'}}>até</span>
+            <input type="date" style={s.dateInput} value={endDate} onChange={e=>setEndDate(e.target.value)} />
+          </div>
+          <div style={{width: '1px', height: '24px', background: '#333', margin: '0 8px'}} />
+          <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+            <Search size={16} color="#717171" style={{position: 'absolute', left: '10px'}} />
+            <input 
+              style={{...s.input, paddingLeft: '32px', width: isMobile ? '150px' : '220px'}} 
+              placeholder="Nº O.S. ou Cliente..." 
+              value={search} 
+              onChange={e=>setSearch(e.target.value)}
+            />
+          </div>
+          <button 
+            onClick={() => { setIsSearchMode(!isSearchMode); loadOrders(); }}
+            style={{ 
+              background: isSearchMode ? '#D4AF37' : 'transparent', 
+              color: isSearchMode ? '#000' : '#D4AF37', 
+              border: '1px solid #D4AF37',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {isSearchMode ? <X size={14}/> : <History size={14}/>}
+            {isSearchMode ? 'Sair da Busca' : 'Histórico'}
+          </button>
         </div>
       </div>
 
       <div style={s.kanban}>
-        {columns.map(col => (
-          <div key={col.id} style={s.column}>
+        {activeColumns.map(col => (
+          <div 
+            key={col.id} 
+            style={{...s.column, opacity: col.id === 'ARQUIVADA' ? 0.7 : 1}}
+            onDragOver={allowDrop}
+            onDrop={(e) => onDrop(e, col.id)}
+          >
             <div style={s.colHeader(col.color)}>
               {col.title}
-              <span style={{background: 'var(--bg-base)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-main)'}}>
+              <span style={{background: '#0F0F0F', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', color: '#fff', border: '1px solid #333'}}>
                 {filteredOrders.filter(o => o.status === col.id).length}
               </span>
             </div>
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
               {filteredOrders.filter(o => o.status === col.id).map(os => (
-                <div key={os.id} style={s.card} onClick={() => openOsModal(os)}>
-                  <div style={s.cardTitle}>O.S. #{os.id.substring(os.id.length - 6).toUpperCase()}</div>
-                  <div style={s.cardText}><User size={12}/> {os.contact?.name}</div>
-                  <div style={s.cardText}><Settings size={12}/> {os.equipment?.model}</div>
-                  <div style={s.cardDefect}>{os.defect}</div>
-                  <div style={{fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right'}}>
-                    {new Date(os.createdAt).toLocaleDateString()}
+                <div 
+                  key={os.id} 
+                  style={s.card} 
+                  draggable={os.status !== 'ARQUIVADA'} 
+                  onDragStart={(e) => onDragStart(e, os.id)}
+                  onClick={() => openOsModal(os)}
+                >
+                  <div style={s.cardTitle}>
+                    <span>#{os.id.substring(os.id.length - 6).toUpperCase()}</span>
+                    {os.status === 'FINALIZADA' && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setSelectedOs(os); handleUpdate('ARQUIVADA'); }}
+                        style={{background: 'none', border: 'none', color: '#717171', cursor: 'pointer'}}
+                      >
+                        <Archive size={14} />
+                      </button>
+                    )}
                   </div>
+                  <div style={{...s.cardText, color: '#fff', fontWeight: 800, fontSize: '0.95rem'}}><User size={14} color="#D4AF37"/> {getClientName(os)}</div>
+                  <div style={{...s.cardText, fontSize: '0.75rem', color: '#717171', marginBottom: '8px'}}>Sol: {os.contact?.name}</div>
+                  <div style={s.cardText}><Settings size={14} color="#D4AF37"/> {os.equipment?.model}</div>
+                  <div style={s.cardDefect}>{os.defect}</div>
+                  
+                  {os.status === 'ARQUIVADA' ? (
+                    <div style={{fontSize: '0.65rem', color: '#D4AF37', marginTop: '12px', background: '#000', padding: '6px', borderRadius: '4px', border: '1px solid #222'}}>
+                      <div>Fechada em: {new Date(os.closedAt || os.updatedAt).toLocaleString()}</div>
+                      <div>Por: {os.closedBy?.name || 'Sistema'}</div>
+                    </div>
+                  ) : (
+                    <div style={{fontSize: '0.7rem', color: '#555', marginTop: '12px', display: 'flex', justifyContent: 'space-between'}}>
+                      <span>{os.user?.name || 'Atendente'}</span>
+                      <span>{new Date(os.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -126,46 +249,81 @@ export default function ServiceOrders() {
       {showModal && selectedOs && (
         <div style={s.overlay}>
           <div style={s.modal}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
-              <h2 style={{color: 'var(--text-main)', margin: 0}}>O.S. #{selectedOs.id.substring(selectedOs.id.length - 6).toUpperCase()}</h2>
-              <button onClick={() => setShowModal(false)} style={{background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem'}}>✕</button>
-            </div>
-
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px'}}>
-              <div>
-                <div style={s.cardText}>Cliente: {selectedOs.contact?.name}</div>
-                <div style={s.cardText}>Equipamento: {selectedOs.equipment?.model} (Série: {selectedOs.equipment?.serialNumber})</div>
-                <div style={s.cardText}>Endereço: {selectedOs.equipment?.address || selectedOs.contact?.address}</div>
+            <div style={s.modalHeader}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                <FileText color="#D4AF37" size={24} />
+                <h2 style={{color: '#fff', margin: 0, fontSize: '1.4rem'}}>O.S. #{selectedOs.id.substring(selectedOs.id.length - 6).toUpperCase()}</h2>
               </div>
-              <div>
-                <label style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Status</label>
-                <select style={s.input} value={status} onChange={e=>setStatus(e.target.value)}>
-                  <option value="PENDENTE">Pendente</option>
-                  <option value="EM_ATENDIMENTO">Em Atendimento</option>
-                  <option value="AGUARDANDO_RETORNO">Aguardando Retorno / Peça</option>
-                  <option value="FINALIZADA">Finalizada</option>
-                </select>
+              <button onClick={() => setShowModal(false)} style={{background: '#333', border: 'none', color: '#fff', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>✕</button>
+            </div>
+
+            <div style={s.modalContent}>
+              <div style={s.sidebar}>
+                <h4 style={{color: '#D4AF37', marginTop: 0, marginBottom: '16px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em'}}>DADOS DO CLIENTE</h4>
+                <div style={{marginBottom: '20px'}}>
+                  <div style={{color: '#fff', fontWeight: 800, fontSize: '1.2rem', marginBottom: '4px'}}>{getClientName(selectedOs)}</div>
+                  <div style={{color: '#717171', fontSize: '0.85rem'}}>Solicitante: {selectedOs.contact?.name}</div>
+                  <div style={{color: '#717171', fontSize: '0.85rem', marginTop: '12px'}}><Hash size={12} style={{display: 'inline', marginRight: '4px'}}/> {selectedOs.equipment?.contact?.cpfCnpj || selectedOs.contact?.cpfCnpj || 'CNPJ não informado'}</div>
+                </div>
+
+                <h4 style={{color: '#D4AF37', marginBottom: '12px', fontSize: '0.75rem', textTransform: 'uppercase'}}>EQUIPAMENTO</h4>
+                <div style={{color: '#fff', fontSize: '0.9rem', marginBottom: '4px'}}>{selectedOs.equipment?.model}</div>
+                <div style={{color: '#717171', fontSize: '0.85rem', marginBottom: '12px'}}>Série: {selectedOs.equipment?.serialNumber}</div>
+                <div style={{color: '#717171', fontSize: '0.85rem', display: 'flex', gap: '4px'}}>
+                  <MapPin size={14} color="#D4AF37" style={{flexShrink: 0}} />
+                  <span>{selectedOs.equipment?.address || selectedOs.contact?.address}</span>
+                </div>
+              </div>
+
+              <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                <div>
+                  <label style={{fontSize: '0.75rem', color: '#717171', textTransform: 'uppercase', fontWeight: 800, marginBottom: '8px', display: 'block'}}>Status da Ordem</label>
+                  <select style={{...s.input, width: '100%', height: '45px'}} value={status} onChange={e=>setStatus(e.target.value)}>
+                    {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    <option value="ARQUIVADA">Arquivada</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{fontSize: '0.75rem', color: '#717171', textTransform: 'uppercase', fontWeight: 800, marginBottom: '8px', display: 'block'}}>Leitura de Contadores</label>
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px'}}>
+                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                       <span style={{fontSize: '0.65rem', color: '#555'}}>P&B</span>
+                       <input style={{...s.input, padding: '12px'}} placeholder="000" value={meters.mono} onChange={e=>setMeters({...meters, mono: e.target.value})} />
+                     </div>
+                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                       <span style={{fontSize: '0.65rem', color: '#555'}}>COLOR</span>
+                       <input style={{...s.input, padding: '12px'}} placeholder="000" value={meters.color} onChange={e=>setMeters({...meters, color: e.target.value})} />
+                     </div>
+                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                       <span style={{fontSize: '0.65rem', color: '#555'}}>SCANNER</span>
+                       <input style={{...s.input, padding: '12px'}} placeholder="000" value={meters.scan} onChange={e=>setMeters({...meters, scan: e.target.value})} />
+                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{fontSize: '0.75rem', color: '#717171', textTransform: 'uppercase', fontWeight: 800, marginBottom: '8px', display: 'block'}}>Defeito / Solicitação do Cliente</label>
+                  <div style={{background: '#1A1A1B', border: '1px solid #333', borderRadius: '12px', padding: '16px', color: '#D4AF37', fontWeight: 700, fontSize: '0.95rem', borderLeft: '4px solid #D4AF37'}}>
+                    {selectedOs.defect}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{fontSize: '0.75rem', color: '#717171', textTransform: 'uppercase', fontWeight: 800, marginBottom: '8px', display: 'block'}}>Relatório Técnico / Peças Substituídas</label>
+                  <textarea 
+                    style={{...s.input, minHeight: '180px', resize: 'none', padding: '16px', lineHeight: '1.5', width: '100%'}} 
+                    placeholder="Descreva detalhadamente o serviço executado..." 
+                    value={notes} 
+                    onChange={e=>setNotes(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
-
-            <label style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Medidores (Opcional)</label>
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px'}}>
-              <input style={s.input} placeholder="PB" value={meters.mono} onChange={e=>setMeters({...meters, mono: e.target.value})} />
-              <input style={s.input} placeholder="Cor" value={meters.color} onChange={e=>setMeters({...meters, color: e.target.value})} />
-              <input style={s.input} placeholder="Scan" value={meters.scan} onChange={e=>setMeters({...meters, scan: e.target.value})} />
-            </div>
-
-            <label style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Notas do Técnico (Peças trocadas, etc)</label>
-            <textarea 
-              style={s.textarea} 
-              placeholder="Descreva o que foi feito..." 
-              value={notes} 
-              onChange={e=>setNotes(e.target.value)}
-            />
 
             <div style={s.btnGroup}>
-              <a href={`/api/os/${selectedOs.id}/pdf`} target="_blank" rel="noreferrer" style={s.pdfBtn}>Gerar / Imprimir PDF</a>
-              <button style={s.saveBtn} onClick={handleUpdate}>Salvar Atualizações</button>
+              <a href={`/api/os/${selectedOs.id}/pdf?token=${localStorage.getItem('token')}`} target="_blank" rel="noreferrer" style={s.pdfBtn}>Gerar / Imprimir PDF</a>
+              <button style={s.saveBtn} onClick={() => handleUpdate()}>Salvar Atualizações</button>
             </div>
           </div>
         </div>

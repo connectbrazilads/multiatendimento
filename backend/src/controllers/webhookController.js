@@ -389,13 +389,27 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 
   // 3. SYSTEM PROMPT (Prioridade para o que o usuário escreveu no painel)
   const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
-  const currentNotes = contact.notes || 'Nenhuma observação cadastrada.';
+  // 4. EQUIPAMENTOS DO CLIENTE (Contexto Técnico para a IA)
+  const equipments = await prisma.equipment.findMany({
+    where: { contactId: contact.id, isActive: true }
+  });
+  const equipContext = equipments.length > 0 
+    ? equipments.map(e => `- ${e.manufacturer || ''} ${e.model} (Série: ${e.serialNumber || 'N/A'}, Tipo: ${e.type || 'N/A'}, Local: ${e.sector || 'N/A'})`).join('\n')
+    : 'Nenhum equipamento cadastrado para este cliente.';
 
   const enhancedSystemPrompt = `${userPrompt}
 
 ---
+[EQUIPAMENTOS DO CLIENTE]:
+${equipContext}
+
+---
 [NOTAS DO CLIENTE (MEMÓRIA)]:
 ${currentNotes}
+
+---
+[REGRA DE NEGÓCIO]:
+Você deve agir como suporte técnico. Se o cliente perguntar sobre algum equipamento, use os dados acima para confirmar o modelo ou série se necessário.
 
 ---
 REGRA ANTI-ALUCINAÇÃO (OBRIGATÓRIA):

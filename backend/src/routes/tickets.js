@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
 const upload = require('../middlewares/upload');
-const { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, reopen, summarize, deleteMessage, spellCheck } = require('../controllers/ticketController');
+const { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, reopen, summarize, deleteMessage, spellCheck, linkContact } = require('../controllers/ticketController');
 
 router.use(authenticate);
 router.get('/', list);
@@ -9,6 +9,7 @@ router.get('/:id/messages', getMessages);
 router.patch('/:id', update);
 router.patch('/:id/assign', assign);
 router.patch('/:id/resolve', resolve);
+router.patch('/:id/link-contact', linkContact);
 router.post('/:id/messages', sendMessage);
 router.post('/:id/media', upload.single('file'), sendMediaMessage);
 router.post('/:id/summarize', summarize);

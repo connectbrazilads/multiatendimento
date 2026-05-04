@@ -50,6 +50,16 @@ model TenantSettings {
   notificationPhone  String?
   ratingEnabled      Boolean  @default(false)
   ratingMessage      String?  @default("Como você avalia nosso atendimento de 1 a 5?") @db.Text
+  
+  // Dados da Empresa para PDF/OS
+  companyName       String?
+  companyCnpj       String?
+  companyIE         String?
+  companyAddress    String?
+  companyBairro     String?
+  companyCep        String?
+  companyPhone      String?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
 }
@@ -71,6 +81,8 @@ model User {
   tickets     Ticket[]
   ticketEvents TicketEvent[]
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  serviceOrders ServiceOrder[]
+  closedOrders  ServiceOrder[] @relation("ClosedBy")
 
   @@unique([tenantId, email])
 }
@@ -112,10 +124,12 @@ model Contact {
   instanceId String
   phone      String
   name       String?
+  fantasyName String?
   avatarUrl  String?
   createdAt  DateTime   @default(now())
   notes      String?
   tags       String     @default("[]")
+  whatsapp   String?    @unique
   
   // Dados extras para CRM
   cpfCnpj    String?
@@ -280,6 +294,8 @@ model Equipment {
   tenantId     String
   contactId    String
   model        String
+  manufacturer String?
+  type         String?
   serialNumber String?
   sector       String?
   address      String?
@@ -302,10 +318,17 @@ model ServiceOrder {
   status         String     @default("PENDENTE") // PENDENTE, EM_ATENDIMENTO, AGUARDANDO_RETORNO, FINALIZADA
   technicalNotes String?    // Notas do técnico (peças trocadas, pendências)
   meters         String?    // Medidores em JSON (ex: {"mono": 1000, "cor": 500})
+  userId         String?    // Atendente que criou a O.S.
+
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   resolvedAt     DateTime?
+  
+  closedAt       DateTime?
+  closedById     String?
+  closedBy       User?      @relation("ClosedBy", fields: [closedById], references: [id])
 
+  user           User?      @relation(fields: [userId], references: [id])
   tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contact        Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   equipment      Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)

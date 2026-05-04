@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
-const { getEquipments, addEquipment, updateEquipment, getOSList, createOS, updateOS, generatePdf, draftOS } = require('../controllers/osController');
+const { getEquipments, addEquipment, updateEquipment, deleteEquipment, getOSList, createOS, updateOS, generatePdf, draftOS } = require('../controllers/osController');
 
 router.use(authenticate);
 
@@ -8,6 +8,7 @@ router.use(authenticate);
 router.get('/contacts/:contactId/equipments', getEquipments);
 router.post('/contacts/:contactId/equipments', addEquipment);
 router.patch('/equipments/:id', updateEquipment);
+router.delete('/equipments/:id', deleteEquipment);
 
 // OS CRUD
 router.get('/', getOSList);

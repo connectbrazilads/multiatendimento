@@ -2,11 +2,15 @@ const prisma = require('../lib/prisma');
 const xlsx = require('xlsx');
 
 async function list(req, res) {
-  const { q } = req.query;
+  const q = req.query.q || req.query.search;
+  console.log(`[Contacts] Buscando por: "${q}" | Tenant: ${req.user.tenantId}`);
   const where = { tenantId: req.user.tenantId };
   if (q) where.OR = [
     { name: { contains: q, mode: 'insensitive' } },
+    { fantasyName: { contains: q, mode: 'insensitive' } },
+    { cpfCnpj: { contains: q, mode: 'insensitive' } },
     { phone: { contains: q } },
+    { whatsapp: { contains: q } },
   ];
 
   const contacts = await prisma.contact.findMany({
@@ -44,7 +48,11 @@ async function getHistory(req, res) {
 
 async function updateContact(req, res) {
   const { id } = req.params;
-  const { notes, tags, name } = req.body;
+  const { 
+    notes, tags, name, fantasyName, email, 
+    cpfCnpj, address, city, state, zipCode 
+  } = req.body;
+
   const contact = await prisma.contact.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!contact) return res.status(404).json({ error: 'Contato não encontrado' });
 
@@ -52,8 +60,15 @@ async function updateContact(req, res) {
     where: { id },
     data: {
       ...(notes !== undefined && { notes }),
-      ...(tags !== undefined && { tags: JSON.stringify(tags) }),
+      ...(tags !== undefined && { tags: typeof tags === 'string' ? tags : JSON.stringify(tags) }),
       ...(name !== undefined && { name }),
+      ...(fantasyName !== undefined && { fantasyName: String(fantasyName) }),
+      ...(email !== undefined && { email }),
+      ...(cpfCnpj !== undefined && { cpfCnpj }),
+      ...(address !== undefined && { address }),
+      ...(city !== undefined && { city }),
+      ...(state !== undefined && { state }),
+      ...(zipCode !== undefined && { zipCode }),
     },
   });
   res.json(updated);
@@ -116,15 +131,26 @@ async function getTags(req, res) {
 }
 
 async function importExcel(req, res) {
+  console.log('[importExcel] Request received', { file: req.file?.originalname, size: req.file?.size });
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     const { tenantId } = req.user;
 
-    // Se não tiver instância padrão, pega a primeira ativa
-    const inst = await prisma.waInstance.findFirst({ where: { tenantId, status: 'CONNECTED' } });
-    if (!inst) return res.status(400).json({ error: 'Nenhuma conexão ativa do WhatsApp para vincular contatos' });
+    // Busca uma instância para vincular os contatos (prioriza conectada, mas aceita qualquer uma para testes)
+    let inst = await prisma.waInstance.findFirst({ 
+      where: { 
+        tenantId, 
+        status: { in: ['CONNECTED', 'connected', 'open'] } 
+      } 
+    });
 
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    if (!inst) {
+      inst = await prisma.waInstance.findFirst({ where: { tenantId } });
+    }
+    
+    if (!inst) return res.status(400).json({ error: 'Nenhuma instância de WhatsApp encontrada para este tenant. Crie uma conexão primeiro (mesmo que não conectada) para permitir a importação.' });
+
+    const workbook = xlsx.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
     const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
@@ -134,14 +160,35 @@ async function importExcel(req, res) {
     for (const row of rows) {
       // Mapeamento esperado: Nome, Telefone, CNPJ, Endereço, Modelo Equipamento, Número Série, Setor Equipamento
       // Adaptar para nomes das colunas ou buscar chaves de forma flexível
-      const name = row['Nome'] || row['NOME'] || row['name'];
-      let phone = row['Telefone'] || row['TELEFONE'] || row['phone'] || row['celular'];
-      const cpfCnpj = row['CNPJ'] || row['CPF'] || row['cpfCnpj'];
-      const address = row['Endereço'] || row['ENDEREÇO'] || row['address'];
+      // Mapeamento Flexível de Colunas
+      const rawName = row['Cliente (Razão)'] || row['Cliente'] || row['NOME'] || row['Nome'] || row['cliente'];
+      const name = rawName ? String(rawName).trim() : null;
       
-      const equipModel = row['Modelo Equipamento'] || row['Equipamento'] || row['Máquina'] || row['model'];
-      const equipSerial = row['Número Série'] || row['Série'] || row['serial'];
-      const equipSector = row['Setor'] || row['Departamento'] || row['sector'];
+      const rawFantasy = row['Cliente (Fantasia)'] || row['Fantasia'] || row['Nome Fantasia'] || row['fantasyName'];
+      const fantasyName = rawFantasy ? String(rawFantasy).trim() : null;
+      
+      const rawCpf = row['CNPJ'] || row['CPF'] || row['CpfCnpj'] || row['cpfCnpj'] || row['CNPJ/CPF'];
+      const cpfCnpj = rawCpf ? String(rawCpf).trim() : null;
+      
+      let phone = row['Celular'] || row['Fone (1)'] || row['Fone'] || row['TELEFONE'] || row['Telefone'] || row['phone'] || row['whatsapp'];
+      
+      const addr = row['Endereço'] || row['ENDEREÇO'] || row['Rua'] || row['address'];
+      const num = row['Número'] || '';
+      const address = [addr, num].filter(Boolean).join(', ');
+      
+      const city = row['Cidade'] || row['CIDADE'] || row['city'];
+      const state = row['UF'] || row['ESTADO'] || row['State'];
+      const bairro = row['Bairro'] || row['BAIRRO'] || '';
+      
+      const equipModel = row['Modelo'] || row['MODELO'] || row['Modelo Equipamento'] || row['Equipamento'] || row['Máquina'] || row['model'];
+      const equipSerial = row['Serie'] || row['SERIE'] || row['Série'] || row['Número Série'] || row['serial'];
+      const equipManufacturer = row['Fabricante'] || row['FABRICANTE'] || row['manufacturer'];
+      const equipType = row['Equipamento Tipo'] || row['Tipo'] || row['TIPO'] || row['type'];
+      // Local de instalação e Departamento são detalhes do equipamento
+      const loc = row['Local Instalação'] || '';
+      const dep = row['Departamento'] || '';
+      const equipSector = [dep, loc].filter(Boolean).join(' - ') || 'Geral';
+      const equipAddr = address; // O endereço da linha da planilha vai para o equipamento individual
 
       if (!phone) continue;
       phone = String(phone).replace(/\D/g, '');
@@ -150,7 +197,7 @@ async function importExcel(req, res) {
       let contact = await prisma.contact.findFirst({ where: { tenantId, phone } });
       if (!contact) {
         contact = await prisma.contact.create({
-          data: { tenantId, instanceId: inst.id, phone, name, cpfCnpj, address }
+          data: { tenantId, instanceId: inst.id, phone, name, fantasyName, cpfCnpj, address, city, state }
         });
         importedContacts++;
       } else {
@@ -158,8 +205,11 @@ async function importExcel(req, res) {
           where: { id: contact.id },
           data: { 
             name: name || contact.name, 
+            fantasyName: fantasyName || contact.fantasyName,
             cpfCnpj: cpfCnpj || contact.cpfCnpj, 
-            address: address || contact.address 
+            address: address || contact.address,
+            city: city || contact.city,
+            state: state || contact.state
           }
         });
       }
@@ -176,8 +226,23 @@ async function importExcel(req, res) {
               tenantId,
               contactId: contact.id,
               model: String(equipModel),
+              manufacturer: equipManufacturer ? String(equipManufacturer) : null,
+              type: equipType ? String(equipType) : null,
               serialNumber: equipSerial ? String(equipSerial) : null,
-              sector: equipSector ? String(equipSector) : null
+              sector: equipSector ? String(equipSector) : null,
+              address: equipAddr ? String(equipAddr) : null
+            }
+          });
+          importedEquipments++;
+        } else {
+          // Atualiza o equipamento existente com os novos campos (Fabricante, Tipo, etc)
+          await prisma.equipment.update({
+            where: { id: existEquip.id },
+            data: {
+              manufacturer: equipManufacturer ? String(equipManufacturer) : (existEquip.manufacturer),
+              type: equipType ? String(equipType) : (existEquip.type),
+              sector: equipSector ? String(equipSector) : (existEquip.sector),
+              address: equipAddr ? String(equipAddr) : (existEquip.address)
             }
           });
           importedEquipments++;
@@ -192,4 +257,15 @@ async function importExcel(req, res) {
   }
 }
 
-module.exports = { list, getHistory, updateContact, getMedia, create, getTags, importExcel };
+async function deleteContact(req, res) {
+  const { id } = req.params;
+  const { tenantId } = req.user;
+  try {
+    await prisma.contact.delete({ where: { id, tenantId } });
+    res.json({ message: 'Contato excluído com sucesso' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir contato' });
+  }
+}
+
+module.exports = { list, getHistory, updateContact, getMedia, create, getTags, importExcel, deleteContact };

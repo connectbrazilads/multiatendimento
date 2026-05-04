@@ -108,7 +108,7 @@ export default function Layout() {
               <LinkIcon size={18} /> Conexões
             </NavLink>
             <NavLink to="/contacts" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <Users size={18} /> Contatos
+              <Users size={18} /> Clientes / CRM
             </NavLink>
             <NavLink to="/campaigns" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
               <Megaphone size={18} /> Campanhas

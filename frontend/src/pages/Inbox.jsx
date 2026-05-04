@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { 
+import api, { 
   getTickets, getMessages, sendMessage, sendMediaMessage, 
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
   getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
-  getTags, getSettings, getMediaUrl
+  getTags, getSettings, getMediaUrl, getEquipments
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 
-import AudioPlayer from '../components/AudioPlayer';
 import CreateOsModal from '../components/CreateOsModal';
+import LinkContactModal from '../components/LinkContactModal';
 
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);
@@ -23,6 +23,7 @@ export default function Inbox() {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [transferModal, setTransferModal] = useState(false);
+  const [linkModal, setLinkModal] = useState(false);
   const [showOsModal, setShowOsModal] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
@@ -40,6 +41,7 @@ export default function Inbox() {
   const [view, setView] = useState('list'); // 'list' or 'chat'
   const [spellModal, setSpellModal] = useState(null); // { original, corrected }
   const [spellChecking, setSpellChecking] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
   const isMobile = window.innerWidth <= 768;
 
   useEffect(() => {
@@ -429,7 +431,14 @@ export default function Inbox() {
                 <div style={{ ...s.chatName, fontSize: isMobile ? '0.9rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selectedTicket.contact.name || selectedTicket.contact.phone}
                 </div>
-                {!isMobile && <div style={s.chatPhone}>{selectedTicket.contact.phone} · Conexão: {selectedTicket.instance?.instanceName?.split('_').pop().toUpperCase()}</div>}
+                {/* Mostra a empresa vinculada no cabeçalho se existir */}
+                {!isMobile && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ ...s.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
+                      {selectedTicket.contact.phone}
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ ...s.headerActions, gap: isMobile ? '4px' : '0.75rem' }}>
                 <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={() => setShowOsModal(true)}>
@@ -644,11 +653,36 @@ export default function Inbox() {
       </main>
 
       {showInfo && selectedTicket && (
-        <ContactPanel ticket={selectedTicket} onClose={() => setShowInfo(false)} onUpdate={loadTickets} onImageClick={setPreviewImg} isMobile={isMobile} />
+        <ContactPanel 
+          key={selectedTicket.contact.id + '_' + updateTrigger}
+          ticket={selectedTicket} 
+          onClose={() => setShowInfo(false)} 
+          onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}
+          onImageClick={setPreviewImg}
+          isMobile={isMobile}
+          onLinkCRM={() => setLinkModal(true)}
+        />
       )}
 
       {/* Modais */}
       {transferModal && <TransferModal users={users} teams={teams} onClose={() => setTransferModal(false)} onTransfer={handleTransfer} />}
+      
+      {linkModal && (
+        <LinkContactModal 
+          onClose={() => setLinkModal(false)}
+          onLink={async (targetId) => {
+            try {
+              const res = await axios.patch(`/api/tickets/${selectedTicket.id}/link-contact`, { contactId: targetId }, { withCredentials: true });
+              setSelectedTicket(res.data);
+              setLinkModal(false);
+              loadTickets();
+              alert('Conversa vinculada ao cliente CRM com sucesso!');
+            } catch (e) {
+              alert('Erro ao vincular cliente');
+            }
+          }}
+        />
+      )}
       
       {showScheduling && (
         <div style={s.overlay} onClick={() => setShowScheduling(false)}>
@@ -707,7 +741,6 @@ export default function Inbox() {
             </div>
           </div>
         </div>
-        </div>
       )}
 
       {transferModal && (
@@ -725,7 +758,30 @@ export default function Inbox() {
           onClose={() => setShowOsModal(false)}
           onCreated={(os) => {
             setShowOsModal(false);
-            window.open(`/api/os/${os.id}/pdf`, '_blank');
+            const token = localStorage.getItem('token');
+            window.open(`/api/os/${os.id}/pdf?token=${token}`, '_blank');
+          }}
+        />
+      )}
+
+      {linkModal && (
+        <LinkContactModal 
+          onClose={() => setLinkModal(false)}
+          onLink={async (targetId) => {
+            try {
+              console.log('[LinkContact] Tentando vincular ticket:', selectedTicket?.id, 'ao contato:', targetId);
+              const res = await api.patch(`/tickets/${selectedTicket.id}/link-contact`, { contactId: targetId });
+              console.log('[LinkContact] Sucesso:', res.data);
+              
+              // Atualiza a lista de tickets e o gatilho de visualização
+              loadTickets(); 
+              setUpdateTrigger(prev => prev + 1);
+              setLinkModal(false);
+              alert('Cliente vinculado com sucesso!');
+            } catch (e) {
+              console.error('[LinkContact] Erro ao vincular:', e.response?.data || e.message);
+              alert('Erro ao vincular cliente: ' + (e.response?.data?.error || e.message));
+            }
           }}
         />
       )}
@@ -761,7 +817,7 @@ function AudioPlayer({ src, fromMe, transcription }) {
   );
 }
 
-function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile }) {
+function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM }) {
   const contact = ticket.contact;
   const [notes, setNotes] = useState(contact.notes || '');
   const [priority, setPriority] = useState(ticket.priority || 'medium');
@@ -770,10 +826,21 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile }) {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [availableTags, setAvailableTags] = useState([]);
+  const [equipments, setEquipments] = useState([]);
+
+  const [linkedCrm, setLinkedCrm] = useState(null);
 
   useEffect(() => {
     getContactMedia(contact.id).then(r => setMedia(r.data));
     getTags().then(r => setAvailableTags(r.data));
+    getEquipments(contact.id).then(r => setEquipments(r.data));
+    
+    // Busca se existe uma empresa vinculada a este telefone
+    api.get(`/contacts?search=${contact.phone}`).then(r => {
+      const list = r.data.contacts || r.data || [];
+      const crm = list.find(c => c.id !== contact.id && c.whatsapp === contact.phone);
+      setLinkedCrm(crm);
+    }).catch(() => {});
   }, [contact.id]);
 
   async function saveContact() { 
@@ -823,8 +890,50 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile }) {
         <div style={s.infoProfile}>
           <Avatar name={contact.name || contact.phone} src={contact.avatarUrl} size={80} />
           <h4 style={s.infoName}>{contact.name || contact.phone}</h4>
+          
+          {linkedCrm ? (
+            <div style={{ 
+              color: '#D4AF37', 
+              fontSize: '0.9rem', 
+              fontWeight: 800, 
+              marginBottom: 12,
+              padding: '6px 16px',
+              background: 'rgba(212,175,55,0.1)',
+              borderRadius: '12px',
+              border: '1px solid rgba(212,175,55,0.2)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              🏢 {linkedCrm.fantasyName || linkedCrm.name}
+            </div>
+          ) : (
+            contact.fantasyName && (
+              <div style={{ 
+                color: 'var(--accent)', 
+                fontSize: '0.9rem', 
+                fontWeight: 700, 
+                marginBottom: 8,
+                padding: '4px 12px',
+                background: 'rgba(212,175,55,0.1)',
+                borderRadius: '8px',
+                display: 'inline-block'
+              }}>
+                🏢 {contact.fantasyName}
+              </div>
+            )
+          )}
+          
           <div style={s.infoPhone}>{contact.phone}</div>
-          <div style={s.infoBadge}>WhatsApp Business</div>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <div style={s.infoBadge}>WhatsApp</div>
+            <button 
+              onClick={onLinkCRM}
+              style={{ ...s.infoBadge, background: 'var(--accent)', color: '#000', cursor: 'pointer', border: 'none' }}
+            >
+              🔗 Vincular CRM
+            </button>
+          </div>
         </div>
 
         <div style={s.infoSection}>
@@ -882,6 +991,21 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile }) {
             onBlur={saveContact}
             placeholder="Adicione observações sobre este cliente..."
           />
+        </div>
+
+        <div style={s.infoSection}>
+          <h5 style={s.infoLabel}>🛠️ EQUIPAMENTOS</h5>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {equipments.map(e => (
+              <div key={e.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{e.manufacturer ? `${e.manufacturer} ` : ''}{e.model}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{e.type || 'Equipamento'}</div>
+                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Série: {e.serialNumber || 'S/N'}</div>
+                {e.sector && <div style={{ fontSize: '0.75rem', color: '#888' }}>Setor: {e.sector}</div>}
+              </div>
+            ))}
+            {equipments.length === 0 && <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhum equipamento vinculado</div>}
+          </div>
         </div>
 
         <div style={s.infoSection}>
@@ -975,7 +1099,7 @@ const s = {
   bubbleWrap: { display: 'flex', width: '100%' },
   bubble: { padding: '0.8rem 1.2rem', borderRadius: '16px', maxWidth: '85%', fontSize: '0.95rem', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: 'var(--shadow-sm)' },
   time: { fontSize: '0.65rem', marginTop: 6, fontWeight: 700 },
-  imgMedia: { maxWidth: '100%', borderRadius: '12px', cursor: 'pointer' },
+  imgMedia: { maxWidth: '300px', maxHeight: '300px', borderRadius: '12px', cursor: 'pointer', objectFit: 'contain' },
   docLink: { color: 'inherit', fontWeight: 700, textDecoration: 'none' },
   transcription: { fontSize: '0.8rem', fontStyle: 'italic', padding: '4px 8px', marginTop: 8, background: 'var(--border-light)', borderRadius: 6 },
   

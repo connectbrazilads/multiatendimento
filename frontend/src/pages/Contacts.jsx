@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getContacts, createContact, createTicket, updateContact } from '../services/api';
+import { getContacts, createContact, createTicket, updateContact, importContacts } from '../services/api';
 import { Edit2, MessageSquare, Plus, Search, BookUser, Upload } from 'lucide-react';
 import axios from 'axios';
 import ContactProfileModal from '../components/ContactProfileModal';
@@ -55,14 +55,13 @@ export default function Contacts() {
     formData.append('file', file);
     setLoading(true);
     try {
-      const res = await axios.post('/api/contacts/import', formData, { 
-        headers: { 'Content-Type': 'multipart/form-data' },
-        withCredentials: true 
-      });
+      const res = await importContacts(formData);
       alert(res.data.message);
       loadContacts();
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao importar planilha');
+      console.error('Erro detalhado na importação:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Erro desconhecido';
+      alert(`Erro na Importação:\n${errorMsg}\n\nStatus: ${err.response?.status || 'Sem Resposta'}`);
     } finally {
       setLoading(false);
       e.target.value = null; // reset input
@@ -120,7 +119,7 @@ export default function Contacts() {
     <div style={s.container}>
       <div style={s.header}>
         <div>
-          <h1 style={s.title}><BookUser size={32} /> Agenda de Contatos</h1>
+          <h1 style={s.title}><BookUser size={32} /> Clientes / CRM</h1>
           <p style={{ color: 'var(--text-muted)' }}>Gerencie seus clientes e inicie novas conversas.</p>
         </div>
         <div style={{ display: 'flex', gap: '16px' }}>
@@ -133,8 +132,16 @@ export default function Contacts() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <button 
+            style={{ ...s.addBtn, background: 'rgba(212,175,55,0.1)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }} 
+            onClick={() => document.getElementById('importExcel').click()}
+          >
+            <Upload size={20} /> Importar Excel
+          </button>
+          <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onChange={handleImportExcel} />
+
           <button style={s.addBtn} onClick={() => setShowAddModal(true)}>
-            <Plus size={20} /> Novo Contato
+            <Plus size={20} /> Novo Cliente
           </button>
         </div>
       </div>
@@ -148,6 +155,7 @@ export default function Contacts() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={s.cardName}>{c.name || 'Sem nome'}</div>
+                  {c.fantasyName && <div style={{ color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 600, marginTop: -4, marginBottom: 4 }}>{c.fantasyName}</div>}
                   <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
                 </div>
                 <button 

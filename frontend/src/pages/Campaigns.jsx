@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
+import { SOCKET_URL } from '../services/socket';
 import { getTags, createTag, updateContact, getContacts, sendCampaign, getQuickResponses } from '../services/api';
 
 export default function Campaigns() {
@@ -20,8 +21,9 @@ export default function Campaigns() {
   const [newTagName, setNewTagName] = useState('');
 
   useEffect(() => {
+    console.log('[Campaigns] Componente montado');
     const token = localStorage.getItem('token');
-    const socket = io({ auth: { token } });
+    const socket = io(SOCKET_URL, { auth: { token } });
 
     loadTags();
     loadTemplates();
@@ -216,7 +218,7 @@ export default function Campaigns() {
           >
             <option value="">Selecione um modelo pronto...</option>
             {templates.map(t => (
-              <option key={t.id} value={t.body}>{t.shortcut} - {t.body.slice(0, 30)}...</option>
+              <option key={t.id} value={t.message}>{t.shortcut} - {(t.message || '').slice(0, 30)}...</option>
             ))}
           </select>
         </div>

@@ -25,7 +25,8 @@ async function saveSettings(req, res) {
   const { 
     botEnabled, geminiKey, systemPrompt, transferKeyword, 
     evolutionUrl, evolutionKey, webhookUrl, outOfOfficeMessage,
-    ratingEnabled, ratingMessage, notificationPhone
+    ratingEnabled, ratingMessage, notificationPhone,
+    companyName, companyCnpj, companyIE, companyAddress, companyBairro, companyCep, companyPhone
   } = req.body;
 
   const settings = await prisma.tenantSettings.upsert({
@@ -41,7 +42,14 @@ async function saveSettings(req, res) {
       outOfOfficeMessage,
       ratingEnabled,
       ratingMessage,
-      notificationPhone
+      notificationPhone,
+      companyName,
+      companyCnpj,
+      companyIE,
+      companyAddress,
+      companyBairro,
+      companyCep,
+      companyPhone
     },
     create: { 
       tenantId: req.user.tenantId, 
@@ -55,7 +63,14 @@ async function saveSettings(req, res) {
       outOfOfficeMessage,
       ratingEnabled,
       ratingMessage,
-      notificationPhone
+      notificationPhone,
+      companyName,
+      companyCnpj,
+      companyIE,
+      companyAddress,
+      companyBairro,
+      companyCep,
+      companyPhone
     },
   });
 
@@ -84,4 +99,17 @@ async function saveBusinessHours(req, res) {
   res.json({ ok: true });
 }
 
-module.exports = { getSettings, saveSettings, getBusinessHours, saveBusinessHours };
+async function uploadLogo(req, res) {
+  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+  
+  const url = `/uploads/${req.file.filename}`;
+  
+  await prisma.tenant.update({
+    where: { id: req.user.tenantId },
+    data: { logoUrl: url }
+  });
+  
+  res.json({ url });
+}
+
+module.exports = { getSettings, saveSettings, getBusinessHours, saveBusinessHours, uploadLogo };

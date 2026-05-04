@@ -1,12 +1,29 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
 const isAdmin = require('../middlewares/isAdmin');
-const { getSettings, saveSettings, getBusinessHours, saveBusinessHours } = require('../controllers/settingsController');
+const { getSettings, saveSettings, getBusinessHours, saveBusinessHours, uploadLogo } = require('../controllers/settingsController');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
 router.use(authenticate);
 router.get('/', getSettings);
 router.post('/', isAdmin, saveSettings);
 router.get('/business-hours', getBusinessHours);
 router.post('/business-hours', isAdmin, saveBusinessHours);
+router.post('/logo', isAdmin, upload.single('file'), uploadLogo);
 
 module.exports = router;

@@ -45,6 +45,11 @@ export const getSettings = () => api.get('/settings');
 export const saveSettings = (data) => api.post('/settings', data);
 export const getBusinessHours = () => api.get('/settings/business-hours');
 export const saveBusinessHours = (data) => api.post('/settings/business-hours', data);
+export const uploadLogo = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post('/settings/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
 
 // Instance
 export const getInstances = () => api.get('/instance/list');
@@ -59,6 +64,7 @@ export const getContactTags = () => api.get('/contacts/tags');
 export const getContactHistory = (id) => api.get(`/contacts/${id}/history`);
 export const updateContact = (id, data) => api.patch(`/contacts/${id}`, data);
 export const getContactMedia = (id) => api.get(`/contacts/${id}/media`);
+export const importContacts = (formData) => api.post('/contacts/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 // Tickets
 export const getTickets = (status, mine = false, filters = {}) => api.get('/tickets', { params: { status, mine, ...filters } });
@@ -128,5 +134,14 @@ export const deleteTag = (id) => api.delete(`/tags/${id}`);
 
 // Dashboard
 export const getDashboardStats = () => api.get('/dashboard/stats');
+
+// OS & Equipments
+export const getEquipments = (contactId) => api.get(`/os/contacts/${contactId}/equipments`);
+export const updateEquipment = (id, data) => api.patch(`/os/equipments/${id}`, data);
+export const deleteEquipment = (id) => api.delete(`/os/equipments/${id}`);
+export const createOS = (data) => api.post('/os', data);
+export const getOSList = (filters) => api.get('/os', { params: filters });
+
+export const deleteContact = (id) => api.delete(`/contacts/${id}`);
 
 export default api;

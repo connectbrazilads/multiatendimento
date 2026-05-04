@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { 
   getSettings, saveSettings, updateProfile, getMe, getQuickResponses, 
   createQuickResponse, deleteQuickResponse, getBusinessHours, saveBusinessHours,
-  getTags, createTag, deleteTag
+  getTags, createTag, deleteTag, uploadLogo, getMediaUrl
 } from '../services/api';
 
-const TABS = ['Robô IA', 'Atendimento', 'Respostas Rápidas', 'Etiquetas', 'Minha Conta'];
+const TABS = ['Robô IA', 'Atendimento', 'Empresa', 'Respostas Rápidas', 'Etiquetas', 'Minha Conta'];
 
 export default function Settings() {
   const isMobile = window.innerWidth <= 768;
@@ -20,8 +20,17 @@ export default function Settings() {
     outOfOfficeMessage: '',
     ratingEnabled: false,
     ratingMessage: '',
-    notificationPhone: ''
+    notificationPhone: '',
+    companyName: '',
+    companyFantasyName: '',
+    companyCnpj: '',
+    companyIE: '',
+    companyAddress: '',
+    companyBairro: '',
+    companyCep: '',
+    companyPhone: ''
   });
+  const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -43,6 +52,7 @@ export default function Settings() {
     try {
       const { data } = await getMe();
       setProfile({ name: data.name, email: data.email, password: '' });
+      setTenant(data.tenant);
     } catch { /* erro ao carregar perfil */ }
     try {
       const { data } = await getQuickResponses();
@@ -121,6 +131,21 @@ export default function Settings() {
       setNewTag({ name: '', color: '#D4AF37' });
     } catch (err) {
       alert('Erro ao adicionar etiqueta');
+    }
+  }
+
+  async function handleLogoUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSaving(true);
+    try {
+      const { data } = await uploadLogo(file);
+      setTenant({ ...tenant, logoUrl: data.url });
+      alert('Logo atualizada com sucesso!');
+    } catch (err) {
+      alert('Erro ao subir logo');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -348,6 +373,125 @@ export default function Settings() {
       )}
 
       {tab === 2 && (
+        <div style={s.sections}>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>🏢 Dados da Empresa</h2>
+            <div style={s.form}>
+               <div style={s.field}>
+                  <label style={s.label}>Razão Social / Nome da Empresa</label>
+                  <input 
+                    style={s.input} 
+                    value={form.companyName} 
+                    onChange={e => setForm({ ...form, companyName: e.target.value })}
+                    placeholder="Sua Empresa LTDA"
+                  />
+               </div>
+               <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                 <div style={{ ...s.field, flex: 1 }}>
+                    <label style={s.label}>CNPJ / CPF</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyCnpj} 
+                      onChange={e => setForm({ ...form, companyCnpj: e.target.value })}
+                      placeholder="00.000.000/0001-00"
+                    />
+                 </div>
+                 <div style={{ ...s.field, flex: 1 }}>
+                    <label style={s.label}>Inscrição Estadual</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyIE} 
+                      onChange={e => setForm({ ...form, companyIE: e.target.value })}
+                      placeholder="Isento"
+                    />
+                 </div>
+               </div>
+               <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                 <div style={{ ...s.field, flex: 2 }}>
+                    <label style={s.label}>Endereço (Rua e Número)</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyAddress} 
+                      onChange={e => setForm({ ...form, companyAddress: e.target.value })}
+                      placeholder="Ex: Av. Brasil, 123"
+                    />
+                 </div>
+                 <div style={{ ...s.field, flex: 1 }}>
+                    <label style={s.label}>Bairro</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyBairro} 
+                      onChange={e => setForm({ ...form, companyBairro: e.target.value })}
+                      placeholder="Ex: Centro"
+                    />
+                 </div>
+               </div>
+               <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                 <div style={{ ...s.field, flex: 1 }}>
+                    <label style={s.label}>CEP</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyCep} 
+                      onChange={e => setForm({ ...form, companyCep: e.target.value })}
+                      placeholder="00000-000"
+                    />
+                 </div>
+                 <div style={{ ...s.field, flex: 1 }}>
+                    <label style={s.label}>Telefone de Contato</label>
+                    <input 
+                      style={s.input} 
+                      value={form.companyPhone} 
+                      onChange={e => setForm({ ...form, companyPhone: e.target.value })}
+                      placeholder="(00) 0000-0000"
+                    />
+                 </div>
+               </div>
+
+               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar Dados da Empresa'}</button>
+            </div>
+          </div>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>🖼️ Logotipo</h2>
+            <div style={{ ...s.form, alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+               <div style={{ 
+                 ...s.logoPreview, 
+                 width: '160px', 
+                 height: '160px', 
+                 display: 'flex', 
+                 alignItems: 'center', 
+                 justifyContent: 'center', 
+                 background: '#000',
+                 borderRadius: '16px',
+                 border: '2px dashed #333',
+                 overflow: 'hidden',
+                 marginBottom: '1rem'
+               }}>
+                 {tenant?.logoUrl ? (
+                   <img src={getMediaUrl(tenant.logoUrl)} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                 ) : (
+                   <span style={{ fontSize: '2rem' }}>🖼️</span>
+                 )}
+               </div>
+               <input 
+                 type="file" 
+                 id="logo-upload" 
+                 accept="image/*" 
+                 style={{ display: 'none' }} 
+                 onChange={handleLogoUpload} 
+               />
+               <label 
+                 htmlFor="logo-upload" 
+                 style={{ ...s.saveBtn, cursor: 'pointer', textAlign: 'center', width: '100%', display: 'block' }}
+               >
+                 {saving ? 'Enviando...' : 'Importar Nova Logo'}
+               </label>
+               <p style={s.hint}>Tamanho recomendado: 300x300px (PNG ou JPG)</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 3 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>⚡ Respostas Rápidas</h3>
@@ -374,7 +518,7 @@ export default function Settings() {
         </section>
       )}
 
-      {tab === 3 && (
+      {tab === 4 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>🏷️ Gestão de Etiquetas</h3>
@@ -411,7 +555,7 @@ export default function Settings() {
         </section>
       )}
 
-      {tab === 4 && (
+      {tab === 5 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>👤 Minha Conta</h3>
