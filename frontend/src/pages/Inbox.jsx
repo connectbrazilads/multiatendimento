@@ -365,7 +365,12 @@ export default function Inbox() {
           </div>
         </div>
         <div style={s.list}>
-          {tickets.filter(t => t.contact.name?.toLowerCase().includes(search.toLowerCase()) || t.contact.phone.includes(search)).map(t => (
+          {tickets.filter(t => {
+            const s = search.toLowerCase();
+            const name = (t.contact.name || '').toLowerCase();
+            const phone = t.contact.phone || '';
+            return name.includes(s) || phone.includes(s);
+          }).map(t => (
             <div key={t.id} onClick={() => selectTicket(t.id)} style={{ ...s.row, ...(selectedId === t.id ? s.rowActive : {}) }}>
               <Avatar name={t.contact.name || t.contact.phone} src={t.contact.avatarUrl} size={42} />
               <div style={s.rowInfo}>

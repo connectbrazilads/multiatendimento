@@ -397,13 +397,22 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   if (msgLower.includes('toner') || msgLower.includes('tonner') || msgLower.includes('cilindro')) autoCategory = 'SUPRIMENTO';
   if (msgLower.includes('falha') || msgLower.includes('não imprime') || msgLower.includes('parou')) autoCategory = 'SUPORTE';
 
-  // 2. MEMÓRIA DE LONGO PRAZO
+  // 2. MEMÓRIA DE LONGO PRAZO (Filtra mensagens de alucinação anteriores para não "viciar" a IA)
   const history = await prisma.message.findMany({
     where: { ticket: { contactId: contact.id }, id: { not: incomingMessage.id } },
     orderBy: { createdAt: 'desc' },
-    take: 10, 
+    take: 15, 
   });
-  const reversedHistory = [...history].reverse();
+  
+  // Remove do histórico mensagens onde o robô deu as opções "1 - Chamados Técnico", etc.
+  const cleanHistory = history.filter(m => {
+    if (!m.fromBot) return true;
+    const body = m.body.toLowerCase();
+    if (body.includes('chamados técnico') || body.includes('financeiro') || body.includes('opções que tenho disponíveis')) return false;
+    return true;
+  });
+
+  const reversedHistory = [...cleanHistory].reverse();
 
   // 3. SYSTEM PROMPT (Prioridade absoluta para o que o usuário escreveu no painel)
   const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
