@@ -243,7 +243,6 @@ async function generatePdf(req, res) {
     };
 
     pdfmake.setFonts(fonts);
-    const doc = pdfmake.createPdf(docDefinition);
     
     const dataOS = os.createdAt.toLocaleDateString('pt-BR');
     const horaOS = os.createdAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -462,6 +461,7 @@ async function generatePdf(req, res) {
       }
     };
 
+    const doc = pdfmake.createPdf(docDefinition);
     const stream = await doc.getStream();
     
     res.setHeader('Content-Type', 'application/pdf');
