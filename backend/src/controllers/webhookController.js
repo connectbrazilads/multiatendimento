@@ -181,8 +181,10 @@ async function handleWebhook(req, res) {
       }
     }
 
+    // 2. BUSCA OU CRIAÇÃO DE TICKET (Lógica Anti-Duplicação)
     let ticket = await prisma.ticket.findFirst({
-      where: { contactId: contact.id, status: { in: ['pending', 'open', 'bot'] } },
+      where: { contactId: contact.id },
+      orderBy: { createdAt: 'desc' }
     });
 
     if (!ticket) {
@@ -192,8 +194,17 @@ async function handleWebhook(req, res) {
           instanceId: waInstance.id,
           contactId: contact.id,
           status: fromMe ? 'open' : (tenant.settings?.botEnabled ? 'bot' : 'pending'),
-        },
+        }
       });
+      if (io) io.to(tenant.id).emit('new_ticket', ticket);
+    } else if (ticket.status === 'resolved') {
+      // Se o ticket já existia mas estava resolvido, REABRE ele para evitar duplicação na lista
+      ticket = await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { status: tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date() }
+      });
+      if (io) io.to(tenant.id).emit('ticket_updated', ticket);
+      console.log(`[webhook] Ticket ${ticket.id} reaberto para evitar duplicação.`);
     }
 
     const message = await prisma.message.create({
