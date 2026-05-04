@@ -841,7 +841,18 @@ function MediaContent({ message: m, onImageClick }) {
   const url = getMediaUrl(m.mediaUrl);
   if (url && m.mediaType === 'image') return <img src={url} alt="" style={s.imgMedia} onClick={() => onImageClick(url)} />;
   if (url && m.mediaType === 'audio') return <AudioPlayer src={url} fromMe={m.fromMe} transcription={m.transcription} />;
-  if (url && m.mediaType === 'document') return <a href={url} target="_blank" rel="noreferrer" style={s.docLink}>📎 Documento: {m.body || 'Ver arquivo'}</a>;
+  if (url && m.mediaType === 'document') {
+    const isPdf = m.fileName?.toLowerCase().endsWith('.pdf');
+    return (
+      <a href={url} target="_blank" rel="noreferrer" style={s.pdfCard}>
+        <div style={s.pdfIcon}>{isPdf ? '📕' : '📎'}</div>
+        <div style={s.pdfInfo}>
+          <div style={s.pdfName}>{m.fileName || 'Arquivo'}</div>
+          <div style={s.pdfSize}>{isPdf ? 'Documento PDF' : 'Documento'}</div>
+        </div>
+      </a>
+    );
+  }
   return null;
 }
 
@@ -1141,6 +1152,22 @@ const s = {
   time: { fontSize: '0.65rem', marginTop: 6, fontWeight: 700 },
   imgMedia: { maxWidth: '300px', maxHeight: '300px', borderRadius: '12px', cursor: 'pointer', objectFit: 'contain' },
   docLink: { color: 'inherit', fontWeight: 700, textDecoration: 'none' },
+  pdfCard: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '12px', 
+    padding: '12px', 
+    background: 'rgba(0,0,0,0.05)', 
+    borderRadius: '12px', 
+    textDecoration: 'none', 
+    color: 'inherit',
+    border: '1px solid rgba(0,0,0,0.1)',
+    maxWidth: '280px'
+  },
+  pdfIcon: { fontSize: '1.8rem' },
+  pdfInfo: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  pdfName: { fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  pdfSize: { fontSize: '0.7rem', color: 'rgba(0,0,0,0.5)' },
   transcription: { fontSize: '0.8rem', fontStyle: 'italic', padding: '4px 8px', marginTop: 8, background: 'var(--border-light)', borderRadius: 6 },
   
   inputArea: { padding: '1rem', background: 'var(--bg-panel)', display: 'flex', alignItems: 'center', gap: '0.75rem', borderTop: '1px solid var(--border-color)', width: '100%', boxSizing: 'border-box' },

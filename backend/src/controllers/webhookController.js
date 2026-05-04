@@ -15,7 +15,7 @@ function extractMedia(msg) {
   if (m.videoMessage)    return { type: 'video',    caption: m.videoMessage.caption || '' };
   if (m.audioMessage)    return { type: 'audio',    caption: '🎤 Áudio' };
   if (m.pttMessage)      return { type: 'audio',    caption: '🎤 Áudio' };
-  if (m.documentMessage) return { type: 'document', caption: m.documentMessage.fileName || '📎 Documento' };
+  if (m.documentMessage) return { type: 'document', caption: m.documentMessage.caption || '', fileName: m.documentMessage.fileName || 'Documento' };
   if (m.stickerMessage)  return { type: 'image',    caption: '' };
   return null;
 }
@@ -203,6 +203,7 @@ async function handleWebhook(req, res) {
         fromMe,
         fromBot: false,
         mediaType: media?.type || null,
+        fileName: media?.fileName || null,
         externalId,
         quotedMsgId,
         quotedMsgBody
