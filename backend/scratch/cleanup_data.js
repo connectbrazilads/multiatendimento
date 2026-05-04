@@ -9,6 +9,14 @@ async function cleanup() {
     const equipments = await prisma.equipment.deleteMany({});
     console.log(`✅ ${equipments.count} equipamentos removidos.`);
 
+    // Apaga mensagens primeiro
+    const messages = await prisma.message.deleteMany({});
+    console.log(`✅ ${messages.count} mensagens removidas.`);
+
+    // Apaga tickets
+    const tickets = await prisma.ticket.deleteMany({});
+    console.log(`✅ ${tickets.count} conversas (tickets) removidas.`);
+
     // Apaga ordens de serviço
     const sos = await prisma.serviceOrder.deleteMany({});
     console.log(`✅ ${sos.count} ordens de serviço removidas.`);
