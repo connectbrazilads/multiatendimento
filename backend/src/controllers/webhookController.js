@@ -419,8 +419,17 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 
   // 4. CONTEXTO TÉCNICO (Equipamentos e Notas)
   const equipments = await prisma.equipment.findMany({
-    where: { contactId: contact.id, isActive: true }
+    where: {
+      tenantId: tenant.id,
+      isActive: true,
+      OR: [
+        { contactId: contact.id },
+        { contact: { phone: contact.phone } },
+        { contact: { whatsapp: contact.phone } }
+      ]
+    }
   });
+
   const equipContext = equipments.length > 0 
     ? equipments.map(e => `- ${e.manufacturer || ''} ${e.model} (Série: ${e.serialNumber || 'N/A'}, Setor: ${e.sector || 'N/A'})`).join('\n')
     : 'Nenhum equipamento cadastrado para este cliente.';
@@ -438,6 +447,7 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 5. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
 
   console.log(`[bot] Ticket ${ticket.id} | Equipamentos encontrados: ${equipments.length}`);
+  if (equipments.length > 0) console.log(`[bot] Contexto de equipamentos enviado:\n${equipContext}`);
 
   // Busca semântica de conhecimento
   let knowledgeContext = "";
