@@ -465,6 +465,11 @@ async function sendMediaMessage(req, res) {
       console.error('[audioConvert] erro:', err.message);
       result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, base64, quotedMsgId);
     }
+  } else if (mime.startsWith('video/')) {
+    mediaType = 'video';
+    result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
+      mediatype: 'video', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+    });
   } else {
     result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
       mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
