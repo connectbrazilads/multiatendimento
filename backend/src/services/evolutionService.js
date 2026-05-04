@@ -12,10 +12,12 @@ function getClient(url, key) {
   });
 }
 
-async function sendText(url, key, instanceName, phone, text) {
+async function sendText(url, key, instanceName, phone, text, quoted = null) {
   const client = getClient(url, key);
   try {
-    const { data } = await client.post(`/message/sendText/${instanceName}`, { number: phone, text });
+    const payload = { number: phone, text };
+    if (quoted) payload.quoted = { key: { id: quoted } };
+    const { data } = await client.post(`/message/sendText/${instanceName}`, payload);
     console.log(`[evolutionService] sendText OK:`, data?.key?.id || 'id-não-retornado');
     return data;
   } catch (err) {
@@ -24,25 +26,29 @@ async function sendText(url, key, instanceName, phone, text) {
   }
 }
 
-async function sendMedia(url, key, instanceName, phone, { mediatype, media, filename, caption }) {
+async function sendMedia(url, key, instanceName, phone, { mediatype, media, filename, caption, quoted }) {
   const client = getClient(url, key);
-  const { data } = await client.post(`/message/sendMedia/${instanceName}`, {
+  const payload = {
     number: phone,
     mediatype,    // image | video | document
     media,        // base64
     fileName: filename || 'arquivo',
     caption: caption || '',
-  });
+  };
+  if (quoted) payload.quoted = { key: { id: quoted } };
+  const { data } = await client.post(`/message/sendMedia/${instanceName}`, payload);
   return data;
 }
 
-async function sendAudio(url, key, instanceName, phone, audio) {
+async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
   const client = getClient(url, key);
-  const { data } = await client.post(`/message/sendWhatsAppAudio/${instanceName}`, {
+  const payload = {
     number: phone,
     audio,        // base64
     encoding: true,
-  });
+  };
+  if (quoted) payload.quoted = { key: { id: quoted } };
+  const { data } = await client.post(`/message/sendWhatsAppAudio/${instanceName}`, payload);
   return data;
 }
 

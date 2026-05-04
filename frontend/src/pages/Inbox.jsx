@@ -42,6 +42,7 @@ export default function Inbox() {
   const [spellModal, setSpellModal] = useState(null); // { original, corrected }
   const [spellChecking, setSpellChecking] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
+  const [replyingTo, setReplyingTo] = useState(null);
   const isMobile = window.innerWidth <= 768;
 
   useEffect(() => {
@@ -233,14 +234,16 @@ export default function Inbox() {
 
   async function doSend(body, attachment) {
     const tId = selectedId;
+    const qId = replyingTo?.externalId;
     setText('');
     setFile(null);
     setSpellModal(null);
+    setReplyingTo(null);
     try {
       if (attachment) {
-        await sendMediaMessage(tId, attachment, body);
+        await sendMediaMessage(tId, attachment, body, qId);
       } else {
-        await sendMessage(tId, body);
+        await sendMessage(tId, body, qId);
       }
       loadMessages();
     } catch (e) { alert('Erro ao enviar'); }
@@ -554,16 +557,46 @@ export default function Inbox() {
                       )}
                       
                       {/* NOME DE QUEM ESTÁ FALANDO */}
-                      <div style={{ 
-                        fontSize: '0.7rem', 
-                        fontWeight: 800, 
-                        color: m.fromMe ? 'rgba(0,0,0,0.6)' : '#D4AF37', 
-                        marginBottom: 4,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
-                      }}>
-                        {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <div style={{ 
+                          fontSize: '0.7rem', 
+                          fontWeight: 800, 
+                          color: m.fromMe ? 'rgba(0,0,0,0.6)' : '#D4AF37', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+                        </div>
+                        {!m.isDeleted && (
+                          <button 
+                            onClick={() => setReplyingTo(m)}
+                            style={{ background: 'none', border: 'none', color: m.fromMe ? 'rgba(0,0,0,0.4)' : '#717171', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                            title="Responder"
+                          >
+                            ↩️
+                          </button>
+                        )}
                       </div>
+
+                      {/* MENSAGEM RESPONDIDA (QUOTED) */}
+                      {m.quotedMsgBody && (
+                        <div style={{ 
+                          background: m.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
+                          borderLeft: `3px solid ${m.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          marginBottom: '8px',
+                          fontSize: '0.8rem',
+                          color: m.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+                          fontStyle: 'italic',
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {m.quotedMsgBody}
+                        </div>
+                      )}
 
                       <MediaContent message={m} onImageClick={setPreviewImg} />
                       {!m.mediaUrl && <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: m.fromMe ? 500 : 400 }}>{m.body}</div>}
@@ -584,7 +617,31 @@ export default function Inbox() {
               </div>
             )}
 
-            <div style={{ ...s.inputArea, padding: isMobile ? '0.75rem' : '1rem', gap: isMobile ? '0.5rem' : '0.75rem' }}>
+            <div style={{ ...s.inputArea, padding: isMobile ? '0.75rem' : '1rem', gap: isMobile ? '0.5rem' : '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
+              {replyingTo && (
+                <div style={{ 
+                  background: 'rgba(212,175,55,0.1)', 
+                  borderLeft: '4px solid #D4AF37', 
+                  padding: '8px 12px', 
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '4px'
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
+                      Respondendo a {replyingTo.fromMe ? 'você' : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {replyingTo.body || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Mídia')}
+                    </div>
+                  </div>
+                  <button onClick={() => setReplyingTo(null)} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1rem', padding: '0 8px' }}>✕</button>
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
               {isRecording ? (
                 <div style={s.recordingWrap}>
                   <div style={s.recordingDot} />
@@ -641,6 +698,7 @@ export default function Inbox() {
                   </button>
                 </>
               )}
+              </div>
             </div>
           </>
         ) : (

@@ -100,6 +100,20 @@ async function handleWebhook(req, res) {
       || media?.caption
       || '';
 
+    const contextInfo = msg.message?.extendedTextMessage?.contextInfo 
+                     || msg.message?.imageMessage?.contextInfo
+                     || msg.message?.videoMessage?.contextInfo
+                     || msg.message?.audioMessage?.contextInfo
+                     || msg.message?.documentMessage?.contextInfo;
+    
+    const quotedMsgId = contextInfo?.stanzaId;
+    const quotedMsgBody = contextInfo?.quotedMessage?.conversation 
+                       || contextInfo?.quotedMessage?.extendedTextMessage?.text
+                       || contextInfo?.quotedMessage?.imageMessage?.caption
+                       || contextInfo?.quotedMessage?.videoMessage?.caption
+                       || (contextInfo?.quotedMessage?.audioMessage ? '🎤 Áudio' : null)
+                       || (contextInfo?.quotedMessage?.documentMessage ? '📎 Documento' : null);
+
     // Trata atualização de conexão e QR Code
     if (event === 'connection.update' || event === 'qrcode.updated') {
       return;
@@ -190,6 +204,8 @@ async function handleWebhook(req, res) {
         fromBot: false,
         mediaType: media?.type || null,
         externalId,
+        quotedMsgId,
+        quotedMsgBody
       },
     });
 

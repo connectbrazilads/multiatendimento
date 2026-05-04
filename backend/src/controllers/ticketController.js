@@ -364,7 +364,7 @@ async function resolve(req, res) {
 
 async function sendMessage(req, res) {
   const { id } = req.params;
-  const { body } = req.body;
+  const { body, quotedMsgId } = req.body;
 
   const ticket = await prisma.ticket.findFirst({
     where: { id, tenantId: req.user.tenantId },
@@ -376,8 +376,14 @@ async function sendMessage(req, res) {
   const evolutionService = require('../services/evolutionService');
   const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
   const finalBody = `*${agent.name}*\n${body}`;
-
-  const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, finalBody);
+  
+  let quotedMsgBody = null;
+  if (quotedMsgId) {
+    const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
+    if (quoted) quotedMsgBody = quoted.body;
+  }
+  
+  const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, finalBody, quotedMsgId);
   const externalId = result?.key?.id || result?.message?.key?.id;
 
   // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -398,7 +404,7 @@ async function sendMessage(req, res) {
   }
 
   const message = await prisma.message.create({
-    data: { ticketId: id, agentId: req.user.userId, body, fromMe: true, externalId },
+    data: { ticketId: id, agentId: req.user.userId, body, fromMe: true, externalId, quotedMsgId, quotedMsgBody },
   });
   res.json(message);
 }
@@ -407,6 +413,7 @@ async function sendMediaMessage(req, res) {
   const { id } = req.params;
   const file = req.file;
   const caption = req.body.caption || '';
+  const quotedMsgId = req.body.quotedMsgId;
 
   if (!file) return res.status(400).json({ error: 'Arquivo obrigatório' });
 
@@ -428,12 +435,18 @@ async function sendMediaMessage(req, res) {
 
   const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
   const finalCaption = `*${agent.name}*\n${caption}`;
+  
+  let quotedMsgBody = null;
+  if (quotedMsgId) {
+    const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
+    if (quoted) quotedMsgBody = quoted.body;
+  }
 
   let result;
   if (mime.startsWith('image/')) {
     mediaType = 'image';
     result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
-      mediatype: 'image', media: base64, caption: finalCaption,
+      mediatype: 'image', media: base64, caption: finalCaption, quoted: quotedMsgId
     });
   } else if (mime.startsWith('audio/')) {
     mediaType = 'audio';
@@ -447,14 +460,14 @@ async function sendMediaMessage(req, res) {
       mediaUrl = `/uploads/media/${newFilename}`;
       
       const oggBase64 = fs.readFileSync(newPath).toString('base64');
-      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, oggBase64);
+      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, oggBase64, quotedMsgId);
     } catch (err) {
       console.error('[audioConvert] erro:', err.message);
-      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, base64);
+      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, base64, quotedMsgId);
     }
   } else {
     result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
-      mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption,
+      mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
     });
   }
 
@@ -478,6 +491,8 @@ async function sendMediaMessage(req, res) {
       mediaUrl,
       mediaType,
       externalId,
+      quotedMsgId,
+      quotedMsgBody
     },
   });
 

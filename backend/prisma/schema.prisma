@@ -238,6 +238,8 @@ model Message {
   mediaUrl      String?
   mediaType  String?
   externalId String?
+  quotedMsgId   String?
+  quotedMsgBody String?
   isDeleted  Boolean  @default(false)
   createdAt  DateTime @default(now())
   agent      User?    @relation(fields: [agentId], references: [id])

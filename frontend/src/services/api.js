@@ -69,7 +69,7 @@ export const importContacts = (formData) => api.post('/contacts/import', formDat
 // Tickets
 export const getTickets = (status, mine = false, filters = {}) => api.get('/tickets', { params: { status, mine, ...filters } });
 export const getMessages = (ticketId) => api.get(`/tickets/${ticketId}/messages`);
-export const sendMessage = (ticketId, body) => api.post(`/tickets/${ticketId}/messages`, { body });
+export const sendMessage = (ticketId, body, quotedMsgId = null) => api.post(`/tickets/${ticketId}/messages`, { body, quotedMsgId });
 export const deleteMessage = (ticketId, messageId) => api.delete(`/tickets/${ticketId}/messages/${messageId}`);
 export const assignTicket = (ticketId, agentId, teamId) => api.patch(`/tickets/${ticketId}/assign`, { agentId, teamId });
 export const resolveTicket = (ticketId) => api.patch(`/tickets/${ticketId}/resolve`);
@@ -78,15 +78,17 @@ export const summarizeTicket = (id) => api.post(`/tickets/${id}/summarize`);
 export const reopenTicket = (contactId) => api.post('/tickets/reopen', { contactId });
 export const updateTicket = (id, data) => api.patch(`/tickets/${id}`, data);
 export const spellCheckMessage = (text) => api.post('/tickets/spellcheck', { text });
-export const sendMediaMessage = (ticketId, file, caption = '') => {
+export const sendMediaMessage = (ticketId, file, caption = '', quotedMsgId = null) => {
   const form = new FormData();
   form.append('file', file);
   form.append('caption', caption);
+  if (quotedMsgId) form.append('quotedMsgId', quotedMsgId);
   return api.post(`/tickets/${ticketId}/media`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
-export const sendAudioMessage = (ticketId, blob) => {
+export const sendAudioMessage = (ticketId, blob, quotedMsgId = null) => {
   const form = new FormData();
   form.append('file', blob, 'recording.mp3');
+  if (quotedMsgId) form.append('quotedMsgId', quotedMsgId);
   return api.post(`/tickets/${ticketId}/media`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 
