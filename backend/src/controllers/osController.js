@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const PdfPrinter = require('pdfmake/js/Printer').default;
+const pdfmake = require('pdfmake');
 const path = require('path');
 const fs = require('fs');
 const { draftServiceOrder } = require('../services/geminiService');
@@ -242,7 +242,9 @@ async function generatePdf(req, res) {
       }
     };
 
-    const printer = new PdfPrinter(fonts);
+    pdfmake.setFonts(fonts);
+    const doc = pdfmake.createPdf(docDefinition);
+    
     const dataOS = os.createdAt.toLocaleDateString('pt-BR');
     const horaOS = os.createdAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
@@ -460,13 +462,13 @@ async function generatePdf(req, res) {
       }
     };
 
-    const pdfDoc = await printer.createPdfKitDocument(docDefinition);
+    const stream = await doc.getStream();
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="OS_${os.id.substring(os.id.length - 6)}.pdf"`);
     
-    pdfDoc.pipe(res);
-    pdfDoc.end();
+    stream.pipe(res);
+    stream.end();
   } catch (err) {
     console.error('[generatePdf] erro fatal na geração do PDF:', err);
     if (!res.headersSent) {
