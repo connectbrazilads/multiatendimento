@@ -67,7 +67,8 @@ async function saveMediaFile(base64, mimetype, messageId) {
   const extMap = {
     'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
     'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/opus': 'ogg', 'audio/webm': 'webm',
-    'application/pdf': 'pdf', 'video/mp4': 'mp4',
+    'application/pdf': 'pdf', 
+    'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/3gpp': '3gp', 'video/webm': 'webm', 'video/x-matroska': 'mkv',
   };
   const ext = extMap[mainType] || (isAudio ? 'ogg' : 'bin');
 

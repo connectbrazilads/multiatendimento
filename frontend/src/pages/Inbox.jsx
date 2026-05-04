@@ -856,6 +856,7 @@ function Avatar({ name, src, size = 40 }) {
 function MediaContent({ message: m, onImageClick }) {
   const url = getMediaUrl(m.mediaUrl);
   if (url && m.mediaType === 'image') return <img src={url} alt="" style={s.imgMedia} onClick={() => onImageClick(url)} />;
+  if (url && m.mediaType === 'video') return <video src={url} controls style={s.imgMedia} />;
   if (url && m.mediaType === 'audio') return <AudioPlayer src={url} fromMe={m.fromMe} transcription={m.transcription} />;
   if (url && m.mediaType === 'document') {
     const isPdf = m.fileName?.toLowerCase().endsWith('.pdf');
