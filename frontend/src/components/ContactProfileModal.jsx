@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api, { updateContact, deleteContact, getEquipments, updateEquipment, deleteEquipment } from '../services/api';
 import { X, Printer, FileText, User, Trash2, Edit3, AlertTriangle } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+
 export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState('dados');
   const [formData, setFormData] = useState({ 
@@ -225,7 +227,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                   <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px'}}>
                     <span style={s.statusBadge(os.status)}>{os.status}</span>
                     <a 
-  href={`/api/os/${os.id}/pdf?token=${localStorage.getItem('token')}`} 
+  href={`${BACKEND_URL}/api/os/${os.id}/pdf?token=${localStorage.getItem('token')}`} 
   target="_blank" 
   rel="noreferrer" 
   style={{fontSize: '0.8rem', color: 'var(--accent)', textDecoration: 'none'}}

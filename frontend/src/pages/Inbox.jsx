@@ -12,6 +12,8 @@ import { SOCKET_URL } from '../services/socket';
 import CreateOsModal from '../components/CreateOsModal';
 import LinkContactModal from '../components/LinkContactModal';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);
   const [tab, setTab] = useState('mine'); // mine, pending, resolved
@@ -665,24 +667,6 @@ export default function Inbox() {
       )}
 
       {/* Modais */}
-      {transferModal && <TransferModal users={users} teams={teams} onClose={() => setTransferModal(false)} onTransfer={handleTransfer} />}
-      
-      {linkModal && (
-        <LinkContactModal 
-          onClose={() => setLinkModal(false)}
-          onLink={async (targetId) => {
-            try {
-              const res = await axios.patch(`/api/tickets/${selectedTicket.id}/link-contact`, { contactId: targetId }, { withCredentials: true });
-              setSelectedTicket(res.data);
-              setLinkModal(false);
-              loadTickets();
-              alert('Conversa vinculada ao cliente CRM com sucesso!');
-            } catch (e) {
-              alert('Erro ao vincular cliente');
-            }
-          }}
-        />
-      )}
       
       {showScheduling && (
         <div style={s.overlay} onClick={() => setShowScheduling(false)}>
@@ -759,7 +743,7 @@ export default function Inbox() {
           onCreated={(os) => {
             setShowOsModal(false);
             const token = localStorage.getItem('token');
-            window.open(`/api/os/${os.id}/pdf?token=${token}`, '_blank');
+            window.open(`${BACKEND_URL}/api/os/${os.id}/pdf?token=${token}`, '_blank');
           }}
         />
       )}

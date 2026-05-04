@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Plus, Search, FileText, Settings, User, Calendar, X, Archive, History, MapPin, Hash } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+
 export default function ServiceOrders() {
   const isMobile = window.innerWidth <= 768;
   const [orders, setOrders] = useState([]);
@@ -322,7 +324,7 @@ export default function ServiceOrders() {
             </div>
 
             <div style={s.btnGroup}>
-              <a href={`/api/os/${selectedOs.id}/pdf?token=${localStorage.getItem('token')}`} target="_blank" rel="noreferrer" style={s.pdfBtn}>Gerar / Imprimir PDF</a>
+              <a href={`${BACKEND_URL}/api/os/${selectedOs.id}/pdf?token=${localStorage.getItem('token')}`} target="_blank" rel="noreferrer" style={s.pdfBtn}>Gerar / Imprimir PDF</a>
               <button style={s.saveBtn} onClick={() => handleUpdate()}>Salvar Atualizações</button>
             </div>
           </div>

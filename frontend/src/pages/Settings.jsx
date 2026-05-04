@@ -13,6 +13,7 @@ export default function Settings() {
   const [tab, setTab] = useState(0);
   const [form, setForm] = useState({ 
     botEnabled: false, 
+    botName: '',
     geminiKey: '', 
     webhookUrl: '',
     systemPrompt: '',
