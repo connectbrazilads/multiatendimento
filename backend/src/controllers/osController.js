@@ -1,7 +1,5 @@
 const prisma = require('../lib/prisma');
-const PdfPrinter = require('pdfmake/js/Printer').default;
-const vfs = require('pdfmake/js/virtual-fs').default;
-const URLResolver = require('pdfmake/js/URLResolver').default;
+const PdfPrinter = require('pdfmake');
 const path = require('path');
 const fs = require('fs');
 const { draftServiceOrder } = require('../services/geminiService');
@@ -231,227 +229,234 @@ async function generatePdf(req, res) {
     console.error('[generatePdf] erro ao buscar empresa vinculada:', err);
   }
 
-  const fonts = {
-    Roboto: {
-      normal: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Regular.ttf'),
-      bold: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Medium.ttf'),
-      italics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Italic.ttf'),
-      bolditalics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-MediumItalic.ttf')
-    }
-  };
-
-  const printer = new PdfPrinter(fonts, vfs, new URLResolver());
-  const dataOS = os.createdAt.toLocaleDateString('pt-BR');
-  const horaOS = os.createdAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const meters = os.meters ? JSON.parse(os.meters) : {};
-  const settings = os.tenant.settings;
-  const attendantName = os.user ? os.user.name : 'N/A';
-
-  const docDefinition = {
-    pageSize: 'A4',
-    pageMargins: [30, 30, 30, 30],
-    content: [
-      {
-        table: {
-          widths: [110, '*', 160],
-          body: [
-            [
-              {
-                stack: (() => {
-                  if (os.tenant.logoUrl) {
-                    const logoPath = path.join(__dirname, '..', '..', os.tenant.logoUrl.replace(/^\//, ''));
-                    if (fs.existsSync(logoPath)) {
-                      return [{ image: logoPath, width: 100, alignment: 'center' }];
-                    }
-                  }
-                  return [
-                    { text: 'LOGO', style: 'logoPlaceholder' },
-                    { text: settings?.companyName || os.tenant.name, fontSize: 7, alignment: 'center', margin: [0, 5, 0, 0] }
-                  ];
-                })(),
-                alignment: 'center',
-                margin: [0, 5, 0, 5]
-              },
-              {
-                stack: [
-                  { text: settings?.companyName || os.tenant.name, bold: true, fontSize: 10, margin: [0, 5, 0, 2] },
-                  { text: `CNPJ: ${settings?.companyCnpj || 'N/A'}   |   I.E.: ${settings?.companyIE || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
-                  { text: `Endereço: ${settings?.companyAddress || 'N/A'} - Bairro: ${settings?.companyBairro || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
-                  { text: `Cidade: PORTO ALEGRE (RS)   |   CEP: ${settings?.companyCep || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
-                  { text: `Fone: ${settings?.companyPhone || 'N/A'}`, fontSize: 8 }
-                ],
-                alignment: 'center'
-              },
-              {
-                stack: [
-                  { text: 'ORDEM DE SERVIÇO', bold: true, fontSize: 14, alignment: 'center', margin: [0, 2, 0, 5] },
-                  { 
-                    table: {
-                      widths: ['*', '*'],
-                      body: [
-                        [{ text: 'Número: ' + os.id.substring(os.id.length - 6).toUpperCase(), fontSize: 8 }, { text: 'Data: ' + dataOS, fontSize: 8 }],
-                        [{ text: 'Hora: ' + horaOS, fontSize: 8 }, { text: 'Atendente: ' + attendantName, fontSize: 8 }]
-                      ]
-                    },
-                    layout: 'noBorders'
-                  }
-                ],
-                fillColor: '#F5F5F5'
-              }
-            ]
-          ]
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => '#CCC',
-          vLineColor: () => '#CCC'
-        }
-      },
-      
-      { text: 'DADOS DO CLIENTE', style: 'sectionHeader', margin: [0, 15, 0, 5] },
-      {
-        table: {
-          widths: ['*', '*'],
-          body: [
-            [
-              { text: [{ text: 'CLIENTE / RAZÃO SOCIAL: \n', style: 'label' }, { text: clientData.name || 'N/A', style: 'value' }], colSpan: 2 },
-              {}
-            ],
-            [
-              { text: [{ text: 'NOME FANTASIA: \n', style: 'label' }, { text: clientData.fantasyName || 'N/A', style: 'value' }] },
-              { text: [{ text: 'CNPJ / CPF: \n', style: 'label' }, { text: clientData.cpfCnpj || 'N/A', style: 'value' }] }
-            ],
-            [
-              { text: [{ text: 'ENDEREÇO: \n', style: 'label' }, { text: clientData.address || 'N/A', style: 'value' }], colSpan: 2 },
-              {}
-            ],
-            [
-              { text: [{ text: 'SOLICITANTE: \n', style: 'label' }, { text: solicitante, style: 'value' }] },
-              { text: [{ text: 'TELEFONE: \n', style: 'label' }, { text: os.contact.phone || 'N/A', style: 'value' }] }
-            ]
-          ]
-        },
-        layout: {
-          hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 0 : 0.5,
-          vLineWidth: () => 0,
-          hLineColor: () => '#DDD',
-          paddingLeft: () => 0,
-          paddingRight: () => 0,
-          paddingTop: () => 4,
-          paddingBottom: () => 4
-        }
-      },
-
-      { text: 'DADOS DO EQUIPAMENTO', style: 'sectionHeader', margin: [0, 15, 0, 5] },
-      {
-        table: {
-          widths: ['*', '*', '*'],
-          body: [
-            [
-              { text: [{ text: 'EQUIPAMENTO / MODELO: \n', style: 'label' }, { text: os.equipment.model, style: 'value' }] },
-              { text: [{ text: 'Nº SÉRIE: \n', style: 'label' }, { text: os.equipment.serialNumber || 'N/A', style: 'value' }] },
-              { text: [{ text: 'SETOR: \n', style: 'label' }, { text: os.equipment.sector || 'N/A', style: 'value' }] }
-            ],
-            [
-              { text: [{ text: 'LOCALIZAÇÃO / ENDEREÇO TÉCNICO: \n', style: 'label' }, { text: os.equipment.address || 'Mesmo do cliente', style: 'value' }], colSpan: 3 },
-              {}, {}
-            ]
-          ]
-        },
-        layout: {
-          hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 0 : 0.5,
-          vLineWidth: () => 0,
-          hLineColor: () => '#DDD',
-          paddingTop: () => 4,
-          paddingBottom: () => 4
-        }
-      },
-
-      { text: 'DESCRIÇÃO DO DEFEITO / SOLICITAÇÃO', style: 'sectionHeader', margin: [0, 15, 0, 5] },
-      { 
-        text: os.defect || 'Nenhum defeito reportado', 
-        style: 'boxContent' 
-      },
-
-      { text: 'INTERVENÇÃO TÉCNICA E LEITURA DE CONTADORES', style: 'sectionHeader', margin: [0, 15, 0, 5] },
-      {
-        table: {
-          widths: ['*', '*', '*'],
-          body: [
-            [
-              { text: [{ text: 'CONTADOR PB: \n', style: 'label' }, { text: meters.mono || '_________', style: 'value' }] },
-              { text: [{ text: 'CONTADOR COR: \n', style: 'label' }, { text: meters.color || '_________', style: 'value' }] },
-              { text: [{ text: 'CONTADOR SCAN: \n', style: 'label' }, { text: meters.scan || '_________', style: 'value' }] }
-            ]
-          ]
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => '#DDD',
-          vLineColor: () => '#DDD',
-          paddingTop: () => 6,
-          paddingBottom: () => 6
-        }
-      },
-
-      { text: 'RELATÓRIO TÉCNICO / PEÇAS SUBSTITUÍDAS', style: 'sectionHeader', margin: [0, 15, 0, 5] },
-      { 
-        text: os.technicalNotes || '\n\n\n\n\n', 
-        style: 'boxContent',
-        minHeight: 100
-      },
-
-      {
-        margin: [0, 40, 0, 0],
-        columns: [
-          {
-            stack: [
-              { text: '_______________________________________', margin: [0, 0, 0, 5] },
-              { text: 'ASSINATURA E CARIMBO DO CLIENTE', style: 'signatureLabel' }
-            ],
-            alignment: 'center'
-          },
-          {
-            stack: [
-              { text: '_______________________________________', margin: [0, 0, 0, 5] },
-              { text: 'ASSINATURA DO TÉCNICO', style: 'signatureLabel' }
-            ],
-            alignment: 'center'
-          }
-        ]
-      },
-      {
-        text: 'Declaro que os serviços acima foram executados a contento e os materiais/peças foram fornecidos conforme descrito.',
-        style: 'footerNote',
-        margin: [0, 20, 0, 0],
-        alignment: 'center'
+  try {
+    const fonts = {
+      Roboto: {
+        normal: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Regular.ttf'),
+        bold: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Medium.ttf'),
+        italics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Italic.ttf'),
+        bolditalics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-MediumItalic.ttf')
       }
-    ],
-    styles: {
-      header: { fontSize: 24, bold: true, color: '#333' },
-      osNumber: { fontSize: 11, color: '#333', bold: true },
-      sectionHeader: { fontSize: 10, bold: true, color: '#000', background: '#EEE', padding: [5, 3] },
-      label: { fontSize: 8, color: '#555', bold: true },
-      value: { fontSize: 11, color: '#000', bold: true },
-      boxContent: { fontSize: 11, margin: [0, 5, 0, 10], color: '#333', border: [true, true, true, true] },
-      signatureLabel: { fontSize: 8, color: '#333', bold: true },
-      footerNote: { fontSize: 7, italic: true, color: '#666' },
-      logoPlaceholder: { fontSize: 12, bold: true, color: '#CCC', background: '#F0F0F0', margin: [0, 10] }
-    },
-    defaultStyle: {
-      font: 'Roboto'
-    }
-  };
+    };
 
-  const pdfDoc = await printer.createPdfKitDocument(docDefinition);
-  
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="OS_${os.id.substring(os.id.length - 6)}.pdf"`);
-  
-  pdfDoc.pipe(res);
-  pdfDoc.end();
+    const printer = new PdfPrinter(fonts);
+    const dataOS = os.createdAt.toLocaleDateString('pt-BR');
+    const horaOS = os.createdAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const meters = os.meters ? JSON.parse(os.meters) : {};
+    const settings = os.tenant.settings;
+    const attendantName = os.user ? os.user.name : 'N/A';
+
+    const docDefinition = {
+      pageSize: 'A4',
+      pageMargins: [30, 30, 30, 30],
+      content: [
+        {
+          table: {
+            widths: [110, '*', 160],
+            body: [
+              [
+                {
+                  stack: (() => {
+                    if (os.tenant.logoUrl) {
+                      const logoPath = path.join(__dirname, '..', '..', os.tenant.logoUrl.replace(/^\//, ''));
+                      if (fs.existsSync(logoPath)) {
+                        return [{ image: logoPath, width: 100, alignment: 'center' }];
+                      }
+                    }
+                    return [
+                      { text: 'LOGO', style: 'logoPlaceholder' },
+                      { text: settings?.companyName || os.tenant.name, fontSize: 7, alignment: 'center', margin: [0, 5, 0, 0] }
+                    ];
+                  })(),
+                  alignment: 'center',
+                  margin: [0, 5, 0, 5]
+                },
+                {
+                  stack: [
+                    { text: settings?.companyName || os.tenant.name, bold: true, fontSize: 10, margin: [0, 5, 0, 2] },
+                    { text: `CNPJ: ${settings?.companyCnpj || 'N/A'}   |   I.E.: ${settings?.companyIE || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
+                    { text: `Endereço: ${settings?.companyAddress || 'N/A'} - Bairro: ${settings?.companyBairro || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
+                    { text: `Cidade: PORTO ALEGRE (RS)   |   CEP: ${settings?.companyCep || 'N/A'}`, fontSize: 8, margin: [0, 0, 0, 2] },
+                    { text: `Fone: ${settings?.companyPhone || 'N/A'}`, fontSize: 8 }
+                  ],
+                  alignment: 'center'
+                },
+                {
+                  stack: [
+                    { text: 'ORDEM DE SERVIÇO', bold: true, fontSize: 14, alignment: 'center', margin: [0, 2, 0, 5] },
+                    { 
+                      table: {
+                        widths: ['*', '*'],
+                        body: [
+                          [{ text: 'Número: ' + os.id.substring(os.id.length - 6).toUpperCase(), fontSize: 8 }, { text: 'Data: ' + dataOS, fontSize: 8 }],
+                          [{ text: 'Hora: ' + horaOS, fontSize: 8 }, { text: 'Atendente: ' + attendantName, fontSize: 8 }]
+                        ]
+                      },
+                      layout: 'noBorders'
+                    }
+                  ],
+                  fillColor: '#F5F5F5'
+                }
+              ]
+            ]
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#CCC',
+            vLineColor: () => '#CCC'
+          }
+        },
+        
+        { text: 'DADOS DO CLIENTE', style: 'sectionHeader', margin: [0, 15, 0, 5] },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [
+                { text: [{ text: 'CLIENTE / RAZÃO SOCIAL: \n', style: 'label' }, { text: clientData.name || 'N/A', style: 'value' }], colSpan: 2 },
+                {}
+              ],
+              [
+                { text: [{ text: 'NOME FANTASIA: \n', style: 'label' }, { text: clientData.fantasyName || 'N/A', style: 'value' }] },
+                { text: [{ text: 'CNPJ / CPF: \n', style: 'label' }, { text: clientData.cpfCnpj || 'N/A', style: 'value' }] }
+              ],
+              [
+                { text: [{ text: 'ENDEREÇO: \n', style: 'label' }, { text: clientData.address || 'N/A', style: 'value' }], colSpan: 2 },
+                {}
+              ],
+              [
+                { text: [{ text: 'SOLICITANTE: \n', style: 'label' }, { text: solicitante, style: 'value' }] },
+                { text: [{ text: 'TELEFONE: \n', style: 'label' }, { text: os.contact.phone || 'N/A', style: 'value' }] }
+              ]
+            ]
+          },
+          layout: {
+            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 0 : 0.5,
+            vLineWidth: () => 0,
+            hLineColor: () => '#DDD',
+            paddingLeft: () => 0,
+            paddingRight: () => 0,
+            paddingTop: () => 4,
+            paddingBottom: () => 4
+          }
+        },
+
+        { text: 'DADOS DO EQUIPAMENTO', style: 'sectionHeader', margin: [0, 15, 0, 5] },
+        {
+          table: {
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: [{ text: 'EQUIPAMENTO / MODELO: \n', style: 'label' }, { text: os.equipment.model, style: 'value' }] },
+                { text: [{ text: 'Nº SÉRIE: \n', style: 'label' }, { text: os.equipment.serialNumber || 'N/A', style: 'value' }] },
+                { text: [{ text: 'SETOR: \n', style: 'label' }, { text: os.equipment.sector || 'N/A', style: 'value' }] }
+              ],
+              [
+                { text: [{ text: 'LOCALIZAÇÃO / ENDEREÇO TÉCNICO: \n', style: 'label' }, { text: os.equipment.address || 'Mesmo do cliente', style: 'value' }], colSpan: 3 },
+                {}, {}
+              ]
+            ]
+          },
+          layout: {
+            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 0 : 0.5,
+            vLineWidth: () => 0,
+            hLineColor: () => '#DDD',
+            paddingTop: () => 4,
+            paddingBottom: () => 4
+          }
+        },
+
+        { text: 'DESCRIÇÃO DO DEFEITO / SOLICITAÇÃO', style: 'sectionHeader', margin: [0, 15, 0, 5] },
+        { 
+          text: os.defect || 'Nenhum defeito reportado', 
+          style: 'boxContent' 
+        },
+
+        { text: 'INTERVENÇÃO TÉCNICA E LEITURA DE CONTADORES', style: 'sectionHeader', margin: [0, 15, 0, 5] },
+        {
+          table: {
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: [{ text: 'CONTADOR PB: \n', style: 'label' }, { text: meters.mono || '_________', style: 'value' }] },
+                { text: [{ text: 'CONTADOR COR: \n', style: 'label' }, { text: meters.color || '_________', style: 'value' }] },
+                { text: [{ text: 'CONTADOR SCAN: \n', style: 'label' }, { text: meters.scan || '_________', style: 'value' }] }
+              ]
+            ]
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#DDD',
+            vLineColor: () => '#DDD',
+            paddingTop: () => 6,
+            paddingBottom: () => 6
+          }
+        },
+
+        { text: 'RELATÓRIO TÉCNICO / PEÇAS SUBSTITUÍDAS', style: 'sectionHeader', margin: [0, 15, 0, 5] },
+        { 
+          text: os.technicalNotes || '\n\n\n\n\n', 
+          style: 'boxContent',
+          minHeight: 100
+        },
+
+        {
+          margin: [0, 40, 0, 0],
+          columns: [
+            {
+              stack: [
+                { text: '_______________________________________', margin: [0, 0, 0, 5] },
+                { text: 'ASSINATURA E CARIMBO DO CLIENTE', style: 'signatureLabel' }
+              ],
+              alignment: 'center'
+            },
+            {
+              stack: [
+                { text: '_______________________________________', margin: [0, 0, 0, 5] },
+                { text: 'ASSINATURA DO TÉCNICO', style: 'signatureLabel' }
+              ],
+              alignment: 'center'
+            }
+          ]
+        },
+        {
+          text: 'Declaro que os serviços acima foram executados a contento e os materiais/peças foram fornecidos conforme descrito.',
+          style: 'footerNote',
+          margin: [0, 20, 0, 0],
+          alignment: 'center'
+        }
+      ],
+      styles: {
+        header: { fontSize: 24, bold: true, color: '#333' },
+        osNumber: { fontSize: 11, color: '#333', bold: true },
+        sectionHeader: { fontSize: 10, bold: true, color: '#000', background: '#EEE', padding: [5, 3] },
+        label: { fontSize: 8, color: '#555', bold: true },
+        value: { fontSize: 11, color: '#000', bold: true },
+        boxContent: { fontSize: 11, margin: [0, 5, 0, 10], color: '#333', border: [true, true, true, true] },
+        signatureLabel: { fontSize: 8, color: '#333', bold: true },
+        footerNote: { fontSize: 7, italic: true, color: '#666' },
+        logoPlaceholder: { fontSize: 12, bold: true, color: '#CCC', background: '#F0F0F0', margin: [0, 10] }
+      },
+      defaultStyle: {
+        font: 'Roboto'
+      }
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="OS_${os.id.substring(os.id.length - 6)}.pdf"`);
+    
+    pdfDoc.pipe(res);
+    pdfDoc.end();
+  } catch (err) {
+    console.error('[generatePdf] erro fatal na geração do PDF:', err);
+    if (!res.headersSent) {
+      res.status(500).send('Erro ao gerar PDF: ' + err.message);
+    }
+  }
 }
 
 async function draftOS(req, res) {
