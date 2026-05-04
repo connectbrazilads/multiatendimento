@@ -427,10 +427,14 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 
   const technicalInstructions = `
 ---
-[INSTRUÇÕES TÉCNICAS DE SISTEMA - NÃO EXIBIR AO CLIENTE]:
-1. Identifique a CATEGORIA da solicitação: SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS.
-2. No final da sua resposta, adicione SEMPRE: [[ROUTE: CATEGORIA]]
-3. Respeite RIGOROSAMENTE a "ORDEM DE ATENDIMENTO" e o "FLUXO DE RESPOSTA" definidos no prompt principal acima.`;
+[INSTRUÇÕES DE FLUXO DE SISTEMA - PRIORITÁRIO]:
+1. Você é o Assistente Virtual da LCD DIGITAL. Você TEM PODER para processar solicitações de SUPRIMENTOS e SUPORTE. Nunca diga que não pode ajudar.
+2. Se o cliente pedir TONER ou SUPORTE, olhe a lista de [EQUIPAMENTOS DO CLIENTE] abaixo:
+   - Se houver equipamentos: Liste-os brevemente e pergunte para qual deles é a solicitação.
+   - Se NÃO houver: Peça gentilmente o modelo da impressora.
+3. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
+4. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
+5. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
 
   // Busca semântica de conhecimento
   let knowledgeContext = "";
