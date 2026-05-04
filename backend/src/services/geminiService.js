@@ -2,7 +2,10 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function chat(apiKey, systemPrompt, history, userMessage) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }, { apiVersion: 'v1' });
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.5-flash',
+    systemInstruction: systemPrompt 
+  }, { apiVersion: 'v1' });
 
   let combinedHistory = [];
   history.forEach((m) => {
