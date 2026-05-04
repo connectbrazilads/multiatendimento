@@ -405,37 +405,23 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   });
   const reversedHistory = [...history].reverse();
 
-  // 3. SYSTEM PROMPT (Prioridade para o que o usuário escreveu no painel)
+  // 3. SYSTEM PROMPT (Prioridade absoluta para o que o usuário escreveu no painel)
   const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
-  // 4. EQUIPAMENTOS DO CLIENTE (Contexto Técnico para a IA)
+
+  // 4. CONTEXTO TÉCNICO (Equipamentos e Notas)
   const equipments = await prisma.equipment.findMany({
     where: { contactId: contact.id, isActive: true }
   });
   const equipContext = equipments.length > 0 
-    ? equipments.map(e => `- ${e.manufacturer || ''} ${e.model} (Série: ${e.serialNumber || 'N/A'}, Tipo: ${e.type || 'N/A'}, Local: ${e.sector || 'N/A'})`).join('\n')
+    ? equipments.map(e => `- ${e.manufacturer || ''} ${e.model} (Série: ${e.serialNumber || 'N/A'}, Setor: ${e.sector || 'N/A'})`).join('\n')
     : 'Nenhum equipamento cadastrado para este cliente.';
 
-  const enhancedSystemPrompt = `${userPrompt}
-
+  const technicalInstructions = `
 ---
-[EQUIPAMENTOS DO CLIENTE]:
-${equipContext}
-
----
-[NOTAS DO CLIENTE (MEMÓRIA)]:
-${currentNotes}
-
----
-[REGRA DE NEGÓCIO]:
-Você deve agir como suporte técnico. Se o cliente perguntar sobre algum equipamento, use os dados acima para confirmar o modelo ou série se necessário.
-
----
-REGRA ANTI-ALUCINAÇÃO (OBRIGATÓRIA):
-Se a resposta exata para a pergunta do cliente não estiver no Conhecimento da Empresa ou nas Notas do Cliente, NÃO INVENTE DADOS, PREÇOS OU POLÍTICAS. Diga educadamente que não tem essa informação no momento e que vai transferir para um especialista.
-
----
-INSTRUÇÃO DE ROTEAMENTO (OBRIGATÓRIA):
-No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CATEGORIA deve ser uma das: SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS.`;
+[INSTRUÇÕES TÉCNICAS DE SISTEMA - NÃO EXIBIR AO CLIENTE]:
+1. Identifique a CATEGORIA da solicitação: SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS.
+2. No final da sua resposta, adicione SEMPRE: [[ROUTE: CATEGORIA]]
+3. Respeite RIGOROSAMENTE a "ORDEM DE ATENDIMENTO" e o "FLUXO DE RESPOSTA" definidos no prompt principal acima.`;
 
   // Busca semântica de conhecimento
   let knowledgeContext = "";
@@ -464,7 +450,7 @@ No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CAT
           found = true;
           topSimilarity = relevant[0].similarity;
           topContent = relevant[0].answer;
-          knowledgeContext = "\n\nUSE O SEGUINTE CONHECIMENTO DA EMPRESA (PRIORIZE ISTO):\n" + 
+          knowledgeContext = "\n\nUSE O SEGUINTE CONHECIMENTO DA EMPRESA:\n" + 
             relevant.map(k => `Dúvida: ${k.question}\nResposta: ${k.answer}`).join("\n---\n");
         }
       }
@@ -484,7 +470,19 @@ No FINAL da sua resposta, inclua sempre o comando: [[ROUTE: CATEGORIA]] onde CAT
     });
   } catch (err) { console.error('[log] erro ao gravar auditoria:', err.message); }
 
-  const finalPrompt = `${enhancedSystemPrompt}${knowledgeContext}`;
+  const finalPrompt = `${userPrompt}
+
+---
+[EQUIPAMENTOS DO CLIENTE]:
+${equipContext}
+
+[NOTAS ATUAIS]:
+${currentNotes}
+
+${knowledgeContext}
+
+${technicalInstructions}`;
+
   let botReply = await geminiService.chat(settings.geminiKey, finalPrompt, reversedHistory, userMessage);
 
   // EXTRAÇÃO DE MEMÓRIA DE LONGO PRAZO (Background Task)
