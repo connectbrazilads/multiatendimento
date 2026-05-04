@@ -230,19 +230,31 @@ async function generatePdf(req, res) {
   }
 
   try {
+    const fontsPath = path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto');
+    console.log('[generatePdf] Carregando fontes de:', fontsPath);
+
     const fonts = {
       Roboto: {
-        normal: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Regular.ttf'),
-        bold: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Medium.ttf'),
-        italics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-Italic.ttf'),
-        bolditalics: path.join(__dirname, '..', '..', 'node_modules', 'pdfmake', 'fonts', 'Roboto', 'Roboto-MediumItalic.ttf')
+        normal: path.join(fontsPath, 'Roboto-Regular.ttf'),
+        bold: path.join(fontsPath, 'Roboto-Medium.ttf'),
+        italics: path.join(fontsPath, 'Roboto-Italic.ttf'),
+        bolditalics: path.join(fontsPath, 'Roboto-MediumItalic.ttf')
       }
     };
 
     const printer = new PdfPrinter(fonts);
     const dataOS = os.createdAt.toLocaleDateString('pt-BR');
     const horaOS = os.createdAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const meters = os.meters ? JSON.parse(os.meters) : {};
+    
+    let meters = {};
+    if (os.meters && os.meters.trim()) {
+      try {
+        meters = JSON.parse(os.meters);
+      } catch (e) {
+        console.error('[generatePdf] Erro ao parsear medidores:', os.meters);
+      }
+    }
+
     const settings = os.tenant.settings;
     const attendantName = os.user ? os.user.name : 'N/A';
 
@@ -257,11 +269,15 @@ async function generatePdf(req, res) {
               [
                 {
                   stack: (() => {
-                    if (os.tenant.logoUrl) {
-                      const logoPath = path.join(__dirname, '..', '..', os.tenant.logoUrl.replace(/^\//, ''));
-                      if (fs.existsSync(logoPath)) {
-                        return [{ image: logoPath, width: 100, alignment: 'center' }];
+                    try {
+                      if (os.tenant.logoUrl) {
+                        const logoPath = path.join(__dirname, '..', '..', os.tenant.logoUrl.replace(/^\//, ''));
+                        if (fs.existsSync(logoPath)) {
+                          return [{ image: logoPath, width: 100, alignment: 'center' }];
+                        }
                       }
+                    } catch (err) {
+                      console.error('[generatePdf] Erro ao carregar logo:', err.message);
                     }
                     return [
                       { text: 'LOGO', style: 'logoPlaceholder' },
