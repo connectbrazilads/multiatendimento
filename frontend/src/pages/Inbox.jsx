@@ -4,15 +4,13 @@ import api, {
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
   getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
-  getTags, getSettings, getMediaUrl, getEquipments
+  getTags, getSettings, getMediaUrl, getEquipments, BACKEND_URL
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 
 import CreateOsModal from '../components/CreateOsModal';
 import LinkContactModal from '../components/LinkContactModal';
-
-const BACKEND_URL = import.meta.env.VITE_API_URL || '';
 
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);

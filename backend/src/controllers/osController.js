@@ -500,7 +500,10 @@ async function draftOS(req, res) {
     });
 
     const messages = await prisma.message.findMany({
-      where: { ticketId, tenantId },
+      where: { 
+        ticketId,
+        ticket: { tenantId }
+      },
       orderBy: { createdAt: 'desc' },
       take: 20
     });
