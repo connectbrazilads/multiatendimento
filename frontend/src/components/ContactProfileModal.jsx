@@ -188,6 +188,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                   <input style={s.input} placeholder="Número de Série" value={newEquip.serialNumber} onChange={e=>setNewEquip({...newEquip, serialNumber: e.target.value})}/>
                   <input style={s.input} placeholder="Setor (ex: Recepção)" value={newEquip.sector} onChange={e=>setNewEquip({...newEquip, sector: e.target.value})}/>
                 </div>
+                <div style={{ marginBottom: '16px' }}>
                   <input style={s.input} placeholder="Endereço Específico (opcional)" value={newEquip.address} onChange={e=>setNewEquip({...newEquip, address: e.target.value})}/>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
