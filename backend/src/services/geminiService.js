@@ -2,42 +2,54 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function chat(apiKey, systemPrompt, history, userMessage) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash',
-    systemInstruction: systemPrompt 
-  });
+  
+  const modelsToTry = ['gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+  let lastError = null;
 
-  let combinedHistory = [];
-  history.forEach((m) => {
-    const role = m.fromMe || m.fromBot ? 'model' : 'user';
-    const last = combinedHistory[combinedHistory.length - 1];
-    if (last && last.role === role) {
-      last.parts[0].text += `\n${m.body}`;
-    } else {
-      combinedHistory.push({ role, parts: [{ text: m.body }] });
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        systemInstruction: systemPrompt 
+      });
+
+      let combinedHistory = [];
+      history.forEach((m) => {
+        const role = m.fromMe || m.fromBot ? 'model' : 'user';
+        const last = combinedHistory[combinedHistory.length - 1];
+        if (last && last.role === role) {
+          last.parts[0].text += `\n${m.body}`;
+        } else {
+          combinedHistory.push({ role, parts: [{ text: m.body }] });
+        }
+      });
+
+      while (combinedHistory.length > 0 && combinedHistory[0].role !== 'user') {
+        combinedHistory.shift();
+      }
+
+      const chatSession = model.startChat({
+        history: combinedHistory,
+        generationConfig: { 
+          maxOutputTokens: 1000,
+          temperature: 0.1,
+          topK: 1
+        },
+      });
+
+      const result = await chatSession.sendMessage(userMessage);
+      console.log(`[gemini] resposta enviada com sucesso usando o modelo: ${modelName}`);
+      return result.response.text();
+    } catch (err) {
+      console.warn(`[gemini] falha no modelo ${modelName}:`, err.message);
+      lastError = err;
+      // Continua para o próximo modelo se for erro de demanda (503) ou não encontrado (404)
+      if (err.message.includes('503') || err.message.includes('404')) continue;
+      throw err; // Se for outro erro (ex: chave inválida), interrompe
     }
-  });
-
-  while (combinedHistory.length > 0 && combinedHistory[0].role !== 'user') {
-    combinedHistory.shift();
   }
 
-  try {
-    const chatSession = model.startChat({
-      history: combinedHistory,
-      generationConfig: { 
-        maxOutputTokens: 1000,
-        temperature: 0.1,
-        topK: 1
-      },
-    });
-
-    const result = await chatSession.sendMessage(userMessage);
-    return result.response.text();
-  } catch (err) {
-    console.error('[gemini] erro no chat:', err.message);
-    throw err;
-  }
+  throw lastError;
 }
 
 async function summarize(apiKey, systemPrompt, history, userMessage) {
