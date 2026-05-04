@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const PdfPrinter = require('pdfmake');
+const PdfPrinter = require('pdfmake/js/Printer').default;
 const path = require('path');
 const fs = require('fs');
 const { draftServiceOrder } = require('../services/geminiService');
@@ -460,7 +460,7 @@ async function generatePdf(req, res) {
       }
     };
 
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    const pdfDoc = await printer.createPdfKitDocument(docDefinition);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="OS_${os.id.substring(os.id.length - 6)}.pdf"`);
