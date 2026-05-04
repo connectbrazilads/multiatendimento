@@ -129,7 +129,7 @@ model Contact {
   createdAt  DateTime   @default(now())
   notes      String?
   tags       String     @default("[]")
-  whatsapp   String?    @unique
+  whatsapp   String?
   
   // Dados extras para CRM
   cpfCnpj    String?
