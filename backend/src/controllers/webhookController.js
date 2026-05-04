@@ -382,6 +382,7 @@ async function handleAutoTagging(tenant, ticket, contact) {
 async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, incomingMessage) {
   const settings = tenant.settings;
   const transferWord = settings.botTransferWord || 'humano';
+  const currentNotes = contact.notes || '';
 
   if (userMessage.toLowerCase().includes(transferWord.toLowerCase())) {
     await prisma.ticket.update({ where: { id: ticket.id }, data: { status: 'pending' } });
