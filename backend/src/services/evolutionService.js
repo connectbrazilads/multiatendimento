@@ -179,16 +179,27 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
   const client = getClient(url, key);
   const jid = remoteJid.includes('@') ? remoteJid : `${remoteJid}@s.whatsapp.net`;
   
-  const { data } = await client.post(`/chat/revokeMessage/${instanceName}`, {
-    message: {
-      key: {
-        remoteJid: jid,
-        id: messageId,
-        fromMe: true
+  // Tenta deleteMessage (mais moderno) ou revokeMessage (legado)
+  try {
+    const { data } = await client.post(`/message/deleteMessage/${instanceName}`, {
+      number: jid,
+      id: messageId,
+      fromMe: true
+    });
+    return data;
+  } catch (err) {
+    console.log('[evolutionService] deleteMessage falhou, tentando revokeMessage...');
+    const { data } = await client.post(`/chat/revokeMessage/${instanceName}`, {
+      message: {
+        key: {
+          remoteJid: jid,
+          id: messageId,
+          fromMe: true
+        }
       }
-    }
-  });
-  return data;
+    });
+    return data;
+  }
 }
 
 module.exports = {

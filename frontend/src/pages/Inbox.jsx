@@ -100,7 +100,14 @@ export default function Inbox() {
   const [counts, setCounts] = useState({ mine: 0, pending: 0, resolved: 0 });
 
   const selectedIdRef = React.useRef(selectedId);
+  const tabRef = React.useRef(tab);
+  const filtersRef = React.useRef(filters);
+  const searchRef = React.useRef(search);
+
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
+  useEffect(() => { searchRef.current = search; }, [search]);
 
   useEffect(() => {
     loadInitial();
@@ -184,10 +191,14 @@ export default function Inbox() {
 
   async function loadTickets() {
     try {
+      const currentTab = tabRef.current;
+      const currentFilters = filtersRef.current;
+      const currentSearch = searchRef.current;
+
       const { data } = await getTickets(
-        tab === 'mine' ? null : tab, 
-        tab === 'mine', 
-        { ...filters, search }
+        currentTab === 'mine' ? null : currentTab, 
+        currentTab === 'mine', 
+        { ...currentFilters, search: currentSearch }
       );
       setTickets(data.tickets || []);
       setCounts(data.counts || { mine: 0, pending: 0, resolved: 0 });
