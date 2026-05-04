@@ -193,8 +193,20 @@ async function importExcel(req, res) {
       if (!phone) continue;
       phone = String(phone).replace(/\D/g, '');
 
-      // Upsert do Contato
-      let contact = await prisma.contact.findFirst({ where: { tenantId, phone } });
+      // Upsert do Contato - Tenta encontrar por telefone, ou CPF/CNPJ, ou Nome Fantasia
+      let contact = await prisma.contact.findFirst({ 
+        where: { 
+          tenantId,
+          OR: [
+            { phone },
+            { whatsapp: phone },
+            cpfCnpj ? { cpfCnpj } : undefined,
+            fantasyName ? { fantasyName } : undefined,
+            name ? { name } : undefined
+          ].filter(Boolean)
+        } 
+      });
+
       if (!contact) {
         contact = await prisma.contact.create({
           data: { tenantId, instanceId: inst.id, phone, name, fantasyName, cpfCnpj, address, city, state }
@@ -209,7 +221,9 @@ async function importExcel(req, res) {
             cpfCnpj: cpfCnpj || contact.cpfCnpj, 
             address: address || contact.address,
             city: city || contact.city,
-            state: state || contact.state
+            state: state || contact.state,
+            // Se o contato antigo não tinha telefone mas o novo tem, atualiza
+            phone: contact.phone || phone 
           }
         });
       }
