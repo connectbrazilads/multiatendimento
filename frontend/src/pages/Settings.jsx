@@ -4,8 +4,10 @@ import {
   createQuickResponse, deleteQuickResponse, getBusinessHours, saveBusinessHours,
   getTags, createTag, deleteTag, uploadLogo, getMediaUrl
 } from '../services/api';
+import Users from './Users';
+import Teams from './Teams';
 
-const TABS = ['Robô IA', 'Atendimento', 'Empresa', 'Respostas Rápidas', 'Etiquetas', 'Minha Conta'];
+const TABS = ['Robô IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas Rápidas', 'Etiquetas', 'Minha Conta'];
 
 export default function Settings() {
   const isMobile = window.innerWidth <= 768;
@@ -373,7 +375,10 @@ export default function Settings() {
         </div>
       )}
 
-      {tab === 2 && (
+       {tab === 2 && <Users />}
+       {tab === 3 && <Teams />}
+
+      {tab === 4 && (
         <div style={s.sections}>
           <div style={s.card}>
             <h2 style={s.cardTitle}>🏢 Dados da Empresa</h2>
@@ -492,7 +497,7 @@ export default function Settings() {
         </div>
       )}
 
-      {tab === 3 && (
+      {tab === 5 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>⚡ Respostas Rápidas</h3>
@@ -519,7 +524,7 @@ export default function Settings() {
         </section>
       )}
 
-      {tab === 4 && (
+      {tab === 6 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>🏷️ Gestão de Etiquetas</h3>
@@ -556,7 +561,7 @@ export default function Settings() {
         </section>
       )}
 
-      {tab === 5 && (
+      {tab === 7 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3>👤 Minha Conta</h3>
