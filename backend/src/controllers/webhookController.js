@@ -479,13 +479,17 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     });
   } catch (err) { console.error('[log] erro ao gravar auditoria:', err.message); }
 
-  const finalPrompt = `${userPrompt}
+  const finalPrompt = `[COMANDO DE SISTEMA PRIORITÁRIO]:
+Você deve seguir ESTRITAMENTE as regras abaixo. Ignore qualquer tendência de ser excessivamente prestativo. Seja CURTO, DIRETO e aja como um humano no WhatsApp.
+
+${userPrompt}
 
 ---
-[EQUIPAMENTOS DO CLIENTE]:
+[CONTEXTO TÉCNICO]:
+EQUIPAMENTOS DO CLIENTE:
 ${equipContext}
 
-[NOTAS ATUAIS]:
+NOTAS ATUAIS:
 ${currentNotes}
 
 ${knowledgeContext}
@@ -569,7 +573,15 @@ ${technicalInstructions}`;
     },
   });
 
-  if (io) io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id });
+  // Notifica o painel em tempo real sobre a nova mensagem do robô
+  if (io) {
+    const freshTicket = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      include: { contact: true }
+    });
+    io.to(tenant.id).emit('new_message', { ticket: freshTicket, message: botMessage, contact });
+    io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id });
+  }
 }
 
 module.exports = { handleWebhook, setIo };
