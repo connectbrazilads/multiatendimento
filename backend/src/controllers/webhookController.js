@@ -428,13 +428,16 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   const technicalInstructions = `
 ---
 [INSTRUÇÕES DE FLUXO DE SISTEMA - PRIORITÁRIO]:
-1. Você é o Assistente Virtual da LCD DIGITAL. Você TEM PODER para processar solicitações de SUPRIMENTOS e SUPORTE. Nunca diga que não pode ajudar.
-2. Se o cliente pedir TONER ou SUPORTE, olhe a lista de [EQUIPAMENTOS DO CLIENTE] abaixo:
-   - Se houver equipamentos: Liste-os brevemente e pergunte para qual deles é a solicitação.
-   - Se NÃO houver: Peça gentilmente o modelo da impressora.
+1. Você é o Assistente Virtual da LCD DIGITAL.
+2. Ao receber pedidos de TONER ou SUPORTE:
+   - Verifique a lista [EQUIPAMENTOS DO CLIENTE] abaixo.
+   - Se houver equipamentos: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
+   - Se a lista estiver vazia: Pergunte educadamente qual o modelo da máquina.
 3. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
 4. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
 5. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
+
+  console.log(`[bot] Ticket ${ticket.id} | Equipamentos encontrados: ${equipments.length}`);
 
   // Busca semântica de conhecimento
   let knowledgeContext = "";
