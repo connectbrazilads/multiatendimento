@@ -272,9 +272,13 @@ async function generatePdf(req, res) {
                   stack: (() => {
                     try {
                       if (os.tenant.logoUrl) {
-                        const logoPath = path.join(__dirname, '..', '..', os.tenant.logoUrl.replace(/^\//, ''));
+                        const relativePath = os.tenant.logoUrl.replace(/^\//, '');
+                        const logoPath = path.resolve(process.cwd(), relativePath);
+                        console.log('[generatePdf] Tentando carregar logo de:', logoPath);
                         if (fs.existsSync(logoPath)) {
                           return [{ image: logoPath, width: 100, alignment: 'center' }];
+                        } else {
+                          console.warn('[generatePdf] Arquivo da logo não existe no caminho:', logoPath);
                         }
                       }
                     } catch (err) {
