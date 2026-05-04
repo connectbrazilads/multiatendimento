@@ -440,11 +440,13 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 1. Você é o Assistente Virtual da LCD DIGITAL.
 2. Ao receber pedidos de TONER ou SUPORTE:
    - Verifique a lista [EQUIPAMENTOS DO CLIENTE] abaixo.
-   - Se houver equipamentos: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
+   - Se houver equipamentos na lista: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
    - Se a lista estiver vazia: Pergunte educadamente qual o modelo da máquina.
-3. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
-4. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
-5. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
+3. [VALIDAÇÃO DE COR]: Se a máquina for COLORIDA (verifique no campo "Tipo" ou pelo conhecimento do modelo, ex: Xerox 7845, Ricoh C3003), você DEVE perguntar quais cores de toner o cliente precisa (Ciano, Magenta, Amarelo ou Preto).
+4. [CONFIRMAÇÃO]: NUNCA diga "Já abri o chamado". Use sempre frases como "Entendido! Iremos abrir um chamado para você e nosso time técnico seguirá com o atendimento." ou "Perfeito, vou encaminhar sua solicitação para a abertura do chamado."
+5. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
+6. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
+7. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
 
   console.log(`[bot] Ticket ${ticket.id} | Equipamentos encontrados: ${equipments.length}`);
   if (equipments.length > 0) console.log(`[bot] Contexto de equipamentos enviado:\n${equipContext}`);
