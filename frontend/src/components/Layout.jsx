@@ -15,7 +15,8 @@ export default function Layout() {
     navigate('/login');
   }
 
-  const role = localStorage.getItem('role');
+  const role = localStorage.getItem('role')?.toLowerCase();
+  console.log('[Layout] Role atual detectada:', role);
 
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 

@@ -8,8 +8,10 @@ const api = axios.create({ baseURL: BASE_URL });
 
 export const getMediaUrl = (url) => {
   if (!url) return '';
-  if (url.startsWith('http')) return url;
-  return `${BACKEND_URL}${url}`;
+  // Se a URL contiver localhost (erro anterior), removemos para usar a BACKEND_URL correta
+  const cleanUrl = url.replace('http://localhost:3002', '');
+  if (cleanUrl.startsWith('http')) return cleanUrl;
+  return `${BACKEND_URL}${cleanUrl}`;
 };
 
 // Dashboard
