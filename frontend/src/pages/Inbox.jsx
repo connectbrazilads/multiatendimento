@@ -318,9 +318,14 @@ export default function Inbox() {
 
   const selectedTicket = tickets.find(t => t.id === selectedId);
 
-  const selectTicket = (id) => {
+  const selectTicket = async (id) => {
     setSelectedId(id);
     if (isMobile) setView('chat');
+    
+    // Zera o contador localmente para feedback imediato
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, unreadCount: 0 } : t));
+    
+    // O backend já zera ao chamar getMessages (que é disparado pelo useEffect do selectedId)
   };
 
   return (
@@ -383,47 +388,38 @@ export default function Inbox() {
             return name.includes(s) || phone.includes(s);
           }).map(t => (
             <div key={t.id} onClick={() => selectTicket(t.id)} style={{ ...s.row, ...(selectedId === t.id ? s.rowActive : {}) }}>
-              <Avatar name={t.contact.name || t.contact.phone} src={t.contact.avatarUrl} size={42} />
+              <Avatar name={t.contact.name || t.contact.phone} src={t.contact.avatarUrl} size={36} />
               <div style={s.rowInfo}>
                 <div style={s.rowTop}>
                   <span style={s.rowName}>{t.contact.name || t.contact.phone}</span>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={s.rowTime}>{fmt(t.updatedAt)}</span>
-                    {t.status === 'pending' && (
-                      <span style={{ fontSize: '0.6rem', color: '#D4AF37', fontWeight: 800 }}>
-                        ⏳ {waitingSince(t.updatedAt)}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div style={s.rowSub}>
                   <span style={{ ...s.dot, background: statusColor(t.status), color: statusColor(t.status) }} />
                   <span style={s.rowMsg}>{t.instance?.instanceName?.split('_').pop().toUpperCase()} · {statusLabel(t.status)}</span>
+                  {t.unreadCount > 0 && (
+                    <div style={s.unreadBadge}>{t.unreadCount}</div>
+                  )}
                 </div>
                 
-                {/* TAGS NA LISTA LATERAL */}
+                {/* TAGS NA LISTA LATERAL - Mais compactas */}
                 {t.contact.tags && (
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                    {JSON.parse(t.contact.tags).slice(0, 3).map(tag => (
+                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
+                    {JSON.parse(t.contact.tags).slice(0, 2).map(tag => (
                       <span key={tag} style={{ 
-                        fontSize: '0.55rem', 
-                        background: 'rgba(212,175,55,0.1)', 
+                        fontSize: '0.5rem', 
+                        background: 'rgba(212,175,55,0.05)', 
                         color: '#D4AF37', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px',
-                        fontWeight: 800,
-                        border: '1px solid rgba(212,175,55,0.2)'
+                        padding: '1px 5px', 
+                        borderRadius: '3px',
+                        fontWeight: 700,
+                        border: '1px solid rgba(212,175,55,0.1)'
                       }}>
                         {tag}
                       </span>
                     ))}
-                  </div>
-                )}
-
-                {(t.team || t.agent) && (
-                  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                    {t.team && <span style={{ ...s.miniBadge, background: 'rgba(255,255,255,0.03)', color: '#717171' }}>{t.team.name}</span>}
-                    {t.agent && <span style={{ ...s.miniBadge, background: 'rgba(255,255,255,0.03)', color: '#717171' }}>{t.agent.name}</span>}
                   </div>
                 )}
               </div>
@@ -1154,16 +1150,17 @@ const s = {
   clearBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', color: 'var(--text-muted)', padding: '0 1rem', cursor: 'pointer' },
   filterBar: { display: 'flex', gap: '6px' },
   filterSelect: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '6px 8px', color: 'var(--text-muted)', fontSize: '0.7rem', outline: 'none', fontWeight: 600 },
-  list: { flex: 1, overflowY: 'auto', padding: '0.5rem' },
-  row: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer', borderRadius: '16px', margin: '2px 8px', transition: 'all 0.2s' },
+  list: { flex: 1, overflowY: 'auto', padding: '0.25rem' },
+  row: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.8rem', cursor: 'pointer', borderRadius: '12px', margin: '1px 6px', transition: 'all 0.2s' },
   rowActive: { background: 'var(--accent-light)', boxShadow: 'inset 0 0 0 1px var(--accent-border)' },
   rowInfo: { flex: 1, minWidth: 0 },
-  rowTop: { display: 'flex', justifyContent: 'space-between', marginBottom: 4 },
-  rowName: { fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', letterSpacing: '-0.01em' },
-  rowTime: { fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 700 },
-  rowSub: { display: 'flex', alignItems: 'center', gap: '8px' },
-  rowMsg: { fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 },
-  dot: { width: 8, height: 8, borderRadius: '50%', boxShadow: '0 0 8px currentColor' },
+  rowTop: { display: 'flex', justifyContent: 'space-between', marginBottom: 2 },
+  rowName: { fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  rowTime: { fontSize: '0.65rem', color: 'var(--text-dim)', fontWeight: 600 },
+  rowSub: { display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' },
+  rowMsg: { fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 400, flex: 1 },
+  unreadBadge: { background: '#e53e3e', color: '#fff', borderRadius: '50%', minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 900, boxShadow: '0 2px 5px rgba(229, 62, 62, 0.4)' },
+  dot: { width: 6, height: 6, borderRadius: '50%', boxShadow: '0 0 6px currentColor' },
   miniBadge: { fontSize: '0.6rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' },
 
   main: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-base)', position: 'relative', minWidth: 0, overflow: 'hidden' },

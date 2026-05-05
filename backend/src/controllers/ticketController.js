@@ -126,6 +126,15 @@ async function getMessages(req, res) {
   const ticket = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
+  // Reset unread count
+  if (ticket.unreadCount > 0) {
+    await prisma.ticket.update({
+      where: { id },
+      data: { unreadCount: 0 }
+    });
+    if (io) io.to(req.user.tenantId).emit('ticket_updated', { id, unreadCount: 0 });
+  }
+
   // Busca todos os tickets do contato para montar histórico completo (filtrando pelo tenant)
   const allTickets = await prisma.ticket.findMany({
     where: { contactId: ticket.contactId, tenantId: req.user.tenantId },

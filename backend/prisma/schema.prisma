@@ -160,6 +160,7 @@ model Ticket {
   status     String     @default("pending")
   priority   String     @default("medium") // low, medium, high, urgent
   subject    String?
+  unreadCount Int       @default(0)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   resolvedAt DateTime?

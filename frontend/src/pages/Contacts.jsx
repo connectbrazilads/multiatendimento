@@ -17,7 +17,15 @@ export default function Contacts() {
     document: '', 
     address: '', 
     city: '', 
-    state: '' 
+    state: '',
+    zipCode: '',
+    equipment: {
+      manufacturer: '',
+      model: '',
+      serialNumber: '',
+      type: '',
+      sector: ''
+    }
   });
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
@@ -42,11 +50,15 @@ export default function Contacts() {
   async function handleCreate() {
     if (!newContact.name || !newContact.phone) return alert('Preencha pelo menos nome e telefone');
     try {
-      await createContact(newContact);
+      await createContact({
+        ...newContact,
+        cpfCnpj: newContact.document // Mapeia document para cpfCnpj usado no backend
+      });
       setShowAddModal(false);
       setNewContact({ 
         name: '', phone: '', fantasyName: '', email: '', 
-        document: '', address: '', city: '', state: '' 
+        document: '', address: '', city: '', state: '', zipCode: '',
+        equipment: { manufacturer: '', model: '', serialNumber: '', type: '', sector: '' }
       });
       loadContacts();
     } catch (err) {
@@ -196,6 +208,38 @@ export default function Contacts() {
                   <label style={s.label}>Estado (UF)</label>
                   <input style={s.input} value={newContact.state} onChange={e => setNewContact({...newContact, state: e.target.value})} placeholder="Ex: RS" />
                 </div>
+                <div style={s.field}>
+                  <label style={s.label}>CEP</label>
+                  <input style={s.input} value={newContact.zipCode} onChange={e => setNewContact({...newContact, zipCode: e.target.value})} placeholder="00000-000" />
+                </div>
+              </div>
+
+              <div style={{ marginTop: '2rem', borderTop: '1px solid #1A1A1B', paddingTop: '2rem' }}>
+                <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.1rem', fontWeight: 800, color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Printer size={20} /> Equipamento Principal (Opcional)
+                </h3>
+                <div style={s.formGrid}>
+                  <div style={s.field}>
+                    <label style={s.label}>Marca</label>
+                    <input style={s.input} value={newContact.equipment.manufacturer} onChange={e => setNewContact({...newContact, equipment: {...newContact.equipment, manufacturer: e.target.value}})} placeholder="Ex: Xerox" />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Modelo</label>
+                    <input style={s.input} value={newContact.equipment.model} onChange={e => setNewContact({...newContact, equipment: {...newContact.equipment, model: e.target.value}})} placeholder="Ex: WorkCentre 7845" />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Número de Série</label>
+                    <input style={s.input} value={newContact.equipment.serialNumber} onChange={e => setNewContact({...newContact, equipment: {...newContact.equipment, serialNumber: e.target.value}})} placeholder="Ex: ABC123456" />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Tipo de Impressora</label>
+                    <input style={s.input} value={newContact.equipment.type} onChange={e => setNewContact({...newContact, equipment: {...newContact.equipment, type: e.target.value}})} placeholder="Ex: Multifuncional Monocromática" />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Setor / Localização</label>
+                    <input style={s.input} value={newContact.equipment.sector} onChange={e => setNewContact({...newContact, equipment: {...newContact.equipment, sector: e.target.value}})} placeholder="Ex: Recepção" />
+                  </div>
+                </div>
               </div>
               <button style={s.saveBtn} onClick={handleCreate}>Cadastrar Cliente</button>
             </div>
@@ -215,35 +259,35 @@ export default function Contacts() {
 }
 
 const s = {
-  container: { padding: '2.5rem', background: '#09090B', height: '100%', overflowY: 'auto', flex: 1, color: '#fff' },
+  container: { padding: '2.5rem', background: 'var(--bg-base)', height: '100%', overflowY: 'auto', flex: 1, color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
   title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px' },
-  subtitle: { color: '#717171', fontSize: '0.95rem', marginTop: '0.4rem' },
-  addBtn: { background: '#D4AF37', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: '#000', display: 'flex', alignItems: 'center', gap: '8px' },
-  importBtn: { background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.2)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '8px' },
+  subtitle: { color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.4rem' },
+  addBtn: { background: 'var(--accent)', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', gap: '8px' },
+  importBtn: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' },
   searchWrap: { position: 'relative' },
-  search: { background: '#131314', border: '1px solid #222', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '12px', color: '#fff', width: '280px', outline: 'none', fontSize: '0.9rem' },
-  searchIcon: { position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#717171' },
+  search: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '12px', color: 'var(--text-main)', width: '280px', outline: 'none', fontSize: '0.9rem' },
+  searchIcon: { position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
-  card: { padding: '1.5rem', background: '#131314', border: '1px solid #1A1A1B', borderRadius: '20px', transition: 'all 0.2s' },
+  card: { padding: '1.5rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '20px', transition: 'all 0.2s' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
-  cardName: { fontSize: '1.1rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  cardFantasy: { color: '#D4AF37', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' },
-  cardPhone: { color: '#717171', fontSize: '0.85rem', marginTop: '4px' },
-  editBtn: { background: 'none', border: 'none', color: '#444', cursor: 'pointer', padding: '4px' },
+  cardName: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  cardFantasy: { color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' },
+  cardPhone: { color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' },
+  editBtn: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' },
   cardTags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem', minHeight: '24px' },
-  tag: { fontSize: '0.65rem', background: 'rgba(212,175,55,0.1)', color: '#D4AF37', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid rgba(212,175,55,0.2)' },
-  chatBtn: { width: '100%', background: 'transparent', border: '1px solid #222', color: '#fff', padding: '0.85rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', ':hover': { background: '#1A1A1B' } },
+  tag: { fontSize: '0.65rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid var(--accent-border)' },
+  chatBtn: { width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.85rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
 
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
-  modal: { background: '#0F0F0F', borderRadius: '32px', width: '100%', maxWidth: '700px', border: '1px solid #222', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' },
-  modalHeader: { padding: '2rem', borderBottom: '1px solid #1A1A1B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  closeBtn: { background: 'none', border: 'none', color: '#717171', cursor: 'pointer' },
+  modal: { background: 'var(--bg-surface)', borderRadius: '32px', width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' },
+  modalHeader: { padding: '2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' },
   modalBody: { padding: '2rem' },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  label: { fontSize: '0.7rem', fontWeight: 800, color: '#D4AF37', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { background: '#131314', border: '1px solid #222', borderRadius: '12px', padding: '0.85rem 1rem', color: '#fff', outline: 'none', fontSize: '0.95rem' },
-  saveBtn: { width: '100%', padding: '1rem', borderRadius: '14px', border: 'none', background: '#D4AF37', color: '#000', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' }
+  label: { fontSize: '0.7rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.95rem' },
+  saveBtn: { width: '100%', padding: '1rem', borderRadius: '14px', border: 'none', background: 'var(--accent)', color: 'var(--text-inverse)', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' }
 };

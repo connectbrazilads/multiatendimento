@@ -93,7 +93,11 @@ async function getMedia(req, res) {
 }
 
 async function create(req, res) {
-  const { name, phone, instanceId } = req.body;
+  const { 
+    name, phone, fantasyName, email, cpfCnpj, 
+    address, city, state, zipCode, instanceId,
+    equipment // Objeto opcional { manufacturer, model, serialNumber, type, sector }
+  } = req.body;
   const { tenantId } = req.user;
 
   const exists = await prisma.contact.findFirst({ where: { tenantId, phone } });
@@ -101,14 +105,47 @@ async function create(req, res) {
 
   let finalInstanceId = instanceId;
   if (!finalInstanceId) {
-    const inst = await prisma.waInstance.findFirst({ where: { tenantId, status: 'CONNECTED' } });
-    if (!inst) return res.status(400).json({ error: 'Nenhuma conexão WhatsApp ativa encontrada' });
-    finalInstanceId = inst.id;
+    const inst = await prisma.waInstance.findFirst({ where: { tenantId, status: { in: ['CONNECTED', 'connected', 'open'] } } });
+    if (!inst) {
+      const anyInst = await prisma.waInstance.findFirst({ where: { tenantId } });
+      if (!anyInst) return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada' });
+      finalInstanceId = anyInst.id;
+    } else {
+      finalInstanceId = inst.id;
+    }
   }
 
   const contact = await prisma.contact.create({
-    data: { name, phone, tenantId, instanceId: finalInstanceId }
+    data: { 
+      name, 
+      phone, 
+      fantasyName: fantasyName || null,
+      email: email || null,
+      cpfCnpj: cpfCnpj || null,
+      address: address || null,
+      city: city || null,
+      state: state || null,
+      zipCode: zipCode || null,
+      tenantId, 
+      instanceId: finalInstanceId 
+    }
   });
+
+  // Cria equipamento se fornecido
+  if (equipment && equipment.model) {
+    await prisma.equipment.create({
+      data: {
+        tenantId,
+        contactId: contact.id,
+        manufacturer: equipment.manufacturer || null,
+        model: equipment.model,
+        serialNumber: equipment.serialNumber || null,
+        type: equipment.type || null,
+        sector: equipment.sector || 'Geral'
+      }
+    });
+  }
+
   res.json(contact);
 }
 
