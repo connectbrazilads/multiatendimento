@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { login, getTenantBySlug } from '../services/api';
+import { login, getTenantBySlug, getMediaUrl } from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -52,7 +52,7 @@ export default function Login() {
       <div style={s.card}>
         <div style={s.header}>
           {tenantInfo?.logoUrl ? (
-            <img src={tenantInfo.logoUrl} alt={tenantInfo.name} style={{ height: '60px', marginBottom: '1.5rem', objectFit: 'contain' }} />
+            <img src={getMediaUrl(tenantInfo.logoUrl)} alt={tenantInfo.name} style={{ height: '60px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           ) : (
             <div style={{ ...s.logoIcon, filter: `drop-shadow(0 0 10px ${primaryColor}44)` }}>✨</div>
           )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getTenants, createTenant, updateTenant, uploadFile } from '../services/api';
+import { getTenants, createTenant, updateTenant, uploadFile, getMediaUrl } from '../services/api';
 
 export default function SuperAdmin() {
   const [tenants, setTenants] = useState([]);
@@ -74,8 +74,8 @@ export default function SuperAdmin() {
     setSaving(true);
     try {
       const { data } = await uploadFile(file);
-      const apiBase = 'http://localhost:3002'; // Idealmente viria de um .env
-      setForm({ ...form, logoUrl: `${apiBase}${data.url}` });
+      // Salva apenas o caminho relativo (/uploads/...) para o banco
+      setForm({ ...form, logoUrl: data.url });
     } catch (e) {
       alert('Erro ao fazer upload da logo');
     } finally {
