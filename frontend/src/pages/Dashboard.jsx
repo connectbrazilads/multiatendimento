@@ -89,15 +89,15 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" vertical={false} />
-                <XAxis dataKey="date" stroke="#717171" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#717171" fontSize={12} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  contentStyle={{ background: '#1A1A1B', border: '1px solid #333', borderRadius: '12px' }}
+                  contentStyle={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-main)' }}
                   itemStyle={{ fontSize: '12px' }}
                 />
-                <Area type="monotone" dataKey="ia" stroke="#D4AF37" fillOpacity={1} fill="url(#colorIA)" strokeWidth={3} />
-                <Area type="monotone" dataKey="human" stroke="#717171" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />
+                <Area type="monotone" dataKey="ia" stroke="var(--accent)" fillOpacity={1} fill="url(#colorIA)" strokeWidth={3} />
+                <Area type="monotone" dataKey="human" stroke="var(--text-muted)" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -156,47 +156,47 @@ function KpiCard({ icon, label, value, hint }) {
 }
 
 const s = {
-  container: { padding: '2.5rem', background: '#09090B', flex: 1, overflowY: 'auto', color: '#fff' },
+  container: { padding: '2.5rem', background: 'var(--bg-base)', flex: 1, overflowY: 'auto', color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
   headerInfo: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   title: { fontSize: '2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em' },
-  subtitle: { color: '#717171', fontSize: '1rem' },
-  statusBadge: { background: '#1A1A1B', border: '1px solid #2A2A2A', padding: '0.6rem 1rem', borderRadius: '100px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa' },
+  subtitle: { color: 'var(--text-muted)', fontSize: '1rem' },
+  statusBadge: { background: 'var(--bg-surface)', border: '1px solid var(--border-color)', padding: '0.6rem 1rem', borderRadius: '100px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px rgba(16,185,129,0.4)' },
 
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' },
-  kpiCard: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '20px', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' },
-  kpiIcon: { background: '#0F0F0F', padding: '0.75rem', borderRadius: '12px', border: '1px solid #222' },
-  kpiLabel: { color: '#717171', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  kpiValue: { fontSize: '1.8rem', fontWeight: 900, margin: '4px 0', color: '#fff' },
-  kpiHint: { color: '#444', fontSize: '0.75rem' },
+  kpiCard: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' },
+  kpiIcon: { background: 'var(--bg-base)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-color)' },
+  kpiLabel: { color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  kpiValue: { fontSize: '1.8rem', fontWeight: 900, margin: '4px 0', color: 'var(--text-main)' },
+  kpiHint: { color: 'var(--text-dim)', fontSize: '0.75rem' },
 
   mainGrid: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' },
-  chartSection: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '24px', padding: '2rem' },
+  chartSection: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '2rem' },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
   sectionTitle: { fontSize: '1.1rem', fontWeight: 800, margin: 0 },
   legend: { display: 'flex', gap: '1.5rem' },
-  legendItem: { fontSize: '0.8rem', color: '#717171', display: 'flex', alignItems: 'center', gap: '6px' },
+  legendItem: { fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' },
   legendDot: { width: '8px', height: '8px', borderRadius: '50%' },
   chartWrapper: { marginTop: '1rem' },
 
   sidebar: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
-  sideCard: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '24px', padding: '1.5rem' },
-  sideTitle: { fontSize: '0.9rem', fontWeight: 800, marginBottom: '1.5rem', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  sideCard: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '1.5rem' },
+  sideTitle: { fontSize: '0.9rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em' },
 
   ratingDist: { display: 'flex', flexDirection: 'column', gap: '12px' },
   ratingRow: { display: 'flex', alignItems: 'center', gap: '12px' },
-  ratingLabel: { fontSize: '0.8rem', color: '#717171', minWidth: '30px' },
-  ratingBarBg: { flex: 1, height: '6px', background: '#0F0F0F', borderRadius: '3px', overflow: 'hidden' },
+  ratingLabel: { fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: '30px' },
+  ratingBarBg: { flex: 1, height: '6px', background: 'var(--bg-base)', borderRadius: '3px', overflow: 'hidden' },
   ratingBar: { height: '100%', background: '#f59e0b', borderRadius: '3px' },
-  ratingCount: { fontSize: '0.8rem', color: '#444', minWidth: '20px', textAlign: 'right' },
+  ratingCount: { fontSize: '0.8rem', color: 'var(--text-dim)', minWidth: '20px', textAlign: 'right' },
 
   ranking: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  rankItem: { display: 'flex', alignItems: 'center', gap: '12px', background: '#0F0F0F', padding: '12px', borderRadius: '16px', border: '1px solid #1A1A1B' },
-  rankNum: { width: '28px', height: '28px', borderRadius: '8px', background: '#1A1A1B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: '#D4AF37' },
-  rankName: { fontSize: '0.9rem', fontWeight: 700, color: '#fff' },
-  rankMeta: { fontSize: '0.75rem', color: '#717171' },
-  emptyHint: { fontSize: '0.8rem', color: '#444', textAlign: 'center', padding: '1rem' },
+  rankItem: { display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-base)', padding: '12px', borderRadius: '16px', border: '1px solid var(--border-color)' },
+  rankNum: { width: '28px', height: '28px', borderRadius: '8px', background: 'var(--bg-panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent)' },
+  rankName: { fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' },
+  rankMeta: { fontSize: '0.75rem', color: 'var(--text-muted)' },
+  emptyHint: { fontSize: '0.8rem', color: 'var(--text-dim)', textAlign: 'center', padding: '1rem' },
 
-  loading: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#717171', background: '#09090B' }
+  loading: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', background: 'var(--bg-surface)' }
 };
