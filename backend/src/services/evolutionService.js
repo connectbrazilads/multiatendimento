@@ -26,14 +26,16 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
   }
 }
 
-async function sendMedia(url, key, instanceName, phone, { mediatype, media, filename, caption, quoted }) {
+async function sendMedia(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted }) {
   const client = getClient(url, key);
   const payload = {
     number: phone,
     mediatype,    // image | video | document
+    mimetype,     // image/jpeg, application/pdf, etc.
     media,        // base64
     fileName: filename || 'arquivo',
     caption: caption || '',
+    quoted: quoted || null
   };
   if (quoted) payload.quoted = { key: { id: quoted } };
   const { data } = await client.post(`/message/sendMedia/${instanceName}`, payload);

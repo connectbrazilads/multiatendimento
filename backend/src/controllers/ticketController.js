@@ -473,7 +473,7 @@ async function sendMediaMessage(req, res) {
     if (mime.startsWith('image/')) {
       mediaType = 'image';
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
-        mediatype: 'image', media: base64, caption: finalCaption, quoted: quotedMsgId
+        mediatype: 'image', media: base64, mimetype: mime, caption: finalCaption, quoted: quotedMsgId
       });
     } else if (mime.startsWith('audio/')) {
       mediaType = 'audio';
@@ -492,7 +492,7 @@ async function sendMediaMessage(req, res) {
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
-        mediatype: 'video', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
       });
     } else {
       mediaType = 'document';
@@ -501,6 +501,7 @@ async function sendMediaMessage(req, res) {
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
         mediatype: 'document', 
         media: base64, 
+        mimetype: mime,
         filename: file.originalname, 
         caption: docCaption, 
         quoted: quotedMsgId
