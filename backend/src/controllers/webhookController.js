@@ -332,11 +332,11 @@ async function handleWebhook(req, res) {
       console.warn('[socket] aviso: objeto io não inicializado no webhookController');
     }
     
-    // Auto-tagueamento (IA) - roda se for a 5ª mensagem para ter contexto
-    const msgCount = await prisma.message.count({ where: { ticketId: ticket.id } });
-    if (msgCount === 5 && tenant.settings?.geminiKey) {
-      handleAutoTagging(tenant, ticket, contact);
-    }
+    // Auto-tagueamento (IA) - DESATIVADO conforme solicitação do usuário
+    // const msgCount = await prisma.message.count({ where: { ticketId: ticket.id } });
+    // if (msgCount === 5 && tenant.settings?.geminiKey) {
+    //   handleAutoTagging(tenant, ticket, contact);
+    // }
 
     if (ticket.status === 'bot' && tenant.settings?.botEnabled && tenant.settings?.geminiKey && !fromMe) {
       console.log(`[bot] Iniciando debounce para ticket ${ticket.id} (12s)...`);
@@ -567,7 +567,8 @@ ${technicalInstructions}`;
     }
   });
 
-  // Atualiza tags do contato
+  // Atualização de tags automáticas DESATIVADA
+  /*
   let currentTags = [];
   try { currentTags = JSON.parse(contact.tags || '[]'); } catch(e) {}
   if (!currentTags.includes(category)) {
@@ -576,6 +577,7 @@ ${technicalInstructions}`;
       data: { tags: JSON.stringify([...currentTags, category]) }
     });
   }
+  */
 
   // Auditoria
   try {
