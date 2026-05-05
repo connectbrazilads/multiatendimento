@@ -5,7 +5,11 @@ export default function SuperAdmin() {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // 'new' | tenant object
-  const [form, setForm] = useState({ name: '', slug: '', plan: 'trial', primaryColor: '#D4AF37', logoUrl: '' });
+  const [form, setForm] = useState({ 
+    name: '', slug: '', plan: 'trial', 
+    primaryColor: '#D4AF37', logoUrl: '',
+    maxConnections: 1, maxUsers: 5 
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -27,7 +31,11 @@ export default function SuperAdmin() {
   function openModal(t = null) {
     if (t) {
       setModal(t);
-      setForm({ name: t.name, slug: t.slug, plan: t.plan, primaryColor: t.primaryColor || '#D4AF37', logoUrl: t.logoUrl || '' });
+      setForm({ 
+        name: t.name, slug: t.slug, plan: t.plan, 
+        primaryColor: t.primaryColor || '#D4AF37', logoUrl: t.logoUrl || '',
+        maxConnections: t.maxConnections || 1, maxUsers: t.maxUsers || 5
+      });
     } else {
       setModal('new');
       setForm({ name: '', slug: '', plan: 'trial', primaryColor: '#D4AF37', logoUrl: '' });
@@ -143,7 +151,10 @@ export default function SuperAdmin() {
                       {t.plan.toUpperCase()}
                     </span>
                   </td>
-                  <td style={s.td}>{t._count?.users || 0}</td>
+                  <td style={s.td}>
+                    <div style={{ fontSize: '0.85rem' }}>👥 {t._count?.users || 0} / <strong>{t.maxUsers}</strong></div>
+                    <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>🔌 {t._count?.instances || 0} / <strong>{t.maxConnections}</strong></div>
+                  </td>
                   <td style={s.td}>
                     <div style={s.statusCell}>
                       <span style={{ ...s.statusDot, background: t.active ? '#48bb78' : '#717171' }} />
@@ -196,7 +207,17 @@ export default function SuperAdmin() {
                     <input style={{ ...s.input, flex: 1 }} value={form.primaryColor} onChange={e => setForm({ ...form, primaryColor: e.target.value })} placeholder="#HEX" />
                   </div>
                 </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={s.field}>
+                  <label style={s.label}>Max Conexões</label>
+                  <input type="number" style={s.input} value={form.maxConnections} onChange={e => setForm({ ...form, maxConnections: e.target.value })} />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Max Usuários</label>
+                  <input type="number" style={s.input} value={form.maxUsers} onChange={e => setForm({ ...form, maxUsers: e.target.value })} />
+                </div>
               </div>
+
               <div style={s.field}>
                 <label style={s.label}>Logotipo (URL ou Upload)</label>
                 <div style={{ display: 'flex', gap: '8px' }}>

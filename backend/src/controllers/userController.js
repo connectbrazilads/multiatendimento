@@ -16,6 +16,13 @@ async function create(req, res) {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { name, email, password, role } = req.body;
 
+  const tenant = await prisma.tenant.findUnique({ where: { id: req.user.tenantId } });
+  const count = await prisma.user.count({ where: { tenantId: req.user.tenantId } });
+
+  if (count >= tenant.maxUsers) {
+    return res.status(403).json({ error: `Limite de usuários atingido (${tenant.maxUsers}).` });
+  }
+
   const exists = await prisma.user.findFirst({
     where: { tenantId: req.user.tenantId, email },
   });

@@ -14,6 +14,7 @@ model Tenant {
   plan           String          @default("trial") // trial, starter, pro, enterprise
   active         Boolean         @default(true)
   maxConnections Int             @default(1)
+  maxUsers       Int             @default(5)
   primaryColor   String?         @default("#D4AF37")
   logoUrl        String?
   createdAt      DateTime        @default(now())
