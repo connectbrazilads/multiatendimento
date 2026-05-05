@@ -92,7 +92,10 @@ async function handleWebhook(req, res) {
     if (remoteJid.includes('@g.us')) return;
     if (remoteJid === 'status@broadcast') return;
 
-    const phone = remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+    let phone = remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+    if (phone.length <= 11 && !phone.startsWith('55')) {
+      phone = '55' + phone;
+    }
 
     const media = extractMedia(msg);
     const body = msg.message?.conversation
