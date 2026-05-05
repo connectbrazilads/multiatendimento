@@ -1,135 +1,139 @@
 import React, { useEffect, useState } from 'react';
 import { getDashboardStats } from '../services/api';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell
+} from 'recharts';
+import { Star, TrendingUp, Users, Clock, MessageSquare, Bot, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getDashboardStats()
-      .then(r => {
-        setStats(r.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    load();
   }, []);
 
-  if (loading) return <div style={s.loading}>Carregando métricas de performance...</div>;
-  if (!stats) return <div style={s.loading}>Erro ao carregar dashboard.</div>;
+  async function load() {
+    try {
+      const { data } = await getDashboardStats();
+      setStats(data);
+    } catch (e) {
+      console.error('Erro ao carregar dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const kpis = stats.kpis;
+  if (loading) return <div style={s.loading}>Analizando performance da operação...</div>;
+  if (!stats) return <div style={s.loading}>Erro ao carregar dados do dashboard.</div>;
+
+  const { kpis, dailyMessages, agentRanking, ratingsDistribution } = stats;
+
   return (
-    <div className="dashboard-container" style={s.container}>
-      <header className="dashboard-header" style={s.header}>
-        <h1 className="dashboard-title" style={s.title}>📊 Dashboard de Performance</h1>
-        <p className="dashboard-subtitle" style={s.subtitle}>Acompanhe a economia de tempo e eficiência da sua operação.</p>
+    <div style={s.container}>
+      <header style={s.header}>
+        <div style={s.headerInfo}>
+          <h1 style={s.title}>📊 Dashboard de Performance</h1>
+          <p style={s.subtitle}>Insights em tempo real sobre a eficiência da sua operação</p>
+        </div>
+        <div style={s.statusBadge}>
+          <span style={s.dot} /> Sistema Operacional
+        </div>
       </header>
 
-      <div style={s.grid}>
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>⏱️</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>Tempo Economizado</div>
-            <div style={s.cardValue}>{kpis.hoursSaved}h</div>
-            <div style={s.cardHint}>Baseado na produtividade da IA</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>🤖</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>Taxa de Retenção IA</div>
-            <div style={s.cardValue}>{kpis.retentionRate}%</div>
-            <div style={s.cardHint}>Conversas resolvidas sem humano</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>⚡</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>TMA Médio</div>
-            <div style={s.cardValue}>{kpis.avgTMA > 60 ? `${Math.round(kpis.avgTMA / 60)}h` : `${kpis.avgTMA}m`}</div>
-            <div style={s.cardHint}>Tempo de resolução p/ ticket</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>💬</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>Atendimentos Ativos</div>
-            <div style={s.cardValue}>{kpis.activeTickets}</div>
-            <div style={s.cardHint}>Conversas em curso agora</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>⭐</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>Pontuação Média</div>
-            <div style={s.cardValue}>{kpis.avgRating}/5</div>
-            <div style={s.cardHint}>Baseado em {kpis.totalRatings} avaliações</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={s.card}>
-          <div style={s.cardIcon}>📔</div>
-          <div style={s.cardInfo}>
-            <div style={s.cardLabel}>Total de Contatos</div>
-            <div style={s.cardValue}>{kpis.totalContacts}</div>
-            <div style={s.cardHint}>Base de clientes engajados</div>
-          </div>
-        </div>
+      {/* KPI Cards */}
+      <div style={s.kpiGrid}>
+        <KpiCard 
+          icon={<Bot color="#D4AF37" />} 
+          label="Tempo Economizado" 
+          value={`${kpis.hoursSaved}h`} 
+          hint={`${kpis.iaMessages} mensagens processadas pela IA`} 
+        />
+        <KpiCard 
+          icon={<TrendingUp color="#10b981" />} 
+          label="Taxa de Retenção IA" 
+          value={`${kpis.retentionRate}%`} 
+          hint="Conversas resolvidas sem humano" 
+        />
+        <KpiCard 
+          icon={<Clock color="#3b82f6" />} 
+          label="TMA Médio" 
+          value={kpis.avgTMA > 60 ? `${Math.round(kpis.avgTMA / 60)}h` : `${kpis.avgTMA}m`} 
+          hint="Tempo médio de resolução" 
+        />
+        <KpiCard 
+          icon={<Star color="#f59e0b" />} 
+          label="Satisfação (CSAT)" 
+          value={`${kpis.avgRating}/5`} 
+          hint={`Baseado em ${kpis.totalRatings} avaliações`} 
+        />
       </div>
 
-      <div className="dashboard-sections" style={s.sections}>
-        <div className="glass-panel dashboard-section-card" style={s.sectionCard}>
-          <h2 style={s.sectionTitle}>🏆 Ranking de Agentes (Resolvidos)</h2>
-          <div style={s.rankingList}>
-            {stats.agentRanking.length > 0 ? stats.agentRanking.map((a, i) => (
-              <div key={i} style={s.rankingItem}>
-                <div style={s.rankingPos}>{i + 1}º</div>
-                <div style={s.rankingName}>{a.name}</div>
-                <div style={s.rankingCount}>{a.count} tickets</div>
-              </div>
-            )) : <p style={s.hint}>Nenhum ticket resolvido por agentes ainda.</p>}
-          </div>
-          
-          <div style={{ marginTop: '40px' }}>
-            <h2 style={s.sectionTitle}>📈 Volume de Mensagens (30 dias)</h2>
-            <div style={s.chartBox}>
-              <div style={s.chartRow}>
-                <div style={{ ...s.chartBar, width: `${(kpis.iaMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: 'var(--accent)' }} />
-                <div style={s.chartLabel}>
-                  <span>IA (Robô)</span>
-                  <span>{kpis.iaMessages} mensagens</span>
-                </div>
-              </div>
-              <div style={s.chartRow}>
-                <div style={{ ...s.chartBar, width: `${(kpis.humanMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100}%`, background: 'var(--text-muted)' }} />
-                <div style={s.chartLabel}>
-                  <span>Humanos (Agentes)</span>
-                  <span>{kpis.humanMessages} mensagens</span>
-                </div>
-              </div>
+      <div style={s.mainGrid}>
+        {/* Chart Section */}
+        <div style={s.chartSection}>
+          <div style={s.sectionHeader}>
+            <h2 style={s.sectionTitle}>📈 Evolução do Atendimento (7 dias)</h2>
+            <div style={s.legend}>
+              <div style={s.legendItem}><span style={{ ...s.legendDot, background: '#D4AF37' }} /> IA</div>
+              <div style={s.legendItem}><span style={{ ...s.legendDot, background: '#717171' }} /> Humano</div>
             </div>
-            <p style={s.hint}>A IA está processando {Math.round((kpis.iaMessages / (kpis.iaMessages + kpis.humanMessages || 1)) * 100)}% de todo o tráfego.</p>
+          </div>
+          <div style={s.chartWrapper}>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={dailyMessages}>
+                <defs>
+                  <linearGradient id="colorIA" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" vertical={false} />
+                <XAxis dataKey="date" stroke="#717171" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#717171" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ background: '#1A1A1B', border: '1px solid #333', borderRadius: '12px' }}
+                  itemStyle={{ fontSize: '12px' }}
+                />
+                <Area type="monotone" dataKey="ia" stroke="#D4AF37" fillOpacity={1} fill="url(#colorIA)" strokeWidth={3} />
+                <Area type="monotone" dataKey="human" stroke="#717171" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="glass-panel dashboard-section-card" style={s.sectionCard}>
-          <h2 style={s.sectionTitle}>📡 Status Operacional</h2>
-          <div style={s.statusList}>
-            <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: 'var(--accent)' }} />
-              <span>Aguardando ({kpis.pendingTickets})</span>
+        {/* Right Sidebar */}
+        <div style={s.sidebar}>
+          <div style={s.sideCard}>
+            <h3 style={s.sideTitle}>⭐ Distribuição de Notas</h3>
+            <div style={s.ratingDist}>
+              {ratingsDistribution.slice().reverse().map(r => (
+                <div key={r.rating} style={s.ratingRow}>
+                  <span style={s.ratingLabel}>{r.rating} <Star size={12} style={{ display: 'inline', marginBottom: '2px' }} /></span>
+                  <div style={s.ratingBarBg}>
+                    <div style={{ ...s.ratingBar, width: `${(r.count / (kpis.totalRatings || 1)) * 100}%` }} />
+                  </div>
+                  <span style={s.ratingCount}>{r.count}</span>
+                </div>
+              ))}
             </div>
-            <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: 'var(--success)' }} />
-              <span>Em Atendimento ({kpis.activeTickets})</span>
-            </div>
-            <div style={s.statusItem}>
-              <span style={{ ...s.statusDot, background: 'var(--text-muted)' }} />
-              <span>Resolvidos (Total: {stats.ticketsByStatus.find(t => t.status === 'resolved')?._count.id || 0})</span>
+          </div>
+
+          <div style={s.sideCard}>
+            <h3 style={s.sideTitle}>🏆 Ranking de Agentes</h3>
+            <div style={s.ranking}>
+              {agentRanking.map((a, i) => (
+                <div key={i} style={s.rankItem}>
+                  <div style={s.rankNum}>{i + 1}</div>
+                  <div style={s.rankInfo}>
+                    <div style={s.rankName}>{a.name}</div>
+                    <div style={s.rankMeta}>{a.count} tickets resolvidos</div>
+                  </div>
+                  <ArrowRight size={14} color="#333" />
+                </div>
+              ))}
+              {agentRanking.length === 0 && <p style={s.emptyHint}>Nenhum ticket resolvido ainda.</p>}
             </div>
           </div>
         </div>
@@ -138,38 +142,61 @@ export default function Dashboard() {
   );
 }
 
+function KpiCard({ icon, label, value, hint }) {
+  return (
+    <div style={s.kpiCard}>
+      <div style={s.kpiIcon}>{icon}</div>
+      <div style={s.kpiContent}>
+        <div style={s.kpiLabel}>{label}</div>
+        <div style={s.kpiValue}>{value}</div>
+        <div style={s.kpiHint}>{hint}</div>
+      </div>
+    </div>
+  );
+}
+
 const s = {
-  container: { padding: '40px', color: 'var(--text-main)', flex: 1, overflowY: 'auto' },
-  header: { marginBottom: '40px' },
-  title: { fontSize: '2.4rem', fontWeight: 900, background: 'linear-gradient(45deg, var(--text-main), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '8px' },
-  subtitle: { color: 'var(--text-muted)', fontSize: '1.1rem' },
-  loading: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
-  
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '40px' },
-  card: { padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' },
-  cardIcon: { fontSize: '2rem', opacity: 0.8 },
-  cardInfo: { display: 'flex', flexDirection: 'column' },
-  cardLabel: { fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em' },
-  cardValue: { fontSize: '1.6rem', fontWeight: 900, margin: '4px 0', color: 'var(--accent)' },
-  cardHint: { fontSize: '0.7rem', color: 'var(--text-muted)' },
+  container: { padding: '2.5rem', background: '#09090B', flex: 1, overflowY: 'auto', color: '#fff' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
+  headerInfo: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  title: { fontSize: '2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em' },
+  subtitle: { color: '#717171', fontSize: '1rem' },
+  statusBadge: { background: '#1A1A1B', border: '1px solid #2A2A2A', padding: '0.6rem 1rem', borderRadius: '100px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa' },
+  dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px rgba(16,185,129,0.4)' },
 
-  sections: { display: 'grid', gap: '24px' },
-  sectionCard: { },
-  sectionTitle: { fontSize: '1rem', fontWeight: 800, marginBottom: '24px', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  
-  chartBox: { display: 'flex', flexDirection: 'column', gap: '32px', marginBottom: '24px' },
-  chartRow: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  chartBar: { height: '12px', borderRadius: '6px', transition: 'width 1s ease-in-out' },
-  chartLabel: { display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'var(--text-muted)' },
-  hint: { fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' },
+  kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' },
+  kpiCard: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '20px', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' },
+  kpiIcon: { background: '#0F0F0F', padding: '0.75rem', borderRadius: '12px', border: '1px solid #222' },
+  kpiLabel: { color: '#717171', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  kpiValue: { fontSize: '1.8rem', fontWeight: 900, margin: '4px 0', color: '#fff' },
+  kpiHint: { color: '#444', fontSize: '0.75rem' },
 
-  rankingList: { display: 'flex', flexDirection: 'column', gap: '16px' },
-  rankingItem: { display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--bg-panel-hover)', padding: '12px 20px', borderRadius: '16px', border: '1px solid var(--border-color)' },
-  rankingPos: { fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)', width: '30px' },
-  rankingName: { flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' },
-  rankingCount: { fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' },
+  chartSection: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '24px', padding: '2rem' },
+  sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
+  sectionTitle: { fontSize: '1.1rem', fontWeight: 800, margin: 0 },
+  legend: { display: 'flex', gap: '1.5rem' },
+  legendItem: { fontSize: '0.8rem', color: '#717171', display: 'flex', alignItems: 'center', gap: '6px' },
+  legendDot: { width: '8px', height: '8px', borderRadius: '50%' },
+  chartWrapper: { marginTop: '1rem' },
 
-  statusList: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  statusItem: { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1rem', color: 'var(--text-muted)' },
-  statusDot: { width: '10px', height: '10px', borderRadius: '50%' }
+  sidebar: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
+  sideCard: { background: '#131314', border: '1px solid #1A1A1B', borderRadius: '24px', padding: '1.5rem' },
+  sideTitle: { fontSize: '0.9rem', fontWeight: 800, marginBottom: '1.5rem', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' },
+
+  ratingDist: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  ratingRow: { display: 'flex', alignItems: 'center', gap: '12px' },
+  ratingLabel: { fontSize: '0.8rem', color: '#717171', minWidth: '30px' },
+  ratingBarBg: { flex: 1, height: '6px', background: '#0F0F0F', borderRadius: '3px', overflow: 'hidden' },
+  ratingBar: { height: '100%', background: '#f59e0b', borderRadius: '3px' },
+  ratingCount: { fontSize: '0.8rem', color: '#444', minWidth: '20px', textAlign: 'right' },
+
+  ranking: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  rankItem: { display: 'flex', alignItems: 'center', gap: '12px', background: '#0F0F0F', padding: '12px', borderRadius: '16px', border: '1px solid #1A1A1B' },
+  rankNum: { width: '28px', height: '28px', borderRadius: '8px', background: '#1A1A1B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: '#D4AF37' },
+  rankName: { fontSize: '0.9rem', fontWeight: 700, color: '#fff' },
+  rankMeta: { fontSize: '0.75rem', color: '#717171' },
+  emptyHint: { fontSize: '0.8rem', color: '#444', textAlign: 'center', padding: '1rem' },
+
+  loading: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#717171', background: '#09090B' }
 };

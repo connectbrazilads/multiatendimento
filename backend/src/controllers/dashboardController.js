@@ -104,6 +104,30 @@ async function getStats(req, res) {
     _count: { rating: true }
   });
 
+  // 8. Mensagens por Dia (Últimos 7 dias)
+  const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const dailyMessages = await prisma.$queryRaw`
+    SELECT 
+      DATE("createdAt") as date,
+      COUNT(CASE WHEN "fromBot" = true THEN 1 END)::int as ia,
+      COUNT(CASE WHEN "fromMe" = true AND "fromBot" = false THEN 1 END)::int as human
+    FROM "Message"
+    WHERE "createdAt" >= ${last7Days}
+    AND "ticketId" IN (SELECT id FROM "Ticket" WHERE "tenantId" = ${tenantId})
+    GROUP BY DATE("createdAt")
+    ORDER BY DATE("createdAt") ASC
+  `;
+
+  // 9. Distribuição de Avaliações (CSAT)
+  const ratingsDist = await prisma.ticket.groupBy({
+    by: ['rating'],
+    where: { tenantId, rating: { not: null } },
+    _count: { id: true }
+  });
+
+  const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  ratingsDist.forEach(r => { dist[r.rating] = r._count.id; });
+
   res.json({
     kpis: {
       iaMessages,
@@ -118,7 +142,13 @@ async function getStats(req, res) {
       totalRatings: ratings._count.rating
     },
     ticketsByStatus: tickets,
-    agentRanking: formattedRanking
+    agentRanking: formattedRanking,
+    dailyMessages: Array.isArray(dailyMessages) ? dailyMessages.map(d => ({
+      date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      ia: d.ia,
+      human: d.human
+    })) : [],
+    ratingsDistribution: Object.keys(dist).map(k => ({ rating: k, count: dist[k] }))
   });
 }
 
