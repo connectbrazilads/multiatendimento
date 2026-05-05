@@ -375,47 +375,58 @@ async function sendMessage(req, res) {
   const { id } = req.params;
   const { body, quotedMsgId } = req.body;
 
-  const ticket = await prisma.ticket.findFirst({
-    where: { id, tenantId: req.user.tenantId },
-    include: { contact: true, instance: true },
-  });
-  if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-
-  const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
-  const evolutionService = require('../services/evolutionService');
-  const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  const finalBody = `*${agent.name}*\n${body}`;
-  
-  let quotedMsgBody = null;
-  if (quotedMsgId) {
-    const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
-    if (quoted) quotedMsgBody = quoted.body;
-  }
-  
-  const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, finalBody, quotedMsgId);
-  const externalId = result?.key?.id || result?.message?.key?.id;
-
-  // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
-  if (ticket.status !== 'open' || !ticket.agentId) {
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: 'open', agentId: req.user.userId }
+  try {
+    const ticket = await prisma.ticket.findFirst({
+      where: { id, tenantId: req.user.tenantId },
+      include: { contact: true, instance: true },
     });
-    if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
-  }
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
-  // SLA: Marca primeira resposta do agente
-  if (!ticket.firstResponseAt) {
-    await prisma.ticket.update({
-      where: { id },
-      data: { firstResponseAt: new Date() }
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
+    const evolutionService = require('../services/evolutionService');
+    const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const finalBody = `*${agent.name}*\n${body}`;
+    
+    let quotedMsgBody = null;
+    if (quotedMsgId) {
+      const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
+      if (quoted) quotedMsgBody = quoted.body;
+    }
+    
+    // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
+    let phone = ticket.contact.phone.replace(/\D/g, '');
+    if (phone.length <= 11 && !phone.startsWith('55')) {
+      phone = '55' + phone;
+    }
+
+    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, finalBody, quotedMsgId);
+    const externalId = result?.key?.id || result?.message?.key?.id;
+
+    // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
+    if (ticket.status !== 'open' || !ticket.agentId) {
+      await prisma.ticket.update({
+        where: { id },
+        data: { status: 'open', agentId: req.user.userId }
+      });
+      if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
+    }
+
+    // SLA: Marca primeira resposta do agente
+    if (!ticket.firstResponseAt) {
+      await prisma.ticket.update({
+        where: { id },
+        data: { firstResponseAt: new Date() }
+      });
+    }
+
+    const message = await prisma.message.create({
+      data: { ticketId: id, agentId: req.user.userId, body, fromMe: true, externalId, quotedMsgId, quotedMsgBody },
     });
+    res.json(message);
+  } catch (err) {
+    console.error('[sendMessage] erro:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Falha ao enviar mensagem: ' + (err.response?.data?.message || err.message) });
   }
-
-  const message = await prisma.message.create({
-    data: { ticketId: id, agentId: req.user.userId, body, fromMe: true, externalId, quotedMsgId, quotedMsgBody },
-  });
-  res.json(message);
 }
 
 async function sendMediaMessage(req, res) {
@@ -426,114 +437,115 @@ async function sendMediaMessage(req, res) {
 
   if (!file) return res.status(400).json({ error: 'Arquivo obrigatório' });
 
-  const ticket = await prisma.ticket.findFirst({
-    where: { id, tenantId: req.user.tenantId },
-    include: { contact: true, instance: true },
-  });
-  if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-
-  const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
-  const evolutionService = require('../services/evolutionService');
-
-
-  const base64 = fs.readFileSync(file.path).toString('base64');
-  const mime = file.mimetype;
-
-  let mediaUrl = `/uploads/media/${file.filename}`;
-  let mediaType = 'document';
-
-  const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  const finalCaption = `*${agent.name}*\n${caption}`;
-  
-  let quotedMsgBody = null;
-  if (quotedMsgId) {
-    const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
-    if (quoted) quotedMsgBody = quoted.body;
-  }
-
-  let result;
-  if (mime.startsWith('image/')) {
-    mediaType = 'image';
-    result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
-      mediatype: 'image', media: base64, caption: finalCaption, quoted: quotedMsgId
+  try {
+    const ticket = await prisma.ticket.findFirst({
+      where: { id, tenantId: req.user.tenantId },
+      include: { contact: true, instance: true },
     });
-  } else if (mime.startsWith('audio/')) {
-    mediaType = 'audio';
-    // Normalização Unificada: OGG/Opus 16kHz (SaaS + WhatsApp)
-    try {
-      const mediaService = require('../services/mediaService');
-      const oldPath = file.path;
-      
-      const newPath = await mediaService.normalizeAudio(oldPath);
-      const newFilename = path.basename(newPath);
-      mediaUrl = `/uploads/media/${newFilename}`;
-      
-      const oggBase64 = fs.readFileSync(newPath).toString('base64');
-      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, oggBase64, quotedMsgId);
-    } catch (err) {
-      console.error('[audioConvert] erro:', err.message);
-      result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, base64, quotedMsgId);
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
+    const evolutionService = require('../services/evolutionService');
+
+    const base64 = fs.readFileSync(file.path).toString('base64');
+    const mime = file.mimetype;
+
+    // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
+    let phone = ticket.contact.phone.replace(/\D/g, '');
+    if (phone.length <= 11 && !phone.startsWith('55')) {
+      phone = '55' + phone;
     }
-  } else if (mime.startsWith('video/')) {
-    mediaType = 'video';
-    result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
-      mediatype: 'video', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
-    });
-  } else {
-    result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, ticket.contact.phone, {
-      mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
-    });
-  }
 
-  const externalId = result?.key?.id || result?.message?.key?.id;
+    let mediaUrl = `/uploads/media/${file.filename}`;
+    let mediaType = 'document';
 
-  // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
-  if (ticket.status !== 'open' || !ticket.agentId) {
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: 'open', agentId: req.user.userId }
-    });
-    if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
-  }
+    const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const finalCaption = `*${agent.name}*\n${caption}`;
+    
+    let quotedMsgBody = null;
+    if (quotedMsgId) {
+      const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
+      if (quoted) quotedMsgBody = quoted.body;
+    }
 
-  const message = await prisma.message.create({
-    data: {
-      ticketId: id,
-      agentId: req.user.userId,
-      body: caption,
-      fromMe: true,
-      mediaUrl,
-      mediaType,
-      fileName: file.originalname,
-      externalId,
-      quotedMsgId,
-      quotedMsgBody
-    },
-  });
-
-  // Transcrição de áudio do AGENTE (Gemini 2.5)
-  if (mediaType === 'audio' && settings?.geminiKey) {
-    (async () => {
+    let result;
+    if (mime.startsWith('image/')) {
+      mediaType = 'image';
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+        mediatype: 'image', media: base64, caption: finalCaption, quoted: quotedMsgId
+      });
+    } else if (mime.startsWith('audio/')) {
+      mediaType = 'audio';
       try {
-        const geminiService = require('../services/geminiService');
-        const audioPath = path.join(__dirname, '../../', mediaUrl);
-        const audioBase64 = fs.readFileSync(audioPath).toString('base64');
-        
-        console.log(`[agentTranscription] iniciando msg=${message.id}`);
-        // Gemini entende OGG/Opus perfeitamente
-        const transcription = await geminiService.transcribeAudio(settings.geminiKey, audioBase64, 'audio/ogg');
-        if (transcription) {
-          console.log(`[agentTranscription] ok: ${transcription.substring(0, 30)}`);
-          const updated = await prisma.message.update({ where: { id: message.id }, data: { transcription } });
-          if (io) io.to(req.user.tenantId).emit('message_updated', { ticketId: id, message: updated });
-        }
+        const mediaService = require('../services/mediaService');
+        const oldPath = file.path;
+        const newPath = await mediaService.normalizeAudio(oldPath);
+        const newFilename = path.basename(newPath);
+        mediaUrl = `/uploads/media/${newFilename}`;
+        const oggBase64 = fs.readFileSync(newPath).toString('base64');
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, oggBase64, quotedMsgId);
       } catch (err) {
-        console.error('[agentTranscription] erro:', err.message);
+        console.error('[audioConvert] erro:', err.message);
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, base64, quotedMsgId);
       }
-    })();
-  }
+    } else if (mime.startsWith('video/')) {
+      mediaType = 'video';
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+        mediatype: 'video', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+      });
+    } else {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+        mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+      });
+    }
 
-  res.json(message);
+    const externalId = result?.key?.id || result?.message?.key?.id;
+
+    if (ticket.status !== 'open' || !ticket.agentId) {
+      await prisma.ticket.update({
+        where: { id },
+        data: { status: 'open', agentId: req.user.userId }
+      });
+      if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        ticketId: id,
+        agentId: req.user.userId,
+        body: caption,
+        fromMe: true,
+        mediaUrl,
+        mediaType,
+        fileName: file.originalname,
+        externalId,
+        quotedMsgId,
+        quotedMsgBody
+      },
+    });
+
+    if (mediaType === 'audio' && settings?.geminiKey) {
+      (async () => {
+        try {
+          const geminiService = require('../services/geminiService');
+          const audioPath = path.join(__dirname, '../../', mediaUrl);
+          const audioBase64 = fs.readFileSync(audioPath).toString('base64');
+          const transcription = await geminiService.transcribeAudio(settings.geminiKey, audioBase64, 'audio/ogg');
+          if (transcription) {
+            const updated = await prisma.message.update({ where: { id: message.id }, data: { transcription } });
+            if (io) io.to(req.user.tenantId).emit('message_updated', { ticketId: id, message: updated });
+          }
+        } catch (err) {
+          console.error('[agentTranscription] erro:', err.message);
+        }
+      })();
+    }
+
+    res.json(message);
+  } catch (err) {
+    console.error('[sendMediaMessage] erro:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Falha ao enviar mídia: ' + (err.response?.data?.message || err.message) });
+  }
 }
 
 async function reopen(req, res) {

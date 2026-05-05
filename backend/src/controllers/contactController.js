@@ -100,7 +100,12 @@ async function create(req, res) {
   } = req.body;
   const { tenantId } = req.user;
 
-  const exists = await prisma.contact.findFirst({ where: { tenantId, phone } });
+  let cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length <= 11 && !cleanPhone.startsWith('55')) {
+    cleanPhone = '55' + cleanPhone;
+  }
+
+  const exists = await prisma.contact.findFirst({ where: { tenantId, phone: cleanPhone } });
   if (exists) return res.status(400).json({ error: 'Telefone já cadastrado' });
 
   let finalInstanceId = instanceId;
@@ -118,7 +123,7 @@ async function create(req, res) {
   const contact = await prisma.contact.create({
     data: { 
       name, 
-      phone, 
+      phone: cleanPhone, 
       fantasyName: fantasyName || null,
       email: email || null,
       cpfCnpj: cpfCnpj || null,
@@ -229,6 +234,9 @@ async function importExcel(req, res) {
 
       if (!phone) continue;
       phone = String(phone).replace(/\D/g, '');
+      if (phone.length <= 11 && !phone.startsWith('55')) {
+        phone = '55' + phone;
+      }
 
       // Upsert do Contato - Tenta encontrar por telefone, ou CPF/CNPJ, ou Nome Fantasia
       let contact = await prisma.contact.findFirst({ 
