@@ -273,8 +273,8 @@ async function generatePdf(req, res) {
                   stack: (() => {
                     try {
                       if (os.tenant.logoUrl) {
-                        const relativePath = os.tenant.logoUrl.replace(/^\//, '');
-                        const logoPath = path.resolve(process.cwd(), relativePath);
+                        const logoFilename = os.tenant.logoUrl.split('/').pop();
+                        const logoPath = path.resolve(__dirname, '..', '..', 'uploads', logoFilename);
                         console.log('[generatePdf] Tentando carregar logo de:', logoPath);
                         if (fs.existsSync(logoPath)) {
                           return [{ image: logoPath, width: 100, alignment: 'center' }];
