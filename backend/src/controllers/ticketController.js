@@ -610,24 +610,28 @@ async function deleteMessage(req, res) {
     const evolutionService = require('../services/evolutionService');
     
     // Revoga no WhatsApp
-    await evolutionService.revokeMessage(
-      settings.evolutionUrl,
-      settings.evolutionKey,
-      message.ticket.instance.instanceName,
-      message.ticket.contact.phone,
-      message.externalId
-    );
+    try {
+      await evolutionService.revokeMessage(
+        settings.evolutionUrl,
+        settings.evolutionKey,
+        message.ticket.instance.instanceName,
+        message.ticket.contact.phone,
+        message.externalId
+      );
+    } catch (waErr) {
+      console.warn('[deleteMessage] falha ao revogar no WA (provavelmente tempo expirado):', waErr.message);
+    }
 
     // Marca como apagada no banco
     const updated = await prisma.message.update({
       where: { id: message.id },
-      data: { isDeleted: true }
+      data: { isDeleted: true, body: '🚫 Mensagem apagada' }
     });
 
     res.json(updated);
   } catch (err) {
-    console.error('[deleteMessage] erro:', err.message);
-    res.status(500).json({ error: 'Erro ao apagar mensagem no WhatsApp' });
+    console.error('[deleteMessage] erro crítico:', err.message);
+    res.status(500).json({ error: 'Erro ao processar exclusão de mensagem' });
   }
 }
 

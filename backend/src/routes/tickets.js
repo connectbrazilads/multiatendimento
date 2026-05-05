@@ -5,6 +5,7 @@ const { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessag
 
 router.use(authenticate);
 router.get('/', list);
+router.post('/', reopen);
 router.get('/:id/messages', getMessages);
 router.patch('/:id', update);
 router.patch('/:id/assign', assign);

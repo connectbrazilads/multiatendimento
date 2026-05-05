@@ -561,11 +561,11 @@ export default function Inbox() {
                   <div key={m.id} style={{ ...s.bubbleWrap, justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
                     <div style={{ 
                       ...s.bubble, 
-                      background: m.fromMe ? (m.fromBot ? 'rgba(155, 89, 182, 0.15)' : '#D4AF37') : '#131314', 
-                      color: m.fromMe ? (m.fromBot ? '#b794f4' : '#000') : '#fff',
+                      background: m.fromMe ? (m.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)', 
+                      color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
                       opacity: m.isDeleted ? 0.6 : 1,
                       textDecoration: m.isDeleted ? 'line-through' : 'none',
-                      border: m.fromMe ? (m.fromBot ? '1px solid rgba(155, 89, 182, 0.3)' : 'none') : '1px solid #222',
+                      border: m.fromMe ? (m.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
                       alignItems: m.fromMe ? 'flex-end' : 'flex-start',
                       borderBottomRightRadius: m.fromMe ? '4px' : '20px',
                       borderBottomLeftRadius: m.fromMe ? '20px' : '4px',
@@ -585,16 +585,17 @@ export default function Inbox() {
                         <div style={{ 
                           fontSize: '0.7rem', 
                           fontWeight: 800, 
-                          color: m.fromMe ? 'rgba(0,0,0,0.6)' : '#D4AF37', 
+                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.5)') : 'var(--accent)', 
                           textTransform: 'uppercase',
-                          letterSpacing: '0.05em'
+                          letterSpacing: '0.05em',
+                          opacity: m.fromBot ? 0.8 : 1
                         }}>
                           {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact.name || selectedTicket.contact.phone)}
                         </div>
                         {!m.isDeleted && (
                           <button 
                             onClick={() => setReplyingTo(m)}
-                            style={{ background: 'none', border: 'none', color: m.fromMe ? 'rgba(0,0,0,0.4)' : '#717171', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                            style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
                             title="Responder"
                           >
                             ↩️

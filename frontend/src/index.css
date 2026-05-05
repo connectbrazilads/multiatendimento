@@ -22,9 +22,18 @@ body.dark-theme {
   --border-color: #1A1A1B;
   --border-light: rgba(255, 255, 255, 0.03);
   --text-main: #FFFFFF;
-  --text-muted: #717171;
-  --text-dim: #444444;
+  --text-muted: #9CA3AF;
+  --text-dim: #4B5563;
   --text-inverse: #000000;
+  
+  /* Message Bubbles - Dark */
+  --bg-msg-me: var(--accent);
+  --text-msg-me: var(--text-inverse);
+  --bg-msg-ai: rgba(168, 85, 247, 0.2);
+  --text-msg-ai: #d8b4fe;
+  --border-msg-ai: rgba(168, 85, 247, 0.4);
+  --bg-msg-contact: #131314;
+  --text-msg-contact: var(--text-main);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
   --glass-bg: rgba(9, 9, 11, 0.7);
@@ -39,9 +48,18 @@ body.light-theme {
   --border-color: #DEE2E6;
   --border-light: rgba(0, 0, 0, 0.03);
   --text-main: #1A1A1B;
-  --text-muted: #6C757D;
-  --text-dim: #ADB5BD;
+  --text-muted: #6B7280;
+  --text-dim: #9CA3AF;
   --text-inverse: #FFFFFF;
+
+  /* Message Bubbles - Light */
+  --bg-msg-me: var(--accent);
+  --text-msg-me: var(--text-inverse);
+  --bg-msg-ai: rgba(147, 51, 234, 0.1);
+  --text-msg-ai: #7e22ce;
+  --border-msg-ai: rgba(147, 51, 234, 0.2);
+  --bg-msg-contact: #FFFFFF;
+  --text-msg-contact: var(--text-main);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
   --glass-bg: rgba(255, 255, 255, 0.8);
