@@ -28,7 +28,7 @@ export default function Inbox() {
   const [showInfo, setShowInfo] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [summary, setSummary] = useState(null);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ priority: '', agentId: '', teamId: '' });
   const [quickResponses, setQuickResponses] = useState([]);
@@ -224,10 +224,10 @@ export default function Inbox() {
 
   async function handleSend(e) {
     e?.preventDefault();
-    if (!text.trim() && !file) return;
+    if (!text.trim() && files.length === 0) return;
 
-    // Spell check apenas para mensagens de texto puras (sem arquivo)
-    if (text.trim() && !file && text.trim().length >= 5) {
+    // Spell check apenas para mensagens de texto puras (sem arquivos)
+    if (text.trim() && files.length === 0 && text.trim().length >= 5) {
       setSpellChecking(true);
       try {
         const { data } = await spellCheckMessage(text.trim());
@@ -240,14 +240,33 @@ export default function Inbox() {
       setSpellChecking(false);
     }
 
-    await doSend(text, file);
+    if (files.length > 0) {
+      const currentFiles = [...files];
+      const currentText = text;
+      const qId = replyingTo?.externalId;
+      setText('');
+      setFiles([]);
+      setReplyingTo(null);
+      
+      for (let i = 0; i < currentFiles.length; i++) {
+        try {
+          // O primeiro arquivo leva o texto como legenda, os outros vão sem
+          await sendMediaMessage(selectedId, currentFiles[i], i === 0 ? currentText : '', qId);
+        } catch (e) {
+          console.error('Erro ao enviar arquivo:', currentFiles[i].name, e);
+        }
+      }
+      loadMessages();
+    } else {
+      await doSend(text, null);
+    }
   }
 
   async function doSend(body, attachment) {
     const tId = selectedId;
     const qId = replyingTo?.externalId;
     setText('');
-    setFile(null);
+    setFiles([]);
     setSpellModal(null);
     setReplyingTo(null);
     try {
@@ -439,7 +458,7 @@ export default function Inbox() {
         onDrop={e => {
           e.preventDefault();
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            setFile(e.dataTransfer.files[0]);
+            setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
           }
         }}
       >
@@ -672,14 +691,23 @@ export default function Inbox() {
               ) : (
                 <>
                   <button style={{ ...s.attachBtn, fontSize: isMobile ? '1.1rem' : '1.4rem' }} onClick={() => document.getElementById('fileInput').click()}>📎</button>
-                  <input type="file" id="fileInput" hidden onChange={e => setFile(e.target.files[0])} />
+                  <input type="file" id="fileInput" hidden multiple onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files)])} />
                   
                   {!isMobile && (
                     <button style={{ ...s.attachBtn, fontSize: '1.4rem' }} onClick={() => setShowScheduling(!showScheduling)}>📅</button>
                   )}
                   
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {file && <div style={s.filePreview}>📎 {file.name} <button onClick={() => setFile(null)}>✕</button></div>}
+                    {files.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {files.map((f, idx) => (
+                          <div key={idx} style={s.filePreview}>
+                            📎 {f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name} 
+                            <button onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <textarea 
                       style={{ ...s.textInput, height: 'auto', minHeight: '40px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }} 
                       rows={1} 
@@ -706,16 +734,16 @@ export default function Inbox() {
                       ...s.sendBtn, 
                       width: isMobile ? '40px' : '45px', 
                       height: isMobile ? '40px' : '45px',
-                      background: (isRecording || (!text.trim() && !file)) ? '#1A1A1B' : '#D4AF37',
-                      border: (isRecording || (!text.trim() && !file)) ? '1px solid #333' : 'none',
-                      color: (isRecording || (!text.trim() && !file)) ? '#717171' : '#000',
+                      background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
+                      border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
+                      color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
                       fontSize: isMobile ? '1.1rem' : '1.2rem'
                     }} 
-                    onClick={(!text.trim() && !file) ? startRecording : handleSend}
-                    onMouseDown={(!text.trim() && !file) ? startRecording : null}
-                    onMouseUp={(!text.trim() && !file) ? stopRecording : null}
+                    onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
+                    onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
+                    onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
                   >
-                    {spellChecking ? '⏳' : (!text.trim() && !file) ? '🎤' : '➤'}
+                    {spellChecking ? '⏳' : (!text.trim() && files.length === 0) ? '🎤' : '➤'}
                   </button>
                 </>
               )}
