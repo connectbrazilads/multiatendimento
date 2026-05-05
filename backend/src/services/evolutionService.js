@@ -72,8 +72,8 @@ async function saveMediaFile(base64, mimetype, messageId) {
   };
   const ext = extMap[mainType] || (isAudio ? 'ogg' : 'bin');
 
-  const dir = path.join(__dirname, '../../uploads/media');
-  fs.mkdirSync(dir, { recursive: true });
+  const dir = path.resolve(__dirname, '..', '..', 'uploads', 'media');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   const rawFilename = `${messageId}.${ext}`;
   const rawPath = path.join(dir, rawFilename);
