@@ -3,11 +3,13 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck, Zap } from 'lucide-react';
+import { getMe, getMediaUrl } from '../services/api';
 
 export default function Layout() {
   const navigate = useNavigate();
 
   const [notification, setNotification] = useState(null);
+  const [tenant, setTenant] = useState(null);
   const audioRef = React.useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'));
 
   function logout() {
@@ -32,6 +34,7 @@ export default function Layout() {
 
     const tenantId = localStorage.getItem('tenantId');
     if (tenantId) {
+      getMe().then(res => setTenant(res.data.tenant)).catch(() => {});
       const token = localStorage.getItem('token');
       const s = io(SOCKET_URL, { 
         auth: { token },
@@ -91,10 +94,25 @@ export default function Layout() {
     <div style={styles.root}>
       <nav style={{ ...styles.nav, padding: isMobile ? '0 1rem' : '0 2rem' }}>
         <div style={styles.brandGroup}>
-          <span style={styles.brandIcon}>✨</span>
-          <span style={{ ...styles.brand, fontSize: isMobile ? '0.9rem' : '1.1rem' }}>
-            {isMobile ? 'Multiatendimento' : 'Multiatendimento'} <span style={{ color: '#D4AF37', fontSize: '0.6rem', verticalAlign: 'top' }}>PRO</span>
-          </span>
+          {tenant?.logoUrl ? (
+            <img 
+              src={getMediaUrl(tenant.logoUrl)} 
+              alt="Logo" 
+              style={{ 
+                height: isMobile ? '32px' : '40px', 
+                width: 'auto', 
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }} 
+            />
+          ) : (
+            <>
+              <span style={styles.brandIcon}>✨</span>
+              <span style={{ ...styles.brand, fontSize: isMobile ? '0.9rem' : '1.1rem' }}>
+                {isMobile ? 'Multiatendimento' : 'Multiatendimento'} <span style={{ color: '#D4AF37', fontSize: '0.6rem', verticalAlign: 'top' }}>PRO</span>
+              </span>
+            </>
+          )}
         </div>
         
         {!isMobile && (
