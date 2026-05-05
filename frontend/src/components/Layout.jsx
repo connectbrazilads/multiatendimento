@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
-import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -119,9 +119,14 @@ export default function Layout() {
             <NavLink to="/knowledge" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
               <HelpCircle size={18} /> IA Training
             </NavLink>
-            {role === 'admin' && (
+            {(role === 'admin' || role === 'superadmin') && (
               <NavLink to="/settings" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                 <Settings size={18} /> Ajustes
+              </NavLink>
+            )}
+            {role === 'superadmin' && (
+              <NavLink to="/superadmin" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                <ShieldCheck size={18} /> Painel Admin
               </NavLink>
             )}
           </div>
