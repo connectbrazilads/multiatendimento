@@ -9,6 +9,9 @@ function getClient(url, key) {
   return axios.create({
     baseURL: url,
     headers: { apikey: key, 'Content-Type': 'application/json' },
+    maxContentLength: 100 * 1024 * 1024, // 100MB
+    maxBodyLength: 100 * 1024 * 1024,    // 100MB
+    timeout: 60000 // 60 segundos
   });
 }
 

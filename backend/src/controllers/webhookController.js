@@ -22,7 +22,7 @@ function extractMedia(msg) {
 
 async function downloadMedia(settings, instanceName, msg, messageId) {
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 5; // Aumentado para dar mais chance a vídeos pesados
 
   while (attempts < maxAttempts) {
     try {
@@ -41,8 +41,8 @@ async function downloadMedia(settings, instanceName, msg, messageId) {
     
     attempts++;
     if (attempts < maxAttempts) {
-      // Espera 2 segundos antes da próxima tentativa
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Espera 3 segundos antes da próxima tentativa (mais tempo para a Evolution processar)
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
   
