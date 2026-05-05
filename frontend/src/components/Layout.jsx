@@ -98,27 +98,32 @@ export default function Layout() {
         
         {!isMobile && (
           <div style={styles.links}>
-            <NavLink to="/dashboard" end style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <LayoutDashboard size={18} /> Dashboard
-            </NavLink>
-            <NavLink to="/inbox" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <MessageSquare size={18} /> Chat
-            </NavLink>
-            <NavLink to="/connections" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <LinkIcon size={18} /> Conexões
-            </NavLink>
-            <NavLink to="/contacts" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <Users size={18} /> Clientes / CRM
-            </NavLink>
-            <NavLink to="/campaigns" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <Megaphone size={18} /> Campanhas
-            </NavLink>
-            <NavLink to="/os" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <FileText size={18} /> O.S. / CRM
-            </NavLink>
-            <NavLink to="/knowledge" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-              <HelpCircle size={18} /> IA Training
-            </NavLink>
+            {role !== 'superadmin' && (
+              <>
+                <NavLink to="/dashboard" end style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <LayoutDashboard size={18} /> Dashboard
+                </NavLink>
+                <NavLink to="/inbox" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <MessageSquare size={18} /> Chat
+                </NavLink>
+                <NavLink to="/connections" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <LinkIcon size={18} /> Conexões
+                </NavLink>
+                <NavLink to="/contacts" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <Users size={18} /> Clientes / CRM
+                </NavLink>
+                <NavLink to="/campaigns" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <Megaphone size={18} /> Campanhas
+                </NavLink>
+                <NavLink to="/os" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <FileText size={18} /> O.S. / CRM
+                </NavLink>
+                <NavLink to="/knowledge" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <HelpCircle size={18} /> IA Training
+                </NavLink>
+              </>
+            )}
+            
             {(role === 'admin' || role === 'superadmin') && (
               <NavLink to="/settings" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                 <Settings size={18} /> Ajustes
