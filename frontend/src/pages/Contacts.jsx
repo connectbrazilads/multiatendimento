@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getContacts, createContact, createTicket, importContacts } from '../services/api';
-import { Edit2, MessageSquare, Plus, Search, BookUser, Upload, X } from 'lucide-react';
+import { Edit2, MessageSquare, Plus, Search, BookUser, Upload, X, Printer } from 'lucide-react';
 import ContactProfileModal from '../components/ContactProfileModal';
 
 export default function Contacts() {
