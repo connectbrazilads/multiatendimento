@@ -44,7 +44,8 @@ export default function Connections() {
       setSelectedInst(data);
       loadQr(data.id);
     } catch (err) {
-      alert('Erro ao criar conexão');
+      const msg = err.response?.data?.error || 'Erro ao criar conexão';
+      alert(msg);
     } finally {
       setSaving(false);
     }

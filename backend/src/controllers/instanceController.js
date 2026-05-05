@@ -64,7 +64,14 @@ async function create(req, res) {
     const instanceName = `${req.user.tenantId}_${name.toLowerCase().replace(/\s+/g, '_')}`;
 
     // Cria na Evolution
-    await evolution.createInstance(evolutionUrl, evolutionKey, instanceName);
+    console.log(`[instanceController] Criando instância "${instanceName}" na Evolution...`);
+    try {
+      await evolution.createInstance(evolutionUrl, evolutionKey, instanceName);
+    } catch (err) {
+      console.error(`[instanceController] Erro ao criar na Evolution:`, err.response?.data || err.message);
+      const errorMsg = err.response?.data?.message || err.message;
+      return res.status(400).json({ error: `Erro na Evolution API: ${errorMsg}` });
+    }
 
     // Salva no banco
     const inst = await prisma.waInstance.create({
@@ -82,6 +89,7 @@ async function create(req, res) {
 
     res.json(inst);
   } catch (err) {
+    console.error(`[instanceController] Erro geral ao criar instância:`, err);
     res.status(400).json({ error: err.message });
   }
 }
