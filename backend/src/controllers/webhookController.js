@@ -21,18 +21,32 @@ function extractMedia(msg) {
 }
 
 async function downloadMedia(settings, instanceName, msg, messageId) {
-  try {
-    const result = await evolutionService.getMediaBase64(
-      settings.evolutionUrl, settings.evolutionKey, instanceName, msg.key
-    );
-    const base64 = result?.base64 || result?.data?.base64;
-    const mimetype = result?.mimetype || result?.data?.mimetype || 'application/octet-stream';
-    if (!base64) return null;
-    return evolutionService.saveMediaFile(base64, mimetype, messageId);
-  } catch (err) {
-    console.error('[webhook] erro ao baixar mídia:', err.message);
-    return null;
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    try {
+      const result = await evolutionService.getMediaBase64(
+        settings.evolutionUrl, settings.evolutionKey, instanceName, msg.key
+      );
+      const base64 = result?.base64 || result?.data?.base64;
+      const mimetype = result?.mimetype || result?.data?.mimetype || 'application/octet-stream';
+      
+      if (base64) {
+        return evolutionService.saveMediaFile(base64, mimetype, messageId);
+      }
+    } catch (err) {
+      console.warn(`[webhook] Tentativa ${attempts + 1} de baixar mídia falhou:`, err.message);
+    }
+    
+    attempts++;
+    if (attempts < maxAttempts) {
+      // Espera 2 segundos antes da próxima tentativa
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
+  
+  return null;
 }
 
 async function handleWebhook(req, res) {
@@ -222,8 +236,8 @@ async function handleWebhook(req, res) {
         ticketId: ticket.id,
         body: body || media?.caption || '',
         fromMe,
-        fromBot: false,
-        mediaType: media?.type || null,
+        fromBot: false, // Mensagem de webhook nunca é do robô (robô grava via Controller)
+        mediaType: media?.type || 'text',
         fileName: media?.fileName || null,
         externalId,
         quotedMsgId,

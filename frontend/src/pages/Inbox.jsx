@@ -892,9 +892,30 @@ function Avatar({ name, src, size = 40 }) {
 
 function MediaContent({ message: m, onImageClick }) {
   const url = getMediaUrl(m.mediaUrl);
+  
+  // Fallback para quando a mídia ainda está sendo baixada ou deu erro
+  if (!url && (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'audio' || m.mediaType === 'document' || m.mediaType === 'sticker')) {
+    return (
+      <div style={{ 
+        padding: '1rem', 
+        background: 'rgba(212,175,55,0.05)', 
+        borderRadius: '8px', 
+        border: '1px dashed rgba(212,175,55,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '0.85rem',
+        color: '#D4AF37'
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>⏳</span> Baixando mídia do WhatsApp...
+      </div>
+    );
+  }
+
   if (url && m.mediaType === 'image') return <img src={url} alt="" style={s.imgMedia} onClick={() => onImageClick(url)} />;
   if (url && m.mediaType === 'video') return <video src={url} controls style={s.imgMedia} />;
   if (url && m.mediaType === 'audio') return <AudioPlayer src={url} fromMe={m.fromMe} transcription={m.transcription} />;
+  if (url && m.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
   if (url && m.mediaType === 'document') {
     const isPdf = m.fileName?.toLowerCase().endsWith('.pdf');
     return (
