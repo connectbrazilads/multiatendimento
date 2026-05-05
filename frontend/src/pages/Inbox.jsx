@@ -252,6 +252,10 @@ export default function Inbox() {
         try {
           // O primeiro arquivo leva o texto como legenda, os outros vão sem
           await sendMediaMessage(selectedId, currentFiles[i], i === 0 ? currentText : '', qId);
+          // Pequeno delay para não sobrecarregar o backend/whatsapp
+          if (i < currentFiles.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+          }
         } catch (e) {
           console.error('Erro ao enviar arquivo:', currentFiles[i].name, e);
         }

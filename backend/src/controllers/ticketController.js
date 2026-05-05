@@ -460,7 +460,8 @@ async function sendMediaMessage(req, res) {
     let mediaType = 'document';
 
     const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
-    const finalCaption = `*${agent.name}*\n${caption}`;
+    // Só adiciona o nome do agente se houver legenda ou se for imagem/vídeo
+    const finalCaption = caption ? `*${agent.name}*\n${caption}` : `*${agent.name}*`;
     
     let quotedMsgBody = null;
     if (quotedMsgId) {
@@ -494,8 +495,15 @@ async function sendMediaMessage(req, res) {
         mediatype: 'video', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
       });
     } else {
+      mediaType = 'document';
+      // Para documentos, se não houver legenda extra, mandamos sem legenda para evitar erros na API
+      const docCaption = caption ? finalCaption : undefined;
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
-        mediatype: 'document', media: base64, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+        mediatype: 'document', 
+        media: base64, 
+        filename: file.originalname, 
+        caption: docCaption, 
+        quoted: quotedMsgId
       });
     }
 
@@ -528,7 +536,9 @@ async function sendMediaMessage(req, res) {
       (async () => {
         try {
           const geminiService = require('../services/geminiService');
-          const audioPath = path.join(__dirname, '../../', mediaUrl);
+          // Usa path.resolve para evitar problemas de caminho relativo no background
+          const audioPath = path.resolve(__dirname, '..', '..', 'uploads', 'media', path.basename(mediaUrl));
+          if (!fs.existsSync(audioPath)) return;
           const audioBase64 = fs.readFileSync(audioPath).toString('base64');
           const transcription = await geminiService.transcribeAudio(settings.geminiKey, audioBase64, 'audio/ogg');
           if (transcription) {
