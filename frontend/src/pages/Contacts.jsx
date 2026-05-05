@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getContacts, createContact, createTicket, updateContact, importContacts } from '../services/api';
-import { Edit2, MessageSquare, Plus, Search, BookUser, Upload } from 'lucide-react';
-import axios from 'axios';
+import { getContacts, createContact, createTicket, importContacts } from '../services/api';
+import { Edit2, MessageSquare, Plus, Search, BookUser, Upload, X } from 'lucide-react';
 import ContactProfileModal from '../components/ContactProfileModal';
 
 export default function Contacts() {
@@ -10,7 +9,16 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newContact, setNewContact] = useState({ name: '', phone: '' });
+  const [newContact, setNewContact] = useState({ 
+    name: '', 
+    phone: '', 
+    fantasyName: '', 
+    email: '', 
+    document: '', 
+    address: '', 
+    city: '', 
+    state: '' 
+  });
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const navigate = useNavigate();
@@ -32,11 +40,14 @@ export default function Contacts() {
   }
 
   async function handleCreate() {
-    if (!newContact.name || !newContact.phone) return alert('Preencha nome e telefone');
+    if (!newContact.name || !newContact.phone) return alert('Preencha pelo menos nome e telefone');
     try {
       await createContact(newContact);
       setShowAddModal(false);
-      setNewContact({ name: '', phone: '' });
+      setNewContact({ 
+        name: '', phone: '', fantasyName: '', email: '', 
+        document: '', address: '', city: '', state: '' 
+      });
       loadContacts();
     } catch (err) {
       alert(err.response?.data?.error || 'Erro ao criar contato');
@@ -59,12 +70,10 @@ export default function Contacts() {
       alert(res.data.message);
       loadContacts();
     } catch (err) {
-      console.error('Erro detalhado na importação:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Erro desconhecido';
-      alert(`Erro na Importação:\n${errorMsg}\n\nStatus: ${err.response?.status || 'Sem Resposta'}`);
+      alert('Erro na Importação: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
-      e.target.value = null; // reset input
+      e.target.value = null;
     }
   }
 
@@ -92,37 +101,14 @@ export default function Contacts() {
     }
   };
 
-  const s = {
-    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexShrink: 0 },
-    title: { fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(45deg, var(--text-main), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'flex', alignItems: 'center', gap: '12px' },
-    addBtn: { background: 'var(--accent)', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: '#000', display: 'flex', alignItems: 'center', gap: '8px' },
-    searchWrap: { position: 'relative' },
-    search: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', padding: '12px 20px 12px 40px', borderRadius: '12px', color: 'var(--text-main)', width: '300px', outline: 'none' },
-    searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' },
-    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' },
-    card: { padding: '24px', transition: 'transform 0.2s', cursor: 'default' },
-    cardName: { fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' },
-    cardPhone: { color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' },
-    cardTags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', minHeight: '24px' },
-    tag: { fontSize: '0.7rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 },
-    chatBtn: { width: '100%', background: 'transparent', border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '10px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
-    overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-    modal: { background: 'var(--bg-panel)', padding: '32px', borderRadius: '24px', width: '400px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' },
-    modalTitle: { fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', color: 'var(--text-main)' },
-    input: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', color: 'var(--text-main)', marginBottom: '16px', outline: 'none' },
-    saveBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 800, cursor: 'pointer' },
-    cancelBtn: { width: '100%', padding: '10px', marginTop: '8px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }
-  };
-
   return (
     <div style={s.container}>
       <div style={s.header}>
         <div>
           <h1 style={s.title}><BookUser size={32} /> Clientes / CRM</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Gerencie seus clientes e inicie novas conversas.</p>
+          <p style={s.subtitle}>Gerencie sua base de clientes e equipamentos</p>
         </div>
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={s.searchWrap}>
             <Search size={18} style={s.searchIcon} />
             <input 
@@ -133,10 +119,10 @@ export default function Contacts() {
             />
           </div>
           <button 
-            style={{ ...s.addBtn, background: 'rgba(212,175,55,0.1)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }} 
+            style={s.importBtn} 
             onClick={() => document.getElementById('importExcel').click()}
           >
-            <Upload size={20} /> Importar Excel
+            <Upload size={18} /> Importar
           </button>
           <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onChange={handleImportExcel} />
 
@@ -146,62 +132,73 @@ export default function Contacts() {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.5 }}>Carregando agenda...</div>
-      ) : (
-        <div style={s.grid}>
-          {Array.isArray(contacts) && contacts.map(c => (
-            <div className="glass-panel" key={c.id} style={s.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={s.cardName}>{c.name || 'Sem nome'}</div>
-                  {c.fantasyName && <div style={{ color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 600, marginTop: -4, marginBottom: 4 }}>{c.fantasyName}</div>}
-                  <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
-                </div>
-                <button 
-                  onClick={() => openProfileModal(c)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 0 0 10px' }}
-                  title="Perfil do Contato"
-                >
-                  <Edit2 size={16} />
-                </button>
+      <div style={s.grid}>
+        {Array.isArray(contacts) && contacts.map(c => (
+          <div className="glass-panel" key={c.id} style={s.card}>
+            <div style={s.cardHeader}>
+              <div style={{ minWidth: 0 }}>
+                <div style={s.cardName}>{c.name || 'Sem nome'}</div>
+                {c.fantasyName && <div style={s.cardFantasy}>{c.fantasyName}</div>}
+                <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
               </div>
-              <div style={s.cardTags}>
-                {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
-              </div>
-              <button style={s.chatBtn} onClick={() => startChat(c)}>
-                <MessageSquare size={16} /> Abrir Conversa
+              <button onClick={() => openProfileModal(c)} style={s.editBtn}>
+                <Edit2 size={16} />
               </button>
             </div>
-          ))}
-          {contacts.length === 0 && !loading && (
-            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              Nenhum contato encontrado.
+            <div style={s.cardTags}>
+              {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
             </div>
-          )}
-        </div>
-      )}
+            <button style={s.chatBtn} onClick={() => startChat(c)}>
+              <MessageSquare size={16} /> Abrir Conversa
+            </button>
+          </div>
+        ))}
+      </div>
 
       {showAddModal && (
         <div style={s.overlay}>
-          <div className="glass-panel" style={s.modal}>
-            <h2 style={s.modalTitle}>Novo Contato</h2>
-            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NOME DO CLIENTE</label>
-            <input 
-              style={s.input} 
-              placeholder="Ex: João da Silva" 
-              value={newContact.name} 
-              onChange={e => setNewContact({...newContact, name: e.target.value})}
-            />
-            <label style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>NÚMERO DO WHATSAPP</label>
-            <input 
-              style={s.input} 
-              placeholder="Ex: 5551999999999" 
-              value={newContact.phone} 
-              onChange={e => setNewContact({...newContact, phone: e.target.value})}
-            />
-            <button style={s.saveBtn} onClick={handleCreate}>Salvar Contato</button>
-            <button style={s.cancelBtn} onClick={() => setShowAddModal(false)}>Cancelar</button>
+          <div style={s.modal}>
+            <div style={s.modalHeader}>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900 }}>🚀 Novo Cliente</h2>
+              <button style={s.closeBtn} onClick={() => setShowAddModal(false)}><X /></button>
+            </div>
+            <div style={s.modalBody}>
+              <div style={s.formGrid}>
+                <div style={s.field}>
+                  <label style={s.label}>Nome Completo</label>
+                  <input style={s.input} value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} placeholder="Ex: João da Silva" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Nome Fantasia / Depto</label>
+                  <input style={s.input} value={newContact.fantasyName} onChange={e => setNewContact({...newContact, fantasyName: e.target.value})} placeholder="Ex: Financeiro" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>WhatsApp (com DDD)</label>
+                  <input style={s.input} value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} placeholder="Ex: 5551999999999" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>E-mail</label>
+                  <input style={s.input} value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} placeholder="exemplo@email.com" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>CPF / CNPJ</label>
+                  <input style={s.input} value={newContact.document} onChange={e => setNewContact({...newContact, document: e.target.value})} placeholder="00.000.000/0001-00" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Endereço</label>
+                  <input style={s.input} value={newContact.address} onChange={e => setNewContact({...newContact, address: e.target.value})} placeholder="Rua, Número, Bairro" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Cidade</label>
+                  <input style={s.input} value={newContact.city} onChange={e => setNewContact({...newContact, city: e.target.value})} placeholder="Ex: Porto Alegre" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Estado (UF)</label>
+                  <input style={s.input} value={newContact.state} onChange={e => setNewContact({...newContact, state: e.target.value})} placeholder="Ex: RS" />
+                </div>
+              </div>
+              <button style={s.saveBtn} onClick={handleCreate}>Cadastrar Cliente</button>
+            </div>
           </div>
         </div>
       )}
@@ -216,3 +213,37 @@ export default function Contacts() {
     </div>
   );
 }
+
+const s = {
+  container: { padding: '2.5rem', background: '#09090B', height: '100%', overflowY: 'auto', flex: 1, color: '#fff' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
+  title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px' },
+  subtitle: { color: '#717171', fontSize: '0.95rem', marginTop: '0.4rem' },
+  addBtn: { background: '#D4AF37', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: '#000', display: 'flex', alignItems: 'center', gap: '8px' },
+  importBtn: { background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.2)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '8px' },
+  searchWrap: { position: 'relative' },
+  search: { background: '#131314', border: '1px solid #222', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '12px', color: '#fff', width: '280px', outline: 'none', fontSize: '0.9rem' },
+  searchIcon: { position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#717171' },
+
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
+  card: { padding: '1.5rem', background: '#131314', border: '1px solid #1A1A1B', borderRadius: '20px', transition: 'all 0.2s' },
+  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
+  cardName: { fontSize: '1.1rem', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  cardFantasy: { color: '#D4AF37', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' },
+  cardPhone: { color: '#717171', fontSize: '0.85rem', marginTop: '4px' },
+  editBtn: { background: 'none', border: 'none', color: '#444', cursor: 'pointer', padding: '4px' },
+  cardTags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem', minHeight: '24px' },
+  tag: { fontSize: '0.65rem', background: 'rgba(212,175,55,0.1)', color: '#D4AF37', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid rgba(212,175,55,0.2)' },
+  chatBtn: { width: '100%', background: 'transparent', border: '1px solid #222', color: '#fff', padding: '0.85rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', ':hover': { background: '#1A1A1B' } },
+
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
+  modal: { background: '#0F0F0F', borderRadius: '32px', width: '100%', maxWidth: '700px', border: '1px solid #222', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' },
+  modalHeader: { padding: '2rem', borderBottom: '1px solid #1A1A1B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  closeBtn: { background: 'none', border: 'none', color: '#717171', cursor: 'pointer' },
+  modalBody: { padding: '2rem' },
+  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' },
+  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  label: { fontSize: '0.7rem', fontWeight: 800, color: '#D4AF37', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: { background: '#131314', border: '1px solid #222', borderRadius: '12px', padding: '0.85rem 1rem', color: '#fff', outline: 'none', fontSize: '0.95rem' },
+  saveBtn: { width: '100%', padding: '1rem', borderRadius: '14px', border: 'none', background: '#D4AF37', color: '#000', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' }
+};

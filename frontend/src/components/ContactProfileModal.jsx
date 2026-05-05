@@ -22,7 +22,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   const [osHistory, setOsHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [newEquip, setNewEquip] = useState({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '' });
+  const [newEquip, setNewEquip] = useState({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
   const [editingEquipId, setEditingEquipId] = useState(null);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
       } else {
         await api.post(`/os/contacts/${contact.id}/equipments`, newEquip);
       }
-      setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '' });
+      setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
       loadEquipments();
     } catch (e) {
       alert('Erro ao salvar equipamento');
@@ -93,7 +93,8 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
       model: e.model || '', 
       serialNumber: e.serialNumber || '', 
       sector: e.sector || '', 
-      address: e.address || '' 
+      address: e.address || '',
+      type: e.type || ''
     });
   }
 
@@ -188,7 +189,8 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                   <input style={s.input} placeholder="Número de Série" value={newEquip.serialNumber} onChange={e=>setNewEquip({...newEquip, serialNumber: e.target.value})}/>
                   <input style={s.input} placeholder="Setor (ex: Recepção)" value={newEquip.sector} onChange={e=>setNewEquip({...newEquip, sector: e.target.value})}/>
                 </div>
-                <div style={{ marginBottom: '16px' }}>
+                <div style={s.inputGroup}>
+                  <input style={s.input} placeholder="Tipo (ex: MULTIFUNCIONAL MONOCROMÁTICA)" value={newEquip.type} onChange={e=>setNewEquip({...newEquip, type: e.target.value})}/>
                   <input style={s.input} placeholder="Endereço Específico (opcional)" value={newEquip.address} onChange={e=>setNewEquip({...newEquip, address: e.target.value})}/>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
