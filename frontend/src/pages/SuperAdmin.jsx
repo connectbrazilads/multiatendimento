@@ -207,6 +207,8 @@ export default function SuperAdmin() {
                     <input style={{ ...s.input, flex: 1 }} value={form.primaryColor} onChange={e => setForm({ ...form, primaryColor: e.target.value })} placeholder="#HEX" />
                   </div>
                 </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.field}>
                   <label style={s.label}>Max Conexões</label>
