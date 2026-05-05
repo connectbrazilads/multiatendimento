@@ -397,27 +397,33 @@ export default function Inbox() {
                   </div>
                 </div>
                 <div style={s.rowSub}>
-                  <span style={{ ...s.dot, background: statusColor(t.status) }} />
-                  {t.priority && t.priority !== 'medium' && (
-                    <span style={{ 
-                      fontSize: '0.6rem', 
-                      background: t.priority === 'urgent' ? '#e53e3e' : t.priority === 'high' ? '#dd6b20' : '#3182ce',
-                      color: '#fff',
-                      padding: '1px 4px',
-                      borderRadius: 4,
-                      marginRight: 6,
-                      fontWeight: 800,
-                      textTransform: 'uppercase'
-                    }}>
-                      {t.priority}
-                    </span>
-                  )}
+                  <span style={{ ...s.dot, background: statusColor(t.status), color: statusColor(t.status) }} />
                   <span style={s.rowMsg}>{t.instance?.instanceName?.split('_').pop().toUpperCase()} · {statusLabel(t.status)}</span>
                 </div>
+                
+                {/* TAGS NA LISTA LATERAL */}
+                {t.contact.tags && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                    {JSON.parse(t.contact.tags).slice(0, 3).map(tag => (
+                      <span key={tag} style={{ 
+                        fontSize: '0.55rem', 
+                        background: 'rgba(212,175,55,0.1)', 
+                        color: '#D4AF37', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px',
+                        fontWeight: 800,
+                        border: '1px solid rgba(212,175,55,0.2)'
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {(t.team || t.agent) && (
-                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                    {t.team && <span style={{ ...s.miniBadge, background: 'rgba(212,175,55,0.1)', color: '#D4AF37' }}>👥 {t.team.name}</span>}
-                    {t.agent && <span style={{ ...s.miniBadge, background: 'rgba(255,255,255,0.05)', color: '#717171' }}>👤 {t.agent.name}</span>}
+                  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                    {t.team && <span style={{ ...s.miniBadge, background: 'rgba(255,255,255,0.03)', color: '#717171' }}>{t.team.name}</span>}
+                    {t.agent && <span style={{ ...s.miniBadge, background: 'rgba(255,255,255,0.03)', color: '#717171' }}>{t.agent.name}</span>}
                   </div>
                 )}
               </div>
@@ -555,12 +561,14 @@ export default function Inbox() {
                   <div key={m.id} style={{ ...s.bubbleWrap, justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
                     <div style={{ 
                       ...s.bubble, 
-                      background: m.fromMe ? '#D4AF37' : '#1A1A1B', 
-                      color: m.fromMe ? '#000' : '#fff',
+                      background: m.fromMe ? (m.fromBot ? 'rgba(155, 89, 182, 0.15)' : '#D4AF37') : '#131314', 
+                      color: m.fromMe ? (m.fromBot ? '#b794f4' : '#000') : '#fff',
                       opacity: m.isDeleted ? 0.6 : 1,
                       textDecoration: m.isDeleted ? 'line-through' : 'none',
-                      border: m.fromMe ? 'none' : '1px solid #333',
-                      alignItems: m.fromMe ? 'flex-end' : 'flex-start'
+                      border: m.fromMe ? (m.fromBot ? '1px solid rgba(155, 89, 182, 0.3)' : 'none') : '1px solid #222',
+                      alignItems: m.fromMe ? 'flex-end' : 'flex-start',
+                      borderBottomRightRadius: m.fromMe ? '4px' : '20px',
+                      borderBottomLeftRadius: m.fromMe ? '20px' : '4px',
                     }}>
                       {m.fromMe && !m.isDeleted && (
                         <button 
@@ -1133,117 +1141,113 @@ function statusLabel(s) { return { pending: 'Aguardando', open: 'Atendimento', r
 function statusColor(s) { return { pending: '#D4AF37', open: '#48bb78', resolved: '#717171' }[s] || '#717171'; }
 
 const s = {
-  layout: { display: 'flex', height: '100%', width: '100%', background: 'var(--bg-base)', color: 'var(--text-main)', overflow: 'hidden' },
-  sidebar: { width: '320px', minWidth: '320px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' },
-  tabsWrap: { padding: '1rem', borderBottom: '1px solid var(--border-color)' },
-  tabs: { display: 'flex', gap: '4px', background: 'var(--bg-base)', padding: '4px', borderRadius: '12px' },
-  tab: { flex: 1, padding: '0.6rem 0.2rem', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, borderRadius: '8px', transition: 'all 0.2s' },
-  tabActive: { background: 'var(--bg-panel)', color: 'var(--accent)', boxShadow: 'var(--shadow-sm)' },
-  badge: { marginLeft: 4, background: 'var(--accent)', color: '#000', borderRadius: '4px', padding: '1px 4px', fontSize: '0.6rem' },
-  searchWrap: { padding: '1rem' },
-  search: { flex: 1, background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.75rem 1rem', color: 'var(--text-main)', outline: 'none' },
-  clearBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-muted)', padding: '0 1rem', cursor: 'pointer' },
-  filterBar: { display: 'flex', gap: '4px' },
-  filterSelect: { flex: 1, background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '4px', color: 'var(--text-muted)', fontSize: '0.7rem', outline: 'none' },
-  list: { flex: 1, overflowY: 'auto' },
-  row: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' },
-  rowActive: { background: 'var(--accent-light)', borderLeft: '4px solid var(--accent)' },
+  layout: { display: 'flex', height: '100%', width: '100%', background: '#050505', color: '#fff', overflow: 'hidden', fontFamily: "'Inter', sans-serif" },
+  sidebar: { width: '340px', minWidth: '340px', borderRight: '1px solid #1A1A1B', display: 'flex', flexDirection: 'column', background: '#09090B' },
+  tabsWrap: { padding: '1.25rem 1rem', borderBottom: '1px solid #1A1A1B' },
+  tabs: { display: 'flex', gap: '6px', background: '#131314', padding: '5px', borderRadius: '14px' },
+  tab: { flex: 1, padding: '0.6rem 0', border: 'none', background: 'none', cursor: 'pointer', color: '#717171', fontSize: '0.75rem', fontWeight: 800, borderRadius: '10px', transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '0.02em' },
+  tabActive: { background: '#1A1A1B', color: '#D4AF37', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' },
+  badge: { marginLeft: 6, background: '#D4AF37', color: '#000', borderRadius: '6px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 900 },
+  searchWrap: { padding: '1rem', display: 'flex', flexDirection: 'column', gap: '12px' },
+  search: { flex: 1, background: '#131314', border: '1px solid #222', borderRadius: '14px', padding: '0.85rem 1rem', color: '#fff', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' },
+  clearBtn: { background: '#131314', border: '1px solid #222', borderRadius: '14px', color: '#717171', padding: '0 1rem', cursor: 'pointer' },
+  filterBar: { display: 'flex', gap: '6px' },
+  filterSelect: { flex: 1, background: '#131314', border: '1px solid #222', borderRadius: '10px', padding: '6px 8px', color: '#717171', fontSize: '0.7rem', outline: 'none', fontWeight: 600 },
+  list: { flex: 1, overflowY: 'auto', padding: '0.5rem' },
+  row: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer', borderRadius: '16px', margin: '2px 8px', transition: 'all 0.2s' },
+  rowActive: { background: 'rgba(212,175,55,0.08)', boxShadow: 'inset 0 0 0 1px rgba(212,175,55,0.2)' },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTop: { display: 'flex', justifyContent: 'space-between', marginBottom: 4 },
-  rowName: { fontWeight: 700, fontSize: '0.95rem' },
-  rowTime: { fontSize: '0.7rem', color: 'var(--text-muted)' },
-  rowSub: { display: 'flex', alignItems: 'center', gap: '6px' },
-  rowMsg: { fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  dot: { width: 8, height: 8, borderRadius: '50%' },
-  miniBadge: { fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' },
+  rowName: { fontWeight: 800, fontSize: '0.95rem', color: '#fff', letterSpacing: '-0.01em' },
+  rowTime: { fontSize: '0.7rem', color: '#444', fontWeight: 700 },
+  rowSub: { display: 'flex', alignItems: 'center', gap: '8px' },
+  rowMsg: { fontSize: '0.8rem', color: '#717171', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 },
+  dot: { width: 8, height: 8, borderRadius: '50%', boxShadow: '0 0 8px currentColor' },
+  miniBadge: { fontSize: '0.6rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' },
 
-  main: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-base)', position: 'relative', minWidth: 0, overflow: 'hidden' },
-  chatHeader: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-color)', zIndex: 10, width: '100%', boxSizing: 'border-box', minHeight: '64px' },
-  chatName: { fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' },
-  chatPhone: { fontSize: '0.8rem', color: 'var(--text-muted)' },
-  headerActions: { marginLeft: 'auto', display: 'flex', gap: '0.75rem', alignItems: 'center' },
-  aiBtn: { background: 'rgba(155, 89, 182, 0.1)', color: '#9b59b6', border: '1px solid rgba(155, 89, 182, 0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s' },
-  transferBtn: { background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s' },
-  resolveBtn: { background: 'var(--success)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s' },
-  infoBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', background: '#050505', position: 'relative', minWidth: 0, overflow: 'hidden' },
+  chatHeader: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 2rem', background: 'rgba(9, 9, 11, 0.8)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1A1A1B', zIndex: 10, width: '100%', boxSizing: 'border-box', minHeight: '72px' },
+  chatName: { fontWeight: 900, fontSize: '1.2rem', color: '#fff', letterSpacing: '-0.02em' },
+  chatPhone: { fontSize: '0.85rem', color: '#D4AF37', fontWeight: 700 },
+  headerActions: { marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' },
+  aiBtn: { background: 'rgba(155, 89, 182, 0.1)', color: '#9b59b6', border: '1px solid rgba(155, 89, 182, 0.2)', borderRadius: '10px', cursor: 'pointer', fontWeight: 800, fontSize: '0.75rem', padding: '0.6rem 1rem' },
+  transferBtn: { background: 'rgba(212,175,55,0.05)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', cursor: 'pointer', fontWeight: 800, fontSize: '0.75rem', padding: '0.6rem 1rem' },
+  resolveBtn: { background: '#D4AF37', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 800, fontSize: '0.75rem', padding: '0.6rem 1rem', boxShadow: '0 4px 12px rgba(212,175,55,0.2)' },
+  infoBtn: { background: '#1A1A1B', border: '1px solid #222', color: '#717171', width: '38px', height: '38px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   
-  messages: { flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', boxSizing: 'border-box' },
+  messages: { flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', boxSizing: 'border-box' },
   bubbleWrap: { display: 'flex', width: '100%' },
-  bubble: { padding: '0.8rem 1.2rem', borderRadius: '16px', maxWidth: '85%', fontSize: '0.95rem', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: 'var(--shadow-sm)' },
-  time: { fontSize: '0.65rem', marginTop: 6, fontWeight: 700 },
-  imgMedia: { maxWidth: '300px', maxHeight: '300px', borderRadius: '12px', cursor: 'pointer', objectFit: 'contain' },
-  docLink: { color: 'inherit', fontWeight: 700, textDecoration: 'none' },
-  pdfCard: { 
+  bubble: { 
+    padding: '1rem 1.25rem', 
+    borderRadius: '20px', 
+    maxWidth: '75%', 
+    fontSize: '0.95rem', 
     display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '12px', 
-    background: 'rgba(0,0,0,0.05)', 
-    borderRadius: '12px', 
-    textDecoration: 'none', 
-    color: 'inherit',
-    border: '1px solid rgba(0,0,0,0.1)',
-    maxWidth: '280px'
+    flexDirection: 'column', 
+    position: 'relative', 
+    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+    lineHeight: 1.5
   },
-  pdfIcon: { fontSize: '1.8rem' },
+  time: { fontSize: '0.6rem', marginTop: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.5 },
+  imgMedia: { maxWidth: '320px', maxHeight: '400px', borderRadius: '16px', cursor: 'pointer', objectFit: 'cover', border: '1px solid #333' },
+  pdfCard: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: '#0F0F0F', borderRadius: '14px', textDecoration: 'none', color: '#fff', border: '1px solid #222', maxWidth: '300px' },
+  pdfIcon: { fontSize: '2rem' },
   pdfInfo: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  pdfName: { fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  pdfSize: { fontSize: '0.7rem', color: 'rgba(0,0,0,0.5)' },
-  transcription: { fontSize: '0.8rem', fontStyle: 'italic', padding: '4px 8px', marginTop: 8, background: 'var(--border-light)', borderRadius: 6 },
+  pdfName: { fontSize: '0.9rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  pdfSize: { fontSize: '0.7rem', color: '#717171' },
+  transcription: { fontSize: '0.85rem', fontStyle: 'italic', padding: '10px 14px', marginTop: 10, background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' },
   
-  inputArea: { padding: '1rem', background: 'var(--bg-panel)', display: 'flex', alignItems: 'center', gap: '0.75rem', borderTop: '1px solid var(--border-color)', width: '100%', boxSizing: 'border-box' },
-  textInput: { flex: 1, background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '15px', padding: '0.75rem 1rem', color: 'var(--text-main)', outline: 'none', resize: 'none', minHeight: '40px', maxHeight: '120px' },
-  sendBtn: { background: 'var(--accent)', color: '#000', border: 'none', width: '45px', height: '45px', borderRadius: '50%', cursor: 'pointer', fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' },
-  attachBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.4rem', cursor: 'pointer', flexShrink: 0 },
-  filePreview: { fontSize: '0.8rem', color: 'var(--accent)', padding: '4px 0' },
-  recordingWrap: { flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(229, 62, 62, 0.1)', padding: '0.5rem 1.5rem', borderRadius: '15px', border: '1px solid rgba(229, 62, 62, 0.3)' },
-  recordingDot: { width: 12, height: 12, borderRadius: '50%', background: 'var(--danger)', animation: 'pulse 1.5s infinite' },
-  recordingTime: { color: 'var(--text-main)', fontWeight: 800, fontSize: '1rem', fontFamily: 'monospace' },
-  stopBtn: { marginLeft: 'auto', background: 'var(--danger)', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '10px', fontWeight: 800, cursor: 'pointer' },
-  backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: '1.2rem', cursor: 'pointer', marginRight: '0.5rem' },
-
-
-  emptyChat: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
-  emptyIcon: { fontSize: '4rem', marginBottom: '1rem', opacity: 0.2 },
-
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' },
-  modal: { background: 'var(--bg-panel)', borderRadius: '24px', width: '100%', maxWidth: '400px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' },
-  modalHeader: { padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  modalBody: { padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
-  modalInput: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.75rem 1rem', color: 'var(--text-main)' },
-  saveBtn: { background: 'var(--accent)', color: '#000', border: 'none', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' },
-
-  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: '12px' },
-  summaryCard: { margin: '0 1.5rem 1.5rem', background: 'rgba(155, 89, 182, 0.05)', border: '1px solid rgba(155, 89, 182, 0.2)', borderRadius: '16px', padding: '1.25rem' },
-  summaryHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 900, color: '#9b59b6', marginBottom: 8 },
-  summaryBody: { fontSize: '0.9rem', color: '#9b59b6', lineHeight: '1.4' },
+  inputArea: { padding: '1.5rem 2rem', background: 'transparent', width: '100%', boxSizing: 'border-box', position: 'relative' },
+  textInput: { flex: 1, background: '#131314', border: '1px solid #222', borderRadius: '24px', padding: '1rem 1.5rem', color: '#fff', outline: 'none', resize: 'none', minHeight: '52px', maxHeight: '150px', fontSize: '1rem', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
+  sendBtn: { background: '#D4AF37', color: '#000', border: 'none', width: '52px', height: '52px', borderRadius: '50%', cursor: 'pointer', fontWeight: 900, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', boxShadow: '0 4px 15px rgba(212,175,55,0.3)', transition: 'transform 0.1s' },
+  attachBtn: { background: '#131314', border: '1px solid #222', color: '#717171', width: '48px', height: '48px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  filePreview: { fontSize: '0.8rem', color: '#D4AF37', padding: '8px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '100px', alignSelf: 'flex-start', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 },
+  recordingWrap: { flex: 1, display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'rgba(229, 62, 62, 0.1)', padding: '0.75rem 1.5rem', borderRadius: '24px', border: '1px solid rgba(229, 62, 62, 0.2)' },
+  recordingDot: { width: 12, height: 12, borderRadius: '50%', background: '#ff4444', animation: 'pulse 1.5s infinite' },
+  recordingTime: { color: '#fff', fontWeight: 900, fontSize: '1.1rem', fontFamily: 'monospace' },
+  stopBtn: { marginLeft: 'auto', background: '#ff4444', color: '#fff', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '12px', fontWeight: 900, cursor: 'pointer' },
   
-  separator: { display: 'flex', alignItems: 'center', gap: '1rem', margin: '2rem 0' },
-  sepLine: { flex: 1, height: '1px', background: 'var(--border-color)' },
-  sepLabel: { fontSize: '0.65rem', fontWeight: 900, padding: '4px 12px', borderRadius: '20px', color: 'var(--text-inverse)', background: 'var(--text-muted)' },
+  emptyChat: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#444' },
+  emptyIcon: { fontSize: '5rem', marginBottom: '1.5rem', opacity: 0.1 },
+
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
+  modal: { background: '#0F0F0F', borderRadius: '32px', width: '100%', maxWidth: '440px', border: '1px solid #222', boxShadow: '0 30px 60px rgba(0,0,0,0.8)' },
+  modalHeader: { padding: '2rem', borderBottom: '1px solid #1A1A1B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  modalBody: { padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' },
+  modalInput: { width: '100%', background: '#131314', border: '1px solid #222', borderRadius: '16px', padding: '1rem', color: '#fff', fontSize: '1rem', outline: 'none' },
+  saveBtn: { background: '#D4AF37', color: '#000', border: 'none', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' },
+
+  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' },
+  summaryCard: { margin: '0 2rem 1.5rem', background: 'rgba(155, 89, 182, 0.08)', border: '1px solid rgba(155, 89, 182, 0.2)', borderRadius: '20px', padding: '1.5rem' },
+  summaryHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 900, color: '#9b59b6', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em' },
+  summaryBody: { fontSize: '0.95rem', color: '#b794f4', lineHeight: '1.6' },
   
-  infoPanel: { width: '380px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column' },
-  infoPanelHeader: { padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  infoClose: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' },
-  infoScroll: { flex: 1, overflowY: 'auto', padding: '2rem 1.5rem' },
-  infoProfile: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '2.5rem' },
-  infoName: { margin: '1rem 0 0.2rem', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' },
-  infoPhone: { color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.75rem' },
-  infoBadge: { background: 'var(--accent-light)', color: 'var(--accent)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' },
-  infoSection: { marginBottom: '2.5rem' },
-  infoLabel: { fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '1rem', letterSpacing: '0.1em' },
-  tagContainer: { display: 'flex', flexWrap: 'wrap', gap: '6px' },
-  tagItem: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' },
-  tagDel: { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: '0.8rem' },
-  tagSelect: { background: 'none', border: '1px dashed var(--accent-border)', color: 'var(--accent)', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' },
-  priorityGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' },
-  priorityBtn: { border: '1px solid', padding: '0.75rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' },
-  notesArea: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem', outline: 'none', resize: 'none', minHeight: '100px' },
-  mediaGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' },
-  mediaThumb: { width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: '10px', cursor: 'pointer', border: '1px solid var(--border-color)' },
-  techInfo: { background: 'var(--bg-base)', borderRadius: '14px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '10px' },
-  techRow: { display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' },
-  transferRow: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', cursor: 'pointer', borderRadius: '12px', transition: 'background 0.2s' },
-  quickList: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', position: 'absolute', bottom: '80px', left: '20px', right: '20px', maxHeight: '200px', overflowY: 'auto', zIndex: 100, boxShadow: 'var(--shadow-lg)' },
-  quickItem: { padding: '1rem', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', color: 'var(--text-main)' }
+  separator: { display: 'flex', alignItems: 'center', gap: '1.5rem', margin: '2.5rem 0' },
+  sepLine: { flex: 1, height: '1px', background: '#1A1A1B' },
+  sepLabel: { fontSize: '0.65rem', fontWeight: 900, padding: '6px 16px', borderRadius: '20px', color: '#000', background: '#D4AF37', textTransform: 'uppercase', letterSpacing: '0.1em' },
+  
+  infoPanel: { width: '380px', borderLeft: '1px solid #1A1A1B', background: '#09090B', display: 'flex', flexDirection: 'column' },
+  infoPanelHeader: { padding: '1.5rem', borderBottom: '1px solid #1A1A1B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  infoClose: { background: '#1A1A1B', border: '1px solid #222', color: '#717171', padding: '8px', borderRadius: '10px', cursor: 'pointer' },
+  infoScroll: { flex: 1, overflowY: 'auto', padding: '2.5rem 1.5rem' },
+  infoProfile: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '3rem' },
+  infoName: { margin: '1.5rem 0 0.5rem', fontSize: '1.5rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
+  infoPhone: { color: '#D4AF37', fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem' },
+  infoBadge: { background: 'rgba(212,175,55,0.1)', color: '#D4AF37', padding: '6px 16px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  infoSection: { marginBottom: '3rem' },
+  infoLabel: { fontSize: '0.75rem', fontWeight: 900, color: '#444', marginBottom: '1.25rem', letterSpacing: '0.15em', textTransform: 'uppercase' },
+  tagContainer: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+  tagItem: { background: '#131314', border: '1px solid #222', color: '#aaa', padding: '6px 12px', borderRadius: '10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 },
+  tagDel: { background: 'none', border: 'none', color: '#444', cursor: 'pointer', padding: 0, fontSize: '0.9rem' },
+  tagSelect: { background: 'none', border: '1px dashed #333', color: '#717171', padding: '6px 12px', borderRadius: '10px', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' },
+  priorityGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
+  priorityBtn: { border: '1px solid', padding: '0.85rem', borderRadius: '14px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' },
+  notesArea: { width: '100%', background: '#131314', border: '1px solid #222', borderRadius: '18px', padding: '1.25rem', color: '#ccc', fontSize: '0.9rem', outline: 'none', resize: 'none', minHeight: '120px', lineHeight: 1.5 },
+  mediaGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' },
+  mediaThumb: { width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: '12px', cursor: 'pointer', border: '1px solid #1A1A1B' },
+  techInfo: { background: '#131314', borderRadius: '18px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' },
+  techRow: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#717171', fontWeight: 500 },
+  transferRow: { display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1rem', cursor: 'pointer', borderRadius: '16px', transition: 'all 0.2s', border: '1px solid transparent' },
+  quickList: { background: '#131314', border: '1px solid #333', borderRadius: '20px', position: 'absolute', bottom: '110px', left: '2rem', right: '2rem', maxHeight: '250px', overflowY: 'auto', zIndex: 100, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', padding: '0.5rem' },
+  quickItem: { padding: '1.25rem', borderBottom: '1px solid #1A1A1B', cursor: 'pointer', color: '#fff', fontSize: '0.9rem', borderRadius: '12px', transition: 'background 0.2s' }
 };
