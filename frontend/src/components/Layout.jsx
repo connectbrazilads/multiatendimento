@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
-import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck, Zap } from 'lucide-react';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -115,6 +115,9 @@ export default function Layout() {
                 </NavLink>
                 <NavLink to="/campaigns" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                   <Megaphone size={18} /> Campanhas
+                </NavLink>
+                <NavLink to="/quick-responses" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <Zap size={18} /> Respostas Rápidas
                 </NavLink>
                 <NavLink to="/os" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                   <FileText size={18} /> O.S. / CRM
