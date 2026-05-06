@@ -32,7 +32,9 @@ export default function Settings() {
     companyAddress: '',
     companyBairro: '',
     companyCep: '',
-    companyPhone: ''
+    companyPhone: '',
+    companyCity: '',
+    companyState: ''
   });
   const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
@@ -438,25 +440,46 @@ export default function Settings() {
                  </div>
                </div>
                <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
-                 <div style={{ ...s.field, flex: 1 }}>
-                    <label style={s.label}>CEP</label>
-                    <input 
-                      style={s.input} 
-                      value={form.companyCep} 
-                      onChange={e => setForm({ ...form, companyCep: e.target.value })}
-                      placeholder="00000-000"
-                    />
-                 </div>
-                 <div style={{ ...s.field, flex: 1 }}>
-                    <label style={s.label}>Telefone de Contato</label>
-                    <input 
-                      style={s.input} 
-                      value={form.companyPhone} 
-                      onChange={e => setForm({ ...form, companyPhone: e.target.value })}
-                      placeholder="(00) 0000-0000"
-                    />
-                 </div>
-               </div>
+                  <div style={{ ...s.field, flex: 1 }}>
+                     <label style={s.label}>CEP</label>
+                     <input 
+                       style={s.input} 
+                       value={form.companyCep} 
+                       onChange={e => setForm({ ...form, companyCep: e.target.value })}
+                       placeholder="00000-000"
+                     />
+                  </div>
+                  <div style={{ ...s.field, flex: 1 }}>
+                     <label style={s.label}>Telefone de Contato</label>
+                     <input 
+                       style={s.input} 
+                       value={form.companyPhone} 
+                       onChange={e => setForm({ ...form, companyPhone: e.target.value })}
+                       placeholder="(00) 0000-0000"
+                     />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                  <div style={{ ...s.field, flex: 2 }}>
+                     <label style={s.label}>Cidade</label>
+                     <input 
+                       style={s.input} 
+                       value={form.companyCity} 
+                       onChange={e => setForm({ ...form, companyCity: e.target.value })}
+                       placeholder="Ex: Porto Alegre"
+                     />
+                  </div>
+                  <div style={{ ...s.field, flex: 1 }}>
+                     <label style={s.label}>Estado (UF)</label>
+                     <input 
+                       style={s.input} 
+                       value={form.companyState} 
+                       onChange={e => setForm({ ...form, companyState: e.target.value })}
+                       placeholder="Ex: RS"
+                     />
+                  </div>
+                </div>
 
                <button style={s.saveBtn} onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar Dados da Empresa'}</button>
             </div>

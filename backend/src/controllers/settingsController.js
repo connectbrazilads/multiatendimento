@@ -26,7 +26,8 @@ async function saveSettings(req, res) {
     botEnabled, geminiKey, botName, systemPrompt, transferKeyword, 
     evolutionUrl, evolutionKey, webhookUrl, outOfOfficeMessage,
     ratingEnabled, ratingMessage, notificationPhone,
-    companyName, companyCnpj, companyIE, companyAddress, companyBairro, companyCep, companyPhone
+    companyName, companyCnpj, companyIE, companyAddress, companyBairro, companyCep, companyPhone,
+    companyCity, companyState
   } = req.body;
 
   const settings = await prisma.tenantSettings.upsert({
@@ -50,7 +51,9 @@ async function saveSettings(req, res) {
       companyAddress,
       companyBairro,
       companyCep,
-      companyPhone
+      companyPhone,
+      companyCity,
+      companyState
     },
     create: { 
       tenantId: req.user.tenantId, 
@@ -72,7 +75,9 @@ async function saveSettings(req, res) {
       companyAddress,
       companyBairro,
       companyCep,
-      companyPhone
+      companyPhone,
+      companyCity,
+      companyState
     },
   });
 

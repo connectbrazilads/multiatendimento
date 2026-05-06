@@ -248,7 +248,13 @@ export default function ServiceOrders() {
                   </div>
                   <div style={{...s.cardText, color: '#fff', fontWeight: 800, fontSize: '0.95rem'}}><User size={14} color="#D4AF37"/> {getClientName(os)}</div>
                   <div style={{...s.cardText, fontSize: '0.75rem', color: '#717171', marginBottom: '8px'}}>Sol: {os.contact?.name}</div>
-                  <div style={s.cardText}><Settings size={14} color="#D4AF37"/> {os.equipment?.model}</div>
+                  <div style={s.cardText}>
+                    <Settings size={14} color="#D4AF37"/> 
+                    {os.equipment?.manufacturer} {os.equipment?.model}
+                  </div>
+                  <div style={{...s.cardText, fontSize: '0.7rem', color: '#717171'}}>
+                    <Hash size={12} color="#D4AF37"/> {os.equipment?.serialNumber || 'S/N não inf.'}
+                  </div>
                   <div style={s.cardDefect}>{os.defect}</div>
                   
                   {os.status === 'ARQUIVADA' ? (
