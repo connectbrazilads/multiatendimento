@@ -42,7 +42,12 @@ async function login(req, res) {
 async function me(req, res) {
   const user = await prisma.user.findUnique({
     where: { id: req.user.userId },
-    select: { id: true, name: true, email: true, role: true, tenantId: true },
+    select: {
+      id: true, name: true, email: true, role: true, tenantId: true,
+      tenant: {
+        select: { id: true, name: true, slug: true, primaryColor: true, logoUrl: true }
+      }
+    },
   });
   res.json(user);
 }

@@ -150,26 +150,51 @@ export default function Contacts() {
       </div>
 
       <div style={s.grid}>
-        {Array.isArray(contacts) && contacts.map(c => (
-          <div className="glass-panel" key={c.id} style={s.card}>
-            <div style={s.cardHeader}>
-              <div style={{ minWidth: 0 }}>
-                <div style={s.cardName}>{c.name || 'Sem nome'}</div>
-                {c.fantasyName && <div style={s.cardFantasy}>{c.fantasyName}</div>}
-                <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
+        {Array.isArray(contacts) && contacts.map(c => {
+          const initials = (c.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+          const hue = (c.name || '').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360;
+          const hasActiveTicket = c.tickets?.some(t => t.status === 'open');
+          const hasPendingTicket = c.tickets?.some(t => t.status === 'pending');
+          const statusColor = hasActiveTicket ? '#48bb78' : hasPendingTicket ? '#D4AF37' : 'var(--text-dim)';
+          const statusLabel = hasActiveTicket ? 'Em atendimento' : hasPendingTicket ? 'Aguardando' : '';
+
+          return (
+            <div className="glass-panel" key={c.id} style={s.card}>
+              <div style={s.cardHeader}>
+                <div style={{ ...s.avatar, background: `hsl(${hue}, 45%, 35%)` }}>
+                  {initials}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={s.cardName}>{c.name || 'Sem nome'}</div>
+                  {c.fantasyName && <div style={s.cardFantasy}>{c.fantasyName}</div>}
+                  <div style={s.cardPhone}>{c.phone || 'Sem número'}</div>
+                </div>
+                <button onClick={() => openProfileModal(c)} style={s.editBtn}>
+                  <Edit2 size={16} />
+                </button>
               </div>
-              <button onClick={() => openProfileModal(c)} style={s.editBtn}>
-                <Edit2 size={16} />
+
+              {(statusLabel || c.email) && (
+                <div style={s.cardMeta}>
+                  {statusLabel && (
+                    <span style={{ ...s.statusPill, color: statusColor, borderColor: statusColor }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                      {statusLabel}
+                    </span>
+                  )}
+                  {c.email && <span style={s.emailText}>{c.email}</span>}
+                </div>
+              )}
+
+              <div style={s.cardTags}>
+                {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
+              </div>
+              <button style={s.chatBtn} onClick={() => startChat(c)}>
+                <MessageSquare size={16} /> Abrir Conversa
               </button>
             </div>
-            <div style={s.cardTags}>
-              {parseTags(c.tags).map((t, idx) => <span key={idx} style={s.tag}>{t}</span>)}
-            </div>
-            <button style={s.chatBtn} onClick={() => startChat(c)}>
-              <MessageSquare size={16} /> Abrir Conversa
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showAddModal && (
@@ -265,25 +290,47 @@ export default function Contacts() {
 
 const s = {
   container: { padding: '2.5rem', background: 'var(--bg-base)', height: '100%', overflowY: 'auto', flex: 1, color: 'var(--text-main)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' },
   title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--font-display)' },
   subtitle: { color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.4rem' },
-  addBtn: { background: 'var(--accent)', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', gap: '8px' },
-  importBtn: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' },
+  addBtn: { background: 'var(--accent)', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' },
+  importBtn: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' },
   searchWrap: { position: 'relative' },
   search: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '12px', color: 'var(--text-main)', width: '280px', outline: 'none', fontSize: '0.9rem' },
   searchIcon: { position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' },
 
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
-  card: { padding: '1.5rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '20px', transition: 'all 0.2s' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
-  cardName: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  cardFantasy: { color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' },
-  cardPhone: { color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' },
-  editBtn: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' },
-  cardTags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem', minHeight: '24px' },
-  tag: { fontSize: '0.65rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid var(--accent-border)' },
-  chatBtn: { width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.85rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' },
+  card: { 
+    padding: '1.25rem', 
+    background: 'var(--bg-surface)', 
+    border: '1px solid var(--border-color)', 
+    borderLeft: '3px solid var(--border-color)',
+    borderRadius: '16px', 
+    transition: 'all 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem'
+  },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: '0.75rem' },
+  avatar: {
+    width: '40px', height: '40px', borderRadius: '12px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.03em', flexShrink: 0
+  },
+  cardName: { fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  cardFantasy: { color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' },
+  cardPhone: { color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px', fontVariantNumeric: 'tabular-nums' },
+  editBtn: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px', flexShrink: 0 },
+  cardMeta: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+  statusPill: { 
+    fontSize: '0.65rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', 
+    border: '1px solid', display: 'flex', alignItems: 'center', gap: '5px',
+    background: 'transparent'
+  },
+  emailText: { fontSize: '0.75rem', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  cardTags: { display: 'flex', flexWrap: 'wrap', gap: '5px', minHeight: '20px' },
+  tag: { fontSize: '0.6rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '2px 7px', borderRadius: '5px', fontWeight: 800, border: '1px solid var(--accent-border)' },
+  chatBtn: { width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.7rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.85rem' },
 
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
   modal: { background: 'var(--bg-surface)', borderRadius: '32px', width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' },

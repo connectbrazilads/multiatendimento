@@ -422,7 +422,7 @@ export default function Inbox() {
           <div style={s.tabs}>
             {['mine', 'pending', 'resolved'].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{ ...s.tab, ...(tab === t ? s.tabActive : {}) }}>
-                {t === 'mine' ? 'Meus' : t === 'pending' ? 'Aguardando' : 'Encerrados'}
+                {t === 'mine' ? 'Meus' : t === 'pending' ? 'Espera' : 'Fechados'}
                 {counts[t] > 0 && <span style={s.badge}>{counts[t]}</span>}
               </button>
             ))}
@@ -1262,38 +1262,37 @@ const s = {
   tabs: { display: 'flex', gap: '4px', background: 'var(--bg-panel)', padding: '4px', borderRadius: '12px' },
   tab: { 
     flex: 1, 
-    padding: '0.6rem 0.25rem', 
+    padding: '0.55rem 0.4rem', 
     border: 'none', 
     background: 'none', 
     cursor: 'pointer', 
     color: 'var(--text-muted)', 
-    fontSize: '0.7rem', 
+    fontSize: '0.68rem', 
     fontWeight: 800, 
     borderRadius: '8px', 
     transition: 'all 0.2s', 
     textTransform: 'uppercase', 
-    letterSpacing: '0.02em',
+    letterSpacing: '0.01em',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '4px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden'
+    gap: '5px',
+    whiteSpace: 'nowrap'
   },
   tabActive: { background: 'var(--bg-panel-hover)', color: 'var(--accent)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' },
   badge: { 
     background: 'var(--accent)', 
     color: 'var(--text-inverse)', 
-    borderRadius: '8px', 
-    padding: '2px 8px', 
-    fontSize: '0.65rem', 
+    borderRadius: '6px', 
+    padding: '1px 6px', 
+    fontSize: '0.6rem', 
     fontWeight: 900,
-    minWidth: '20px',
-    height: '20px',
+    minWidth: '18px',
+    height: '18px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 2px 4px rgba(212,175,55,0.3)'
+    flexShrink: 0
   },
   searchWrap: { padding: '1rem', display: 'flex', flexDirection: 'column', gap: '12px' },
   search: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0.85rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' },
