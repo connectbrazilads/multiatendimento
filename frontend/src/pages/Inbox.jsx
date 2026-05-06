@@ -109,6 +109,22 @@ export default function Inbox() {
   useEffect(() => { filtersRef.current = filters; }, [filters]);
   useEffect(() => { searchRef.current = search; }, [search]);
   
+  const loadTickets = useCallback(async () => {
+    try {
+      const currentTab = tabRef.current;
+      const currentFilters = filtersRef.current;
+      const currentSearch = searchRef.current || '';
+
+      const { data } = await getTickets(
+        currentTab === 'mine' ? null : currentTab, 
+        currentTab === 'mine', 
+        { ...currentFilters, search: currentSearch }
+      );
+      setTickets(data.tickets || []);
+      setCounts(data.counts || { mine: 0, pending: 0, resolved: 0 });
+    } catch (e) { console.error(e); }
+  }, []);
+
   const debounceTimerRef = useRef(null);
   const debouncedLoadTickets = useCallback(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -196,22 +212,6 @@ export default function Inbox() {
     setQuickResponses(qData);
     if (sData?.botName) setBotName(sData.botName);
   }
-
-  const loadTickets = useCallback(async () => {
-    try {
-      const currentTab = tabRef.current;
-      const currentFilters = filtersRef.current;
-      const currentSearch = searchRef.current || '';
-
-      const { data } = await getTickets(
-        currentTab === 'mine' ? null : currentTab, 
-        currentTab === 'mine', 
-        { ...currentFilters, search: currentSearch }
-      );
-      setTickets(data.tickets || []);
-      setCounts(data.counts || { mine: 0, pending: 0, resolved: 0 });
-    } catch (e) { console.error(e); }
-  }, []);
 
   async function loadMessages() {
     setLoading(true);
