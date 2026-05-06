@@ -22,30 +22,40 @@ function extractMedia(msg) {
 
 async function downloadMedia(settings, instanceName, msg, messageId) {
   let attempts = 0;
-  const maxAttempts = 5; // Aumentado para dar mais chance a vídeos pesados
+  const maxAttempts = 5;
 
   while (attempts < maxAttempts) {
     try {
+      console.log(`[media-download] [${instanceName}] Tentativa ${attempts + 1} para msg ${msg.key.id}...`);
       const result = await evolutionService.getMediaBase64(
         settings.evolutionUrl, settings.evolutionKey, instanceName, msg.key
       );
+      
       const base64 = result?.base64 || result?.data?.base64;
-      const mimetype = result?.mimetype || result?.data?.mimetype || 'application/octet-stream';
+      const mimetype = result?.mimetype || result?.data?.mimetype || result?.data?.data?.mimetype;
       
       if (base64) {
+        console.log(`[media-download] [${instanceName}] Base64 obtido com sucesso para msg ${msg.key.id}. Tamanho: ${Math.round(base64.length/1024)}KB`);
         return evolutionService.saveMediaFile(base64, mimetype, messageId);
+      } else {
+        console.warn(`[media-download] [${instanceName}] Evolution não retornou base64 na tentativa ${attempts + 1}. Resposta:`, JSON.stringify(result).substring(0, 200));
       }
     } catch (err) {
-      console.warn(`[webhook] Tentativa ${attempts + 1} de baixar mídia falhou:`, err.message);
+      console.error(`[media-download] [${instanceName}] Erro na tentativa ${attempts + 1} para msg ${msg.key.id}:`, err.response?.data || err.message);
+      
+      // Se for erro de instância inexistente ou API key, não adianta tentar de novo
+      if (err.response?.status === 401 || err.response?.status === 403 || (err.response?.data?.message || '').includes('not found')) {
+        return null;
+      }
     }
     
     attempts++;
     if (attempts < maxAttempts) {
-      // Espera 3 segundos antes da próxima tentativa (mais tempo para a Evolution processar)
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
   
+  console.error(`[media-download] [${instanceName}] Falha definitiva após ${maxAttempts} tentativas para msg ${msg.key.id}`);
   return null;
 }
 

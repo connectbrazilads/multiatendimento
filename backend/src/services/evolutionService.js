@@ -59,10 +59,29 @@ async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
 
 async function getMediaBase64(url, key, instanceName, messageKey) {
   const client = getClient(url, key);
-  const { data } = await client.post(`/chat/getBase64FromMediaMessage/${instanceName}`, {
-    message: { key: messageKey },
-  });
-  return data; // { base64, mimetype, ... }
+  
+  // Lista de tentativas em ordem de probabilidade para Evolution v2
+  const attempts = [
+    { url: `/chat/getBase64FromMediaMessage/${instanceName}`, payload: { message: { key: messageKey } } },
+    { url: `/chat/getBase64FromMediaMessage/${instanceName}`, payload: { key: messageKey } },
+    { url: `/chat/getBase64FromMessage/${instanceName}`, payload: { message: { key: messageKey } } },
+    { url: `/chat/getBase64FromMessage/${instanceName}`, payload: { key: messageKey } },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const { data } = await client.post(attempt.url, attempt.payload);
+      // Se retornou algo que pareça um base64, sucesso
+      const base64 = data?.base64 || data?.data?.base64 || data?.data?.data?.base64;
+      if (base64) return data;
+    } catch (err) {
+      // Se for 401 ou 403, nem tenta os outros
+      if (err.response?.status === 401 || err.response?.status === 403) throw err;
+      continue;
+    }
+  }
+
+  throw new Error('Não foi possível obter o Base64 da mídia em nenhum endpoint conhecido.');
 }
 
 // Salva base64 como arquivo e retorna URL relativa
