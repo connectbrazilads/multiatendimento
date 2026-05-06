@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { 
   getTickets, getMessages, sendMessage, sendMediaMessage, 
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
