@@ -363,6 +363,36 @@ export default function Inbox() {
     // O backend já zera ao chamar getMessages (que é disparado pelo useEffect do selectedId)
   };
 
+  if (!me) {
+    return (
+      <div style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        background: 'var(--bg-surface)',
+        color: 'var(--text-muted)',
+        gap: '20px'
+      }}>
+        <div className="loading-spinner" style={{ 
+          width: '40px', 
+          height: '40px', 
+          border: '4px solid var(--border-color)', 
+          borderTop: '4px solid var(--accent)', 
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <div style={{ fontWeight: 800, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          Sincronizando Inbox...
+        </div>
+        <style>{`
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={s.layout}>
       <style>{`
