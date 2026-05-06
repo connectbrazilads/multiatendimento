@@ -935,7 +935,26 @@ function Avatar({ name, src, size = 40 }) {
 function MediaContent({ message: m, onImageClick }) {
   const url = getMediaUrl(m.mediaUrl);
   
-  // Fallback para quando a mídia ainda está sendo baixada ou deu erro
+  // Mídia com falha definitiva — token expirou ou download impossível
+  if (!url && m.mediaStatus === 'failed' && m.mediaType) {
+    return (
+      <div style={{ 
+        padding: '0.75rem 1rem', 
+        background: 'rgba(255,80,80,0.05)', 
+        borderRadius: '8px', 
+        border: '1px dashed rgba(255,80,80,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '0.8rem',
+        color: '#ff6b6b'
+      }}>
+        <span style={{ fontSize: '1rem' }}>🚫</span> Mídia indisponível
+      </div>
+    );
+  }
+
+  // Mídia ainda sendo baixada (pending)
   if (!url && (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'audio' || m.mediaType === 'document' || m.mediaType === 'sticker')) {
     return (
       <div style={{ 

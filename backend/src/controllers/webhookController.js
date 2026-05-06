@@ -299,7 +299,19 @@ async function handleWebhook(req, res) {
     // Download de mídia e Transcrição em background
     if (media) {
       downloadMedia(tenant.settings, instance, msg, message.id).then(async (mediaUrl) => {
-        if (!mediaUrl) return;
+        if (!mediaUrl) {
+          // Falha definitiva após todas as tentativas — marca como failed
+          await prisma.message.update({
+            where: { id: message.id },
+            data: { mediaStatus: 'failed' }
+          });
+          if (io) io.to(tenant.id).emit('message_updated', {
+            ticket,
+            message: { id: message.id, mediaStatus: 'failed' },
+            contact
+          });
+          return;
+        }
 
         let transcription = null;
         const fullPath = path.join(__dirname, '../../', mediaUrl);
@@ -331,6 +343,7 @@ async function handleWebhook(req, res) {
           where: { id: message.id },
           data: { 
             mediaUrl,
+            mediaStatus: 'ok',
             transcription
           },
         });

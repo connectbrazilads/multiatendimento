@@ -245,6 +245,7 @@ model Message {
   transcription String?
   mediaUrl      String?
   mediaType  String?
+  mediaStatus String?  @default("pending") // pending, ok, failed
   externalId String?
   quotedMsgId   String?
   quotedMsgBody String?
