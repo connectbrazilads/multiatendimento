@@ -115,7 +115,7 @@ export default function Inbox() {
     debounceTimerRef.current = setTimeout(() => {
       loadTickets();
     }, 500); 
-  }, [tab, search]);
+  }, [loadTickets]);
 
   useEffect(() => {
     loadInitial();
@@ -197,11 +197,11 @@ export default function Inbox() {
     if (sData?.botName) setBotName(sData.botName);
   }
 
-  async function loadTickets() {
+  const loadTickets = useCallback(async () => {
     try {
       const currentTab = tabRef.current;
       const currentFilters = filtersRef.current;
-      const currentSearch = searchRef.current;
+      const currentSearch = searchRef.current || '';
 
       const { data } = await getTickets(
         currentTab === 'mine' ? null : currentTab, 
@@ -211,7 +211,7 @@ export default function Inbox() {
       setTickets(data.tickets || []);
       setCounts(data.counts || { mine: 0, pending: 0, resolved: 0 });
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
   async function loadMessages() {
     setLoading(true);
