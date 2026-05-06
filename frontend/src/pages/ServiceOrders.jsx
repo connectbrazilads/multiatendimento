@@ -206,6 +206,42 @@ export default function ServiceOrders() {
         </div>
       </div>
 
+      <div style={{display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap'}}>
+        <button 
+          onClick={() => setSearch('')}
+          style={{
+            background: search === '' ? 'var(--accent)' : 'var(--bg-panel)',
+            color: search === '' ? '#000' : 'var(--text-muted)',
+            border: '1px solid var(--border-color)',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            cursor: 'pointer'
+          }}
+        >
+          Todos
+        </button>
+        {columns.map(c => (
+          <button 
+            key={c.id}
+            onClick={() => setSearch(c.title)}
+            style={{
+              background: search === c.title ? c.color : 'var(--bg-panel)',
+              color: search === c.title ? '#000' : 'var(--text-muted)',
+              border: `1px solid ${search === c.title ? c.color : 'var(--border-color)'}`,
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            {c.title}
+          </button>
+        ))}
+      </div>
+
       <div style={s.kanban}>
         {activeColumns.map(col => (
           <div 
@@ -236,7 +272,19 @@ export default function ServiceOrders() {
                   onClick={() => openOsModal(os)}
                 >
                   <div style={s.cardTitle}>
-                    <span>#{os.id.substring(os.id.length - 6).toUpperCase()}</span>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      <span>#{os.id.substring(os.id.length - 6).toUpperCase()}</span>
+                      <a 
+                        href={`${BACKEND_URL}/api/os/${os.id}/pdf?token=${localStorage.getItem('token')}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{color: 'var(--accent)', opacity: 0.7, display: 'flex', alignItems: 'center'}}
+                        title="Imprimir PDF Rápido"
+                      >
+                        <FileText size={12} />
+                      </a>
+                    </div>
                     {os.status === 'FINALIZADA' && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); setSelectedOs(os); handleUpdate('ARQUIVADA'); }}
