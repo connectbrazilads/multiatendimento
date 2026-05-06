@@ -283,7 +283,7 @@ async function handleWebhook(req, res) {
        // Só envia se não enviou nos últimos 4 horas para evitar spam
        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
        if (!lastOooEvent || lastOooEvent.createdAt < fourHoursAgo) {
-          await evolutionService.sendMessage(
+          await evolutionService.sendText(
             tenant.settings.evolutionUrl,
             tenant.settings.evolutionKey,
             instance,
