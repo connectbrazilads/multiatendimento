@@ -115,7 +115,7 @@ export default function Inbox() {
     debounceTimerRef.current = setTimeout(() => {
       loadTickets();
     }, 500); 
-  }, [tab, search, page]);
+  }, [tab, search]);
 
   useEffect(() => {
     loadInitial();
