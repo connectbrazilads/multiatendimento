@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Lista de modelos em ordem de preferência para fallback
-const MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+const MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
 
 async function getModel(apiKey, systemPrompt = null) {
   const genAI = new GoogleGenerativeAI(apiKey);

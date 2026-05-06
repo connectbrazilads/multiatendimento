@@ -381,7 +381,8 @@ async function handleWebhook(req, res) {
       pendingReplies[ticket.id] = setTimeout(async () => {
         try {
           console.log(`[bot] Executando resposta para ticket ${ticket.id}`);
-          if (!media) {
+          // 4. LÓGICA DO ROBÔ (IA) - Se for mídia, o robô responde via debounce após o download/transcrição
+          if (ticket.status === 'bot' && tenant.settings?.botEnabled && !fromMe && !media) {
             await handleBotReply(tenant, waInstance, ticket, contact, body, message);
           } else if (media.type === 'image' || media.type === 'audio') {
             console.log(`[bot] Mídia detectada, aguardando transcrição/visão para responder.`);
