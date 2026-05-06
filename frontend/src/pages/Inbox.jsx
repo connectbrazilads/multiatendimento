@@ -203,14 +203,18 @@ export default function Inbox() {
   const [botName, setBotName] = useState('Robô');
 
   async function loadInitial() {
-    const [{ data: meData }, { data: uData }, { data: tData }, { data: qData }, { data: sData }] = await Promise.all([
-      getMe(), getUsers(), getTeams(), getQuickResponses(), getSettings()
-    ]);
-    setMe(meData);
-    setUsers(uData);
-    setTeams(tData);
-    setQuickResponses(qData);
-    if (sData?.botName) setBotName(sData.botName);
+    try {
+      const [{ data: meData }, { data: uData }, { data: tData }, { data: qData }, { data: sData }] = await Promise.all([
+        getMe(), getUsers(), getTeams(), getQuickResponses(), getSettings()
+      ]);
+      setMe(meData);
+      setUsers(uData || []);
+      setTeams(tData || []);
+      setQuickResponses(qData || []);
+      if (sData?.botName) setBotName(sData.botName);
+    } catch (e) {
+      console.error('Erro ao carregar dados iniciais:', e);
+    }
   }
 
   async function loadMessages() {
@@ -413,13 +417,13 @@ export default function Inbox() {
         </div>
         <div style={s.list}>
           {tickets.filter(t => {
-            const s = search.toLowerCase();
-            const name = (t.contact.name || '').toLowerCase();
-            const phone = t.contact.phone || '';
-            return name.includes(s) || phone.includes(s);
+            const sQuery = (search || '').toLowerCase();
+            const name = (t.contact?.name || '').toLowerCase();
+            const phone = t.contact?.phone || '';
+            return name.includes(sQuery) || phone.includes(sQuery);
           }).map(t => (
             <div key={t.id} onClick={() => selectTicket(t.id)} style={{ ...s.row, ...(selectedId === t.id ? s.rowActive : {}) }}>
-              <Avatar name={t.contact.name || t.contact.phone} src={t.contact.avatarUrl} size={36} />
+              <Avatar name={t.contact?.name || t.contact?.phone || 'Desconhecido'} src={t.contact?.avatarUrl} size={36} />
               <div style={s.rowInfo}>
                 <div style={s.rowTop}>
                   <span style={s.rowName}>{t.contact.name || t.contact.phone}</span>
@@ -478,10 +482,10 @@ export default function Inbox() {
           <>
             <header style={{ ...s.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
               {isMobile && <button style={s.backBtn} onClick={() => setView('list')}>❮</button>}
-              <Avatar name={selectedTicket.contact.name || selectedTicket.contact.phone} src={selectedTicket.contact.avatarUrl} size={isMobile ? 32 : 40} />
+              <Avatar name={selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'} src={selectedTicket.contact?.avatarUrl} size={isMobile ? 32 : 40} />
               <div style={{ ...s.rowInfo, overflow: 'hidden' }}>
                 <div style={{ ...s.chatName, fontSize: isMobile ? '0.9rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {selectedTicket.contact.name || selectedTicket.contact.phone}
+                  {selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
                 </div>
                 {/* Mostra a empresa vinculada no cabeçalho se existir */}
                 {!isMobile && (
@@ -617,7 +621,7 @@ export default function Inbox() {
                           letterSpacing: '0.05em',
                           opacity: m.fromBot ? 0.8 : 1
                         }}>
-                          {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+                          {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
                         </div>
                         {!m.isDeleted && (
                           <button 
