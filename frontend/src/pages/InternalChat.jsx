@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { toast } from '../utils/toast';
 import { io } from 'socket.io-client';
 import { getUsers, getInternalMessages, sendInternalMessage } from '../services/api';
 
@@ -54,7 +55,7 @@ export default function InternalChat() {
       setText('');
     } catch (err) {
       console.error('[chat] erro ao enviar:', err.response?.data || err.message);
-      alert('Falha ao enviar mensagem: ' + (err.response?.data?.error || err.message));
+      toast.error('Falha ao enviar mensagem: ' + (err.response?.data?.error || err.message));
     }
   }
 

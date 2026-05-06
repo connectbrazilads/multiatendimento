@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { getQuickResponses, createQuickResponse, deleteQuickResponse } from '../services/api';
 import { MessageSquare, Plus, Trash2, Search, Zap } from 'lucide-react';
 
@@ -35,7 +36,7 @@ export default function QuickResponses() {
       setModal(false);
       load();
     } catch (e) {
-      alert('Erro ao salvar modelo');
+      toast.info('Erro ao salvar modelo');
     } finally {
       setSaving(false);
     }
@@ -47,7 +48,7 @@ export default function QuickResponses() {
       await deleteQuickResponse(id);
       load();
     } catch (e) {
-      alert('Erro ao excluir');
+      toast.info('Erro ao excluir');
     }
   }
 

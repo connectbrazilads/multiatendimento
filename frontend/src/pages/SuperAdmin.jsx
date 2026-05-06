@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { getTenants, createTenant, updateTenant, uploadFile, getMediaUrl } from '../services/api';
 
 export default function SuperAdmin() {
@@ -22,7 +23,7 @@ export default function SuperAdmin() {
       const { data } = await getTenants();
       setTenants(data);
     } catch (e) {
-      alert('Erro ao carregar empresas. Verifique se você tem permissão de SuperAdmin.');
+      toast.info('Erro ao carregar empresas. Verifique se você tem permissão de SuperAdmin.');
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,7 @@ export default function SuperAdmin() {
       setModal(null);
       load();
     } catch (e) {
-      alert('Erro ao salvar empresa');
+      toast.info('Erro ao salvar empresa');
     } finally {
       setSaving(false);
     }
@@ -64,7 +65,7 @@ export default function SuperAdmin() {
     try {
       await updateTenant(t.id, { active: !t.active });
       load();
-    } catch (e) { alert('Erro ao mudar status'); }
+    } catch (e) { toast.info('Erro ao mudar status'); }
   }
 
   async function handleLogoUpload(e) {
@@ -77,7 +78,7 @@ export default function SuperAdmin() {
       // Salva apenas o caminho relativo (/uploads/...) para o banco
       setForm({ ...form, logoUrl: data.url });
     } catch (e) {
-      alert('Erro ao fazer upload da logo');
+      toast.info('Erro ao fazer upload da logo');
     } finally {
       setSaving(false);
     }
@@ -137,7 +138,7 @@ export default function SuperAdmin() {
                          onClick={() => {
                            const url = `${window.location.origin}/${t.slug}/login`;
                            navigator.clipboard.writeText(url);
-                           alert(`Link da empresa ${t.name} copiado!`);
+                           toast.error(`Link da empresa ${t.name} copiado!`);
                          }}
                          style={{ ...s.actionBtn, fontSize: '0.9rem', color: '#D4AF37' }}
                          title="Copiar URL Completa"

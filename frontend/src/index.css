@@ -1,14 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Common variables */
+  /* Fonts */
   --font-main: 'Inter', sans-serif;
+  --font-display: 'Syne', sans-serif;
+
+  /* Brand Colors */
   --accent: #D4AF37;
   --accent-hover: #F2D06B;
   --accent-light: rgba(212, 175, 55, 0.1);
   --accent-border: rgba(212, 175, 55, 0.3);
   --danger: #e53e3e;
   --success: #2ecc71;
+  --warning: #f59e0b;
+
+  /* Radii */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;

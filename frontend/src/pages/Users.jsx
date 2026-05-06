@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
 
 export default function Users() {
@@ -23,7 +24,7 @@ export default function Users() {
       setUsers(uData);
       setTeams(tData);
     } catch (err) {
-      alert('Erro ao carregar dados');
+      toast.info('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function Users() {
       setModal(null);
       load();
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao salvar');
+      toast.error(err.response?.data?.error || 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -61,7 +62,7 @@ export default function Users() {
     try {
       await updateUser(user.id, { active: !user.active });
       load();
-    } catch { alert('Erro ao mudar status'); }
+    } catch { toast.info('Erro ao mudar status'); }
   }
 
   const filtered = users.filter(u => {

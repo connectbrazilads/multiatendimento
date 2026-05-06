@@ -4,6 +4,8 @@ import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck, Zap } from 'lucide-react';
 import { getMe, getMediaUrl } from '../services/api';
+import { useIsMobile } from '../hooks/useIsMobile';
+import ToastContainer from './ToastContainer';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -18,7 +20,6 @@ export default function Layout() {
   }
 
   const role = localStorage.getItem('role')?.toLowerCase();
-  console.log('[Layout] Role atual detectada:', role);
 
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
@@ -81,7 +82,7 @@ export default function Layout() {
     }
   }, []);
 
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = useIsMobile();
 
   const mobileLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={24} />, label: 'Dash' },
@@ -198,6 +199,9 @@ export default function Layout() {
           </div>
         </div>
       )}
+
+      {/* Sistema global de toast e confirmações */}
+      <ToastContainer />
     </div>
   );
 }

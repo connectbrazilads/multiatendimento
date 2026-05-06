@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api, { updateContact, deleteContact, getEquipments, updateEquipment, deleteEquipment } from '../services/api';
+import { toast } from '../utils/toast';
 import { X, Printer, FileText, User, Trash2, Edit3, AlertTriangle } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || '';
@@ -53,36 +54,40 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
     try {
       await updateContact(contact.id, formData);
       onUpdated();
-      alert('Dados salvos!');
+      toast.success('Dados salvos!');
     } catch (err) {
-      alert('Erro ao salvar');
+      toast.error('Erro ao salvar');
     }
   }
 
   async function handleDeleteContact() {
-    if (!window.confirm('TEM CERTEZA? Isso excluirá permanentemente este cliente e todo o seu histórico!')) return;
-    try {
-      await deleteContact(contact.id);
-      onUpdated();
-      onClose();
-    } catch (e) {
-      alert('Erro ao excluir cliente');
-    }
+    toast.confirm('TEM CERTEZA? Isso excluirá permanentemente este cliente e todo o seu histórico!', async () => {
+      try {
+        await deleteContact(contact.id);
+        onUpdated();
+        onClose();
+        toast.success('Cliente excluído.');
+      } catch (e) {
+        toast.error('Erro ao excluir cliente');
+      }
+    });
   }
 
   async function handleAddOrUpdateEquip() {
-    if (!newEquip.model) return alert('Modelo é obrigatório');
+    if (!newEquip.model) return toast.error('Modelo é obrigatório');
     try {
       if (editingEquipId) {
         await updateEquipment(editingEquipId, newEquip);
         setEditingEquipId(null);
+        toast.success('Equipamento atualizado!');
       } else {
         await api.post(`/os/contacts/${contact.id}/equipments`, newEquip);
+        toast.success('Equipamento adicionado!');
       }
       setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
       loadEquipments();
     } catch (e) {
-      alert('Erro ao salvar equipamento');
+      toast.error('Erro ao salvar equipamento');
     }
   }
 
@@ -99,13 +104,15 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   }
 
   async function handleDeleteEquip(id) {
-    if (!window.confirm('Excluir este equipamento?')) return;
-    try {
-      await deleteEquipment(id);
-      loadEquipments();
-    } catch (e) {
-      alert('Erro ao excluir');
-    }
+    toast.confirm('Excluir este equipamento?', async () => {
+      try {
+        await deleteEquipment(id);
+        loadEquipments();
+        toast.success('Equipamento excluído.');
+      } catch (e) {
+        toast.error('Erro ao excluir');
+      }
+    });
   }
 
   const s = {

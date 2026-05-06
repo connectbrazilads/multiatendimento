@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { getKnowledge, createKnowledge, updateKnowledge, deleteKnowledge } from '../services/api';
 
 export default function KnowledgeBase() {
@@ -32,15 +33,17 @@ export default function KnowledgeBase() {
       setEditing(null);
       setForm({ question: '', answer: '', tags: '' });
       load();
-    } catch (e) { alert('Erro ao salvar'); }
+    } catch (e) { toast.info('Erro ao salvar'); }
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Excluir este conhecimento?')) return;
-    try {
-      await deleteKnowledge(id);
-      load();
-    } catch (e) { alert('Erro ao excluir'); }
+    toast.confirm('Excluir este conhecimento?', async () => {
+      try {
+        await deleteKnowledge(id);
+        load();
+        toast.success('Conhecimento excluído!');
+      } catch (e) { toast.error('Erro ao excluir'); }
+    });
   }
 
   const openEdit = (item) => {
@@ -131,21 +134,21 @@ export default function KnowledgeBase() {
 }
 
 const s = {
-  page: { padding: '2.5rem', background: '#0F0F0F', flex: 1, overflowY: 'auto', color: '#fff', minHeight: '100%' },
+  page: { padding: '2.5rem', background: 'var(--bg-base)', flex: 1, overflowY: 'auto', color: 'var(--text-main)', minHeight: '100%' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' },
-  title: { fontSize: '1.8rem', fontWeight: 800, margin: 0, color: '#fff', letterSpacing: '-0.03em' },
-  subtitle: { color: '#717171', margin: '0.5rem 0 0', fontSize: '0.95rem' },
-  addBtn: { background: '#D4AF37', color: '#000', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem' },
+  title: { fontSize: '1.8rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)' },
+  subtitle: { color: 'var(--text-muted)', margin: '0.5rem 0 0', fontSize: '0.95rem' },
+  addBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem' },
   
   loading: { textAlign: 'center', padding: '3rem', color: '#717171' },
   empty: { gridColumn: '1/-1', textAlign: 'center', padding: '5rem', color: '#333', fontSize: '1.2rem', fontWeight: 700 },
   
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' },
-  card: { background: '#1A1A1B', borderRadius: '16px', padding: '1.75rem', border: '1px solid #2A2A2A', display: 'flex', flexDirection: 'column', transition: 'border-color 0.3s' },
-  cardStatus: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', color: '#717171', marginBottom: '1rem', textTransform: 'uppercase', fontWeight: 800 },
+  card: { background: 'var(--bg-surface)', borderRadius: '16px', padding: '1.75rem', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', transition: 'border-color 0.3s' },
+  cardStatus: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '1rem', textTransform: 'uppercase', fontWeight: 800 },
   statusDot: { width: 8, height: 8, borderRadius: '50%' },
-  cardTitle: { margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700 },
-  cardAnswer: { color: '#aaa', fontSize: '0.9rem', lineHeight: '1.5', flex: 1, marginBottom: '1.5rem', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  cardTitle: { margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' },
+  cardAnswer: { color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.5', flex: 1, marginBottom: '1.5rem', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
   
   tags: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' },
   tag: { background: 'rgba(212, 175, 55, 0.1)', color: '#D4AF37', padding: '2px 8px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 700 },
@@ -166,11 +169,11 @@ const s = {
     padding: '20px'
   },
   modal: { 
-    background: '#1A1A1B', 
+    background: 'var(--bg-surface)', 
     borderRadius: '24px', 
     width: '100%', 
     maxWidth: '500px', 
-    border: '1px solid #333', 
+    border: '1px solid var(--border-color)', 
     animation: 'slideUp 0.3s', 
     overflow: 'hidden', 
     boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
@@ -180,19 +183,19 @@ const s = {
   },
   modalHeader: { 
     padding: '2rem', 
-    borderBottom: '1px solid #333', 
+    borderBottom: '1px solid var(--border-color)', 
     display: 'flex', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    background: '#1A1A1B', 
+    background: 'var(--bg-surface)', 
     position: 'relative',
     width: '100%',
     boxSizing: 'border-box'
   },
-  modalTitle: { margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#fff', textAlign: 'center' },
-  closeBtn: { position: 'absolute', right: '1.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#717171', fontSize: '1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  modalTitle: { margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', textAlign: 'center' },
+  closeBtn: { position: 'absolute', right: '1.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center' },
   modalBody: { padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', boxSizing: 'border-box' },
-  label: { fontSize: '0.75rem', fontWeight: 700, color: '#717171', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '-0.5rem' },
-  input: { width: '100%', background: '#0F0F0F', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '1rem', color: '#fff', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s', boxSizing: 'border-box' },
-  saveBtn: { background: '#D4AF37', color: '#000', border: 'none', padding: '1.1rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', marginTop: '1rem', fontSize: '0.95rem' }
+  label: { fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '-0.5rem' },
+  input: { width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s', boxSizing: 'border-box' },
+  saveBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '1.1rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', marginTop: '1rem', fontSize: '0.95rem' }
 };

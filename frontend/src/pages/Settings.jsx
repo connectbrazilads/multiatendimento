@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { 
   getSettings, saveSettings, updateProfile, getMe, getQuickResponses, 
   createQuickResponse, deleteQuickResponse, getBusinessHours, saveBusinessHours,
@@ -98,7 +99,7 @@ export default function Settings() {
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
     } catch (err) {
-      alert('Erro ao salvar perfil');
+      toast.info('Erro ao salvar perfil');
     } finally {
       setSaving(false);
     }
@@ -111,18 +112,20 @@ export default function Settings() {
       setQuickResponses([...quickResponses, data]);
       setNewQuick({ shortcut: '', message: '' });
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao adicionar');
+      toast.error(err.response?.data?.error || 'Erro ao adicionar');
     }
   }
 
   async function handleDeleteQuick(id) {
-    if (!window.confirm('Deseja excluir esta resposta rápida?')) return;
-    try {
-      await deleteQuickResponse(id);
-      setQuickResponses(quickResponses.filter(q => q.id !== id));
-    } catch {
-      alert('Erro ao excluir');
-    }
+    toast.confirm('Deseja excluir esta resposta rápida?', async () => {
+      try {
+        await deleteQuickResponse(id);
+        setQuickResponses(quickResponses.filter(q => q.id !== id));
+        toast.success('Resposta excluída!');
+      } catch {
+        toast.error('Erro ao excluir');
+      }
+    });
   }
 
   async function handleAddTag(e) {
@@ -133,7 +136,7 @@ export default function Settings() {
       setTags([...tags, data]);
       setNewTag({ name: '', color: '#D4AF37' });
     } catch (err) {
-      alert('Erro ao adicionar etiqueta');
+      toast.info('Erro ao adicionar etiqueta');
     }
   }
 
@@ -144,22 +147,24 @@ export default function Settings() {
     try {
       const { data } = await uploadLogo(file);
       setTenant({ ...tenant, logoUrl: data.url });
-      alert('Logo atualizada com sucesso!');
+      toast.success('Logo atualizada com sucesso!');
     } catch (err) {
-      alert('Erro ao subir logo');
+      toast.error('Erro ao subir logo');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDeleteTag(id) {
-    if (!window.confirm('Excluir esta etiqueta?')) return;
-    try {
-      await deleteTag(id);
-      setTags(tags.filter(t => t.id !== id));
-    } catch {
-      alert('Erro ao excluir');
-    }
+    toast.confirm('Excluir esta etiqueta?', async () => {
+      try {
+        await deleteTag(id);
+        setTags(tags.filter(t => t.id !== id));
+        toast.success('Etiqueta excluída!');
+      } catch {
+        toast.error('Erro ao excluir');
+      }
+    });
   }
 
   return (
@@ -595,17 +600,17 @@ export default function Settings() {
 }
 
 const s = {
-  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: '#0F0F0F', color: '#fff' },
+  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
   header: { marginBottom: '3rem' },
-  title: { fontSize: '1.8rem', fontWeight: 800, color: '#fff', marginBottom: '0.4rem' },
-  subtitle: { fontSize: '0.95rem', color: '#717171' },
-  tabs: { display: 'flex', gap: '1rem', borderBottom: '1px solid #333', marginBottom: '2.5rem' },
-  tab: { padding: '0.75rem 1rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.95rem', color: '#717171', borderBottom: '2px solid transparent', transition: 'all 0.2s' },
-  tabActive: { color: '#D4AF37', borderBottomColor: '#D4AF37', fontWeight: 800 },
+  title: { fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem', fontFamily: 'var(--font-display)' },
+  subtitle: { fontSize: '0.95rem', color: 'var(--text-muted)' },
+  tabs: { display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '2.5rem' },
+  tab: { padding: '0.75rem 1rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.95rem', color: 'var(--text-muted)', borderBottom: '2px solid transparent', transition: 'all 0.2s' },
+  tabActive: { color: 'var(--accent)', borderBottomColor: 'var(--accent)', fontWeight: 800 },
   
-  sections: { display: 'grid', gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' },
-  card: { background: '#1A1A1B', padding: window.innerWidth <= 768 ? '1.5rem' : '2rem', borderRadius: '24px', border: '1px solid #2A2A2A' },
-  cardTitle: { fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', color: '#D4AF37', borderBottom: '1px solid #222', paddingBottom: '1rem' },
+  sections: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' },
+  card: { background: 'var(--bg-surface)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)' },
+  cardTitle: { fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', color: 'var(--accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' },
   
   form: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.6rem' },
@@ -613,30 +618,30 @@ const s = {
     display: 'flex', 
     alignItems: 'center', 
     justifyContent: 'space-between', 
-    background: '#0F0F0F', 
+    background: 'var(--bg-base)', 
     padding: '1.25rem', 
     borderRadius: '16px', 
-    border: '1px solid #333' 
+    border: '1px solid var(--border-color)' 
   },
   toggleInfo: { display: 'flex', flexDirection: 'column', gap: '0.2rem' },
   switch: { 
     width: '40px', 
     height: '20px', 
     cursor: 'pointer', 
-    accentColor: '#D4AF37' 
+    accentColor: 'var(--accent)' 
   },
-  toggleRow: { display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.85rem', color: '#A0A0A0' },
-  label: { fontSize: '0.75rem', fontWeight: 800, color: '#717171', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '12px', padding: '0.85rem 1rem', color: '#fff', outline: 'none', fontSize: '0.9rem' },
-  hint: { fontSize: '0.75rem', color: '#555', marginTop: '2px' },
-  saveBtn: { background: '#D4AF37', color: '#000', border: 'none', padding: '0.85rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 800, marginTop: '1rem' },
+  toggleRow: { display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' },
+  label: { fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' },
+  hint: { fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' },
+  saveBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '0.85rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 800, marginTop: '1rem' },
   
   saveRow: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1.5rem', marginTop: '2rem' },
   savedMsg: { color: '#48bb78', fontSize: '0.9rem', fontWeight: 700 },
-  quickAddBox: { display: 'flex', gap: '1rem', background: '#0F0F0F', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' },
+  quickAddBox: { display: 'flex', gap: '1rem', background: 'var(--bg-base)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' },
   quickList: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-  quickItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem', background: '#131314', borderRadius: '12px', border: '1px solid #2A2A2A' },
+  quickItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem', background: 'var(--bg-panel)', borderRadius: '12px', border: '1px solid var(--border-color)' },
   delBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' },
-  hourRow: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid #222' },
-  hourInput: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '8px', padding: '4px 8px', color: '#fff', outline: 'none' }
+  hourRow: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid var(--border-color)' },
+  hourInput: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', color: 'var(--text-main)', outline: 'none', colorScheme: 'dark' }
 };

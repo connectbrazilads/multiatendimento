@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import { getTeams, createTeam, updateTeam, deleteTeam, getUsers, addTeamMember, removeTeamMember } from '../services/api';
 
 export default function Teams() {
@@ -20,7 +21,7 @@ export default function Teams() {
       setTeams(tRes.data);
       setUsers(uRes.data);
     } catch (err) {
-      alert('Erro ao carregar dados');
+      toast.info('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -35,20 +36,21 @@ export default function Teams() {
       setModal(null);
       load();
     } catch (err) {
-      alert('Erro ao salvar equipe');
+      toast.info('Erro ao salvar equipe');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDeleteTeam(id) {
-    if (!window.confirm('Excluir esta equipe permanentemente?')) return;
-    try {
-      await deleteTeam(id);
-      load();
-    } catch (err) {
-      alert('Erro ao excluir');
-    }
+    toast.confirm('Excluir esta equipe permanentemente?', async () => {
+      try {
+        await deleteTeam(id);
+        load();
+      } catch (err) {
+        toast.info('Erro ao excluir');
+      }
+    });
   }
 
   async function handleAddMember(e) {
@@ -60,20 +62,21 @@ export default function Teams() {
       setModal(null);
       load();
     } catch (err) {
-      alert('Agente já faz parte desta equipe');
+      toast.info('Agente já faz parte desta equipe');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleRemoveMember(teamId, userId) {
-    if (!window.confirm('Remover este agente da equipe?')) return;
-    try {
-      await removeTeamMember(teamId, userId);
-      load();
-    } catch (err) {
-      alert('Erro ao remover');
-    }
+    toast.confirm('Remover este agente da equipe?', async () => {
+      try {
+        await removeTeamMember(teamId, userId);
+        load();
+      } catch (err) {
+        toast.info('Erro ao remover');
+      }
+    });
   }
 
   return (

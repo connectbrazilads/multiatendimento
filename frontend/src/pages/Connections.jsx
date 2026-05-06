@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../utils/toast';
 import io from 'socket.io-client';
 import { getInstances, createInstance, deleteInstance, getInstanceQrCode } from '../services/api';
 
@@ -29,7 +30,7 @@ export default function Connections() {
       const { data } = await getInstances();
       setInstances(data);
     } catch (err) {
-      alert('Erro ao carregar conexões');
+      toast.info('Erro ao carregar conexões');
     } finally {
       setLoading(false);
     }
@@ -45,7 +46,7 @@ export default function Connections() {
       loadQr(data.id);
     } catch (err) {
       const msg = err.response?.data?.error || 'Erro ao criar conexão';
-      alert(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -56,15 +57,16 @@ export default function Connections() {
     try {
       const { data } = await getInstanceQrCode(id);
       setQrcode(data.qrcode);
-    } catch { alert('Erro ao gerar QR Code'); }
+    } catch { toast.info('Erro ao gerar QR Code'); }
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Excluir esta conexão? O número será desconectado.')) return;
-    try {
-      await deleteInstance(id);
-      load();
-    } catch { alert('Erro ao excluir'); }
+    toast.confirm('Excluir esta conexão? O número será desconectado.', async () => {
+      try {
+        await deleteInstance(id);
+        load();
+      } catch { toast.info('Erro ao excluir'); }
+    });
   }
 
   return (

@@ -25,7 +25,23 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <div style={s.loading}>Analizando performance da operação...</div>;
+  if (loading) return (
+    <div style={{ padding: '2.5rem', background: 'var(--bg-base)', flex: 1 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.5rem', height: '110px' }}>
+            <div style={{ height: '12px', width: '60%', background: 'var(--bg-base)', borderRadius: '6px', marginBottom: '16px', animation: 'pulse-sk 1.5s infinite' }} />
+            <div style={{ height: '28px', width: '40%', background: 'var(--bg-base)', borderRadius: '6px', animation: 'pulse-sk 1.5s infinite' }} />
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes pulse-sk {
+          0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; }
+        }
+      `}</style>
+    </div>
+  );
   if (!stats) return <div style={s.loading}>Erro ao carregar dados do dashboard.</div>;
 
   const { kpis, dailyMessages, agentRanking, ratingsDistribution } = stats;
@@ -34,7 +50,7 @@ export default function Dashboard() {
     <div style={s.container}>
       <header style={s.header}>
         <div style={s.headerInfo}>
-          <h1 style={s.title}>📊 Dashboard de Performance</h1>
+          <h1 style={s.title}>Dashboard de Performance</h1>
           <p style={s.subtitle}>Insights em tempo real sobre a eficiência da sua operação</p>
         </div>
         <div style={s.statusBadge}>
@@ -48,25 +64,29 @@ export default function Dashboard() {
           icon={<Bot color="#D4AF37" />} 
           label="Tempo Economizado" 
           value={`${kpis.hoursSaved}h`} 
-          hint={`${kpis.iaMessages} mensagens processadas pela IA`} 
+          hint={`${kpis.iaMessages} mensagens processadas pela IA`}
+          accentColor="#D4AF37"
         />
         <KpiCard 
           icon={<TrendingUp color="#10b981" />} 
           label="Taxa de Retenção IA" 
           value={`${kpis.retentionRate}%`} 
-          hint="Conversas resolvidas sem humano" 
+          hint="Conversas resolvidas sem humano"
+          accentColor="#10b981"
         />
         <KpiCard 
           icon={<Clock color="#3b82f6" />} 
           label="TMA Médio" 
           value={kpis.avgTMA > 60 ? `${Math.round(kpis.avgTMA / 60)}h` : `${kpis.avgTMA}m`} 
-          hint="Tempo médio de resolução" 
+          hint="Tempo médio de resolução"
+          accentColor="#3b82f6"
         />
         <KpiCard 
           icon={<Star color="#f59e0b" />} 
           label="Satisfação (CSAT)" 
           value={`${kpis.avgRating}/5`} 
-          hint={`Baseado em ${kpis.totalRatings} avaliações`} 
+          hint={`Baseado em ${kpis.totalRatings} avaliações`}
+          accentColor="#f59e0b"
         />
       </div>
 
@@ -74,7 +94,7 @@ export default function Dashboard() {
         {/* Chart Section */}
         <div style={s.chartSection}>
           <div style={s.sectionHeader}>
-            <h2 style={s.sectionTitle}>📈 Evolução do Atendimento (7 dias)</h2>
+            <h2 style={s.sectionTitle}>Evolução do Atendimento (7 dias)</h2>
             <div style={s.legend}>
               <div style={s.legendItem}><span style={{ ...s.legendDot, background: '#D4AF37' }} /> IA</div>
               <div style={s.legendItem}><span style={{ ...s.legendDot, background: '#717171' }} /> Humano</div>
@@ -142,9 +162,17 @@ export default function Dashboard() {
   );
 }
 
-function KpiCard({ icon, label, value, hint }) {
+function KpiCard({ icon, label, value, hint, accentColor }) {
   return (
-    <div style={s.kpiCard}>
+    <div style={{ ...s.kpiCard, position: 'relative', overflow: 'hidden' }}>
+      {/* Barra de acento colorida no topo */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: '3px',
+        background: accentColor || 'var(--accent)',
+        borderRadius: '20px 20px 0 0'
+      }} />
       <div style={s.kpiIcon}>{icon}</div>
       <div style={s.kpiContent}>
         <div style={s.kpiLabel}>{label}</div>
@@ -159,7 +187,7 @@ const s = {
   container: { padding: '2.5rem', background: 'var(--bg-base)', flex: 1, overflowY: 'auto', color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
   headerInfo: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  title: { fontSize: '2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em' },
+  title: { fontSize: '2rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' },
   subtitle: { color: 'var(--text-muted)', fontSize: '1rem' },
   statusBadge: { background: 'var(--bg-surface)', border: '1px solid var(--border-color)', padding: '0.6rem 1rem', borderRadius: '100px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px rgba(16,185,129,0.4)' },
@@ -174,7 +202,7 @@ const s = {
   mainGrid: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' },
   chartSection: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '2rem' },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
-  sectionTitle: { fontSize: '1.1rem', fontWeight: 800, margin: 0 },
+  sectionTitle: { fontSize: '1.1rem', fontWeight: 800, margin: 0, fontFamily: 'var(--font-display)' },
   legend: { display: 'flex', gap: '1.5rem' },
   legendItem: { fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' },
   legendDot: { width: '8px', height: '8px', borderRadius: '50%' },

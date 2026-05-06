@@ -48,8 +48,14 @@ export default function Login() {
 
   return (
     <div style={s.container}>
+      <style>{`
+        @keyframes card-in {
+          from { opacity: 0; transform: translateY(20px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
       <div style={{ ...s.glow, background: `radial-gradient(circle, ${primaryColor}22 0%, rgba(0,0,0,0) 70%)` }} />
-      <div style={s.card}>
+      <div style={{ ...s.card, animation: 'card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={s.header}>
           {tenantInfo?.logoUrl ? (
             <img src={getMediaUrl(tenantInfo.logoUrl)} alt={tenantInfo.name} style={{ height: '60px', marginBottom: '1.5rem', objectFit: 'contain' }} />
@@ -73,6 +79,9 @@ export default function Login() {
               placeholder="seu@email.com" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
+              onFocus={e => e.target.style.borderColor = primaryColor}
+              onBlur={e => e.target.style.borderColor = '#2A2A2A'}
+              autoFocus
               required 
             />
           </div>
@@ -85,6 +94,8 @@ export default function Login() {
               placeholder="••••••••" 
               value={password} 
               onChange={e => setPassword(e.target.value)} 
+              onFocus={e => e.target.style.borderColor = primaryColor}
+              onBlur={e => e.target.style.borderColor = '#2A2A2A'}
               required 
             />
           </div>
@@ -152,7 +163,8 @@ const s = {
     color: '#fff',
     outline: 'none',
     transition: 'border-color 0.2s',
-    ':focus': { borderColor: '#D4AF37' }
+    width: '100%',
+    boxSizing: 'border-box',
   },
   button: { 
     padding: '1rem', 

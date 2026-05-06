@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Plus, Search, FileText, Settings, User, Calendar, X, Archive, History, MapPin, Hash } from 'lucide-react';
+import { Plus, Search, FileText, Settings, User, Calendar, X, Archive, History, MapPin, Hash, Clock } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { toast } from '../utils/toast';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || '';
 
 export default function ServiceOrders() {
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = useIsMobile();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -47,6 +49,8 @@ export default function ServiceOrders() {
     { id: 'FINALIZADA', title: 'Finalizadas', color: '#52c41a' }
   ];
 
+  const [dragOverCol, setDragOverCol] = useState(null);
+
   // Adiciona coluna de arquivadas se estiver em busca/histórico
   const activeColumns = [...columns];
   if (isSearchMode || (search && search.trim() !== '')) {
@@ -59,20 +63,23 @@ export default function ServiceOrders() {
   }
 
   async function onDrop(e, newStatus) {
+    e.preventDefault();
+    setDragOverCol(null);
     const osId = e.dataTransfer.getData('osId');
     const os = orders.find(o => o.id === osId);
     
     // Se for arquivar/finalizar por drag, exige que já tenha nota
     if ((newStatus === 'FINALIZADA' || newStatus === 'ARQUIVADA') && (!os.technicalNotes || os.technicalNotes.length < 5)) {
-      alert('Esta O.S. não pode ser fechada sem um Relatório Técnico. Abra a O.S. para preencher.');
+      toast.error('Esta O.S. não pode ser fechada sem um Relatório Técnico. Abra a O.S. para preencher.');
       return;
     }
 
     try {
       await api.patch(`/os/${osId}`, { status: newStatus, technicalNotes: os.technicalNotes });
       loadOrders();
+      toast.success('Status atualizado com sucesso!');
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao mover O.S.');
+      toast.error(err.response?.data?.error || 'Erro ao mover O.S.');
     }
   }
 
@@ -93,7 +100,7 @@ export default function ServiceOrders() {
     const finalStatus = newStatus || status;
     
     if ((finalStatus === 'FINALIZADA' || finalStatus === 'ARQUIVADA') && (!notes || notes.trim().length < 5)) {
-      alert('Relatório Técnico é obrigatório para finalizar ou arquivar a O.S.');
+      toast.error('Relatório Técnico é obrigatório para finalizar ou arquivar a O.S.');
       return;
     }
 
@@ -105,8 +112,9 @@ export default function ServiceOrders() {
       });
       setShowModal(false);
       loadOrders();
+      toast.success('O.S. atualizada com sucesso!');
     } catch (e) {
-      alert(e.response?.data?.error || 'Erro ao atualizar O.S.');
+      toast.error(e.response?.data?.error || 'Erro ao atualizar O.S.');
     }
   }
 
@@ -115,31 +123,38 @@ export default function ServiceOrders() {
     return o.status !== 'ARQUIVADA';
   });
 
+  // Calcula há quantos dias a OS foi criada
+  function daysSince(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
   const s = {
-    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', background: '#0F0F0F' },
+    container: { padding: '24px', color: 'var(--text-main)', height: '100%', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' },
-    title: { fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '12px' },
-    filterBar: { display: 'flex', gap: '12px', alignItems: 'center', background: '#1A1A1B', padding: '12px 20px', borderRadius: '16px', border: '1px solid #333' },
-    input: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#fff', outline: 'none', fontSize: '0.9rem' },
-    dateInput: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '8px', padding: '6px 10px', color: '#fff', outline: 'none', fontSize: '0.85rem' },
+    title: { fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--font-display)' },
+    filterBar: { display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-panel)', padding: '12px 20px', borderRadius: '16px', border: '1px solid var(--border-color)' },
+    input: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' },
+    dateInput: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 10px', color: 'var(--text-main)', outline: 'none', fontSize: '0.85rem', colorScheme: 'dark' },
     
     kanban: { display: 'flex', gap: '16px', flex: 1, overflowX: 'auto', minHeight: '500px', paddingBottom: '20px' },
-    column: { flex: '0 0 320px', background: '#131314', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', border: '1px solid #222' },
+    column: { flex: '0 0 320px', background: 'var(--bg-surface)', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-color)', transition: 'border-color 0.2s, box-shadow 0.2s' },
+    columnDragOver: { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px var(--accent-border)', background: 'var(--accent-light)' },
     colHeader: (color) => ({ fontSize: '0.95rem', fontWeight: 800, color: color, marginBottom: '16px', display: 'flex', justifyContent: 'space-between', textTransform: 'uppercase', letterSpacing: '0.05em' }),
-    card: { background: '#1A1A1B', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', marginBottom: '12px', cursor: 'grab', transition: 'all 0.2s', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-    cardTitle: { fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px', color: '#D4AF37', display: 'flex', justifyContent: 'space-between' },
-    cardText: { fontSize: '0.85rem', color: '#A0A0A0', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' },
-    cardDefect: { fontSize: '0.85rem', color: '#fff', marginTop: '10px', background: '#0F0F0F', padding: '8px', borderRadius: '8px', borderLeft: '3px solid #D4AF37' },
+    card: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', marginBottom: '12px', cursor: 'grab', transition: 'all 0.2s', boxShadow: 'var(--shadow-sm)' },
+    cardTitle: { fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px', color: 'var(--accent)', display: 'flex', justifyContent: 'space-between' },
+    cardText: { fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' },
+    cardDefect: { fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '10px', background: 'var(--bg-base)', padding: '8px', borderRadius: '8px', borderLeft: '3px solid var(--accent)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
     
     overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' },
-    modal: { background: '#131314', width: '95%', maxWidth: '1150px', borderRadius: '24px', padding: '0', display: 'flex', flexDirection: 'column', border: '1px solid #333', overflow: 'hidden' },
-    modalHeader: { padding: '20px 32px', background: '#1A1A1B', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    modal: { background: 'var(--bg-surface)', width: '95%', maxWidth: '1150px', borderRadius: '24px', padding: '0', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-color)', overflow: 'hidden' },
+    modalHeader: { padding: '20px 32px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     modalContent: { padding: '24px 32px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '240px 1fr', gap: '32px', overflowY: 'auto', maxHeight: '80vh' },
     
-    sidebar: { background: '#0F0F0F', padding: '24px', borderRadius: '16px', border: '1px solid #333', height: 'fit-content' },
+    sidebar: { background: 'var(--bg-base)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', height: 'fit-content' },
     btnGroup: { display: 'flex', gap: '12px', marginTop: '12px', padding: '0 32px 32px' },
-    saveBtn: { flex: 2, background: '#D4AF37', color: '#000', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' },
-    pdfBtn: { flex: 1, background: 'transparent', color: '#D4AF37', border: '1px solid #D4AF37', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }
+    saveBtn: { flex: 2, background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' },
+    pdfBtn: { flex: 1, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }
   };
 
   const getClientName = (os) => {
@@ -195,8 +210,14 @@ export default function ServiceOrders() {
         {activeColumns.map(col => (
           <div 
             key={col.id} 
-            style={{...s.column, opacity: col.id === 'ARQUIVADA' ? 0.7 : 1}}
+            style={{
+              ...s.column,
+              opacity: col.id === 'ARQUIVADA' ? 0.7 : 1,
+              ...(dragOverCol === col.id ? s.columnDragOver : {})
+            }}
             onDragOver={allowDrop}
+            onDragEnter={() => setDragOverCol(col.id)}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverCol(null); }}
             onDrop={(e) => onDrop(e, col.id)}
           >
             <div style={s.colHeader(col.color)}>
@@ -231,14 +252,21 @@ export default function ServiceOrders() {
                   <div style={s.cardDefect}>{os.defect}</div>
                   
                   {os.status === 'ARQUIVADA' ? (
-                    <div style={{fontSize: '0.65rem', color: '#D4AF37', marginTop: '12px', background: '#000', padding: '6px', borderRadius: '4px', border: '1px solid #222'}}>
+                    <div style={{fontSize: '0.65rem', color: 'var(--accent)', marginTop: '12px', background: 'var(--bg-base)', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-color)'}}>
                       <div>Fechada em: {new Date(os.closedAt || os.updatedAt).toLocaleString()}</div>
                       <div>Por: {os.closedBy?.name || 'Sistema'}</div>
                     </div>
                   ) : (
-                    <div style={{fontSize: '0.7rem', color: '#555', marginTop: '12px', display: 'flex', justifyContent: 'space-between'}}>
+                    <div style={{fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                       <span>{os.user?.name || 'Atendente'}</span>
-                      <span>{new Date(os.createdAt).toLocaleDateString()}</span>
+                      <span style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        color: daysSince(os.createdAt) >= 3 ? '#ff4d4f' : daysSince(os.createdAt) >= 1 ? '#faad14' : 'var(--text-dim)',
+                        fontWeight: daysSince(os.createdAt) >= 3 ? 800 : 500
+                      }}>
+                        <Clock size={11} />
+                        {daysSince(os.createdAt) === 0 ? 'hoje' : `${daysSince(os.createdAt)}d`}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -256,7 +284,7 @@ export default function ServiceOrders() {
                 <FileText color="#D4AF37" size={24} />
                 <h2 style={{color: '#fff', margin: 0, fontSize: '1.4rem'}}>O.S. #{selectedOs.id.substring(selectedOs.id.length - 6).toUpperCase()}</h2>
               </div>
-              <button onClick={() => setShowModal(false)} style={{background: '#333', border: 'none', color: '#fff', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>✕</button>
+              <button onClick={() => setShowModal(false)} style={{background: 'var(--bg-panel)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px'}}>✕</button>
             </div>
 
             <div style={s.modalContent}>

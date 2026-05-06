@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '../utils/toast';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 import { getTags, createTag, updateContact, getContacts, sendCampaign, getQuickResponses } from '../services/api';
@@ -66,7 +67,7 @@ export default function Campaigns() {
   }
 
   async function handleSaveTag() {
-    if (!newTagName) return alert('Dê um nome para a tag');
+    if (!newTagName) return toast.info('Dê um nome para a tag');
     try {
       // 1. Garantir que a tag existe na lista oficial (Master List)
       const { data: officialTags } = await getTags();
@@ -90,7 +91,7 @@ export default function Campaigns() {
         return Promise.resolve();
       }));
 
-      alert('Grupo salvo com sucesso! A etiqueta "' + tagExists.name + '" foi adicionada à sua lista oficial.');
+      toast.error('Grupo salvo com sucesso! A etiqueta "' + tagExists.name + '" foi adicionada à sua lista oficial.');
       setShowSaveTag(false);
       setNewTagName('');
       loadTags();
@@ -98,13 +99,13 @@ export default function Campaigns() {
       setSelectedContacts([]);
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar grupo');
+      toast.info('Erro ao salvar grupo');
     }
   }
 
   async function handleStart() {
-    if (!tag && selectedContacts.length === 0) return alert('Selecione uma tag ou adicione contatos');
-    if (!message) return alert('Escreva uma mensagem');
+    if (!tag && selectedContacts.length === 0) return toast.info('Selecione uma tag ou adicione contatos');
+    if (!message) return toast.info('Escreva uma mensagem');
     
     setLoading(true);
     try {
@@ -117,7 +118,7 @@ export default function Campaigns() {
       setStatus('processing');
       setProgress({ sent: 0, errors: 0, total: 0 });
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao iniciar disparo');
+      toast.error(err.response?.data?.error || 'Erro ao iniciar disparo');
     } finally {
       setLoading(false);
     }

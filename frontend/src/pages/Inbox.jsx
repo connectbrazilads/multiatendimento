@@ -8,6 +8,8 @@ import api, {
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
+import { toast } from '../utils/toast';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 import CreateOsModal from '../components/CreateOsModal';
 import LinkContactModal from '../components/LinkContactModal';
@@ -43,15 +45,12 @@ export default function Inbox() {
   const [spellChecking, setSpellChecking] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = useIsMobile();
 
+  // Volta para view lista quando janela é expandida para desktop
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth > 768) setView('list');
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (!isMobile) setView('list');
+  }, [isMobile]);
 
   const scrollRef = useRef();
   const socketRef = useRef();
@@ -76,7 +75,7 @@ export default function Inbox() {
         try {
           await sendAudioMessage(selectedId, blob);
           loadMessages();
-        } catch (e) { alert('Erro ao enviar áudio'); }
+        } catch (e) { toast.error('Erro ao enviar áudio'); }
         stream.getTracks().forEach(t => t.stop());
       };
       recorder.start();
@@ -84,7 +83,7 @@ export default function Inbox() {
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-    } catch (e) { alert('Permissão de microfone negada'); }
+    } catch (e) { toast.error('Permissão de microfone negada'); }
   }
 
   function stopRecording() {
@@ -227,11 +226,16 @@ export default function Inbox() {
   }
 
   async function handleDeleteMessage(msgId) {
-    if (!window.confirm('Deseja apagar esta mensagem para o cliente? (Ela continuará visível e riscada para você)')) return;
-    try {
-      await deleteMessage(selectedId, msgId);
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isDeleted: true } : m));
-    } catch (e) { alert('Erro ao apagar mensagem'); }
+    toast.confirm(
+      'Deseja apagar esta mensagem para o cliente? (Ela continuará visível e riscada para você)',
+      async () => {
+        try {
+          await deleteMessage(selectedId, msgId);
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isDeleted: true } : m));
+          toast.success('Mensagem apagada.');
+        } catch (e) { toast.error('Erro ao apagar mensagem'); }
+      }
+    );
   }
 
   async function handleSend(e) {
@@ -292,7 +296,7 @@ export default function Inbox() {
         await sendMessage(tId, body, qId);
       }
       loadMessages();
-    } catch (e) { alert('Erro ao enviar'); }
+    } catch (e) { toast.error('Erro ao enviar mensagem'); }
   }
 
   async function handleTransfer(agentId, teamId) {
@@ -301,25 +305,30 @@ export default function Inbox() {
       setTransferModal(false);
       setSelectedId(null);
       loadTickets();
-    } catch (e) { alert('Erro ao transferir'); }
+      toast.success('Atendimento transferido!');
+    } catch (e) { toast.error('Erro ao transferir'); }
   }
 
   async function handleResolve() {
-    if (!window.confirm('Encerrar este atendimento?')) return;
-    try {
-      await resolveTicket(selectedId);
-      setSelectedId(null);
-      loadTickets();
-    } catch (e) { alert('Erro ao encerrar'); }
+    toast.confirm('Encerrar este atendimento?', async () => {
+      try {
+        await resolveTicket(selectedId);
+        setSelectedId(null);
+        loadTickets();
+        toast.success('Atendimento encerrado!');
+      } catch (e) { toast.error('Erro ao encerrar'); }
+    });
   }
 
   async function handleReopen() {
-    if (!window.confirm('Reabrir este atendimento?')) return;
-    try {
-      const { data } = await reopenTicket(selectedTicket.contactId);
-      setSelectedId(data.id);
-      loadTickets();
-    } catch (e) { alert('Erro ao reabrir'); }
+    toast.confirm('Reabrir este atendimento?', async () => {
+      try {
+        const { data } = await reopenTicket(selectedTicket.contactId);
+        setSelectedId(data.id);
+        loadTickets();
+        toast.success('Atendimento reaberto!');
+      } catch (e) { toast.error('Erro ao reabrir'); }
+    });
   }
 
   async function handleSummarize() {
@@ -327,18 +336,18 @@ export default function Inbox() {
     try {
       const { data } = await summarizeTicket(selectedId);
       setSummary(data.summary);
-    } catch (e) { alert('Erro ao gerar resumo'); } finally { setSummarizing(false); }
+    } catch (e) { toast.error('Erro ao gerar resumo IA'); } finally { setSummarizing(false); }
   }
 
   async function handleSchedule() {
-    if (!scheduleData.body || !scheduleData.sendAt) return alert('Preencha a mensagem e o horário');
+    if (!scheduleData.body || !scheduleData.sendAt) return toast.error('Preencha a mensagem e o horário');
     try {
       const ticket = tickets.find(t => t.id === selectedId);
       await scheduleMessage({ ...scheduleData, contactId: ticket.contactId });
-      alert('Mensagem agendada com sucesso!');
+      toast.success('Mensagem agendada com sucesso!');
       setShowScheduling(false);
       setScheduleData({ body: '', sendAt: '' });
-    } catch (e) { alert('Erro ao agendar'); }
+    } catch (e) { toast.error('Erro ao agendar'); }
   }
 
   const handleInput = (v) => {
@@ -904,18 +913,13 @@ export default function Inbox() {
           onClose={() => setLinkModal(false)}
           onLink={async (targetId) => {
             try {
-              console.log('[LinkContact] Tentando vincular ticket:', selectedTicket?.id, 'ao contato:', targetId);
               const res = await api.patch(`/tickets/${selectedTicket.id}/link-contact`, { contactId: targetId });
-              console.log('[LinkContact] Sucesso:', res.data);
-              
-              // Atualiza a lista de tickets e o gatilho de visualização
               loadTickets(); 
               setUpdateTrigger(prev => prev + 1);
               setLinkModal(false);
-              alert('Cliente vinculado com sucesso!');
+              toast.success('Cliente vinculado com sucesso!');
             } catch (e) {
-              console.error('[LinkContact] Erro ao vincular:', e.response?.data || e.message);
-              alert('Erro ao vincular cliente: ' + (e.response?.data?.error || e.message));
+              toast.error('Erro ao vincular cliente: ' + (e.response?.data?.error || e.message));
             }
           }}
         />

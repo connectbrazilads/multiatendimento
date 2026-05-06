@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getContacts, createContact, createTicket, importContacts } from '../services/api';
 import { Edit2, MessageSquare, Plus, Search, BookUser, Upload, X, Printer } from 'lucide-react';
 import ContactProfileModal from '../components/ContactProfileModal';
+import { toast } from '../utils/toast';
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -48,11 +49,11 @@ export default function Contacts() {
   }
 
   async function handleCreate() {
-    if (!newContact.name || !newContact.phone) return alert('Preencha pelo menos nome e telefone');
+    if (!newContact.name || !newContact.phone) return toast.error('Preencha pelo menos nome e telefone');
     try {
       await createContact({
         ...newContact,
-        cpfCnpj: newContact.document // Mapeia document para cpfCnpj usado no backend
+        cpfCnpj: newContact.document
       });
       setShowAddModal(false);
       setNewContact({ 
@@ -61,8 +62,9 @@ export default function Contacts() {
         equipment: { manufacturer: '', model: '', serialNumber: '', type: '', sector: '' }
       });
       loadContacts();
+      toast.success('Cliente cadastrado com sucesso!');
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao criar contato');
+      toast.error(err.response?.data?.error || 'Erro ao criar contato');
     }
   }
 
@@ -79,10 +81,10 @@ export default function Contacts() {
     setLoading(true);
     try {
       const res = await importContacts(formData);
-      alert(res.data.message);
+      toast.success(res.data.message);
       loadContacts();
     } catch (err) {
-      alert('Erro na Importação: ' + (err.response?.data?.error || err.message));
+      toast.error('Erro na Importação: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
       e.target.value = null;
@@ -98,7 +100,7 @@ export default function Contacts() {
         const { data: ticket } = await createTicket(contact.id);
         navigate(`/inbox?ticketId=${ticket.id}`);
       } catch (err) {
-        alert('Erro ao iniciar conversa');
+        toast.error('Erro ao iniciar conversa');
       }
     }
   }
@@ -118,7 +120,10 @@ export default function Contacts() {
       <div style={s.header}>
         <div>
           <h1 style={s.title}><BookUser size={32} /> Clientes / CRM</h1>
-          <p style={s.subtitle}>Gerencie sua base de clientes e equipamentos</p>
+          <p style={s.subtitle}>
+            Gerencie sua base de clientes e equipamentos
+            {contacts.length > 0 && <span style={{ color: 'var(--accent)', fontWeight: 800, marginLeft: '8px' }}>({contacts.length} clientes)</span>}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={s.searchWrap}>
@@ -261,7 +266,7 @@ export default function Contacts() {
 const s = {
   container: { padding: '2.5rem', background: 'var(--bg-base)', height: '100%', overflowY: 'auto', flex: 1, color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
-  title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px' },
+  title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--font-display)' },
   subtitle: { color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.4rem' },
   addBtn: { background: 'var(--accent)', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', gap: '8px' },
   importBtn: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' },
