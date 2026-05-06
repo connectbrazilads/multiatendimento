@@ -183,6 +183,12 @@ model Ticket {
   team       Team?      @relation(fields: [teamId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
   serviceOrders ServiceOrder[]
+
+  @@index([tenantId])
+  @@index([instanceId])
+  @@index([contactId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model TicketEvent {
@@ -247,6 +253,10 @@ model Message {
   createdAt  DateTime @default(now())
   agent      User?    @relation(fields: [agentId], references: [id])
   ticket     Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([externalId])
+  @@index([createdAt])
 }
 
 model QuickResponse {

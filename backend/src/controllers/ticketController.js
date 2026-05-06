@@ -82,8 +82,6 @@ async function list(req, res) {
     }
   }
 
-  console.log('[debug] list tickets where:', JSON.stringify(where, null, 2));
-
   let tickets = await prisma.ticket.findMany({
     where,
     include: { 
@@ -142,23 +140,29 @@ async function getMessages(req, res) {
     select: { id: true, createdAt: true, status: true },
   });
 
+  // Busca as últimas 100 mensagens (mais recentes primeiro para o take, depois ordena asc)
   const messages = await prisma.message.findMany({
     where: { ticketId: { in: allTickets.map(t => t.id) } },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
     include: { agent: { select: { name: true } } },
   });
 
   const events = await prisma.ticketEvent.findMany({
     where: { ticketId: { in: allTickets.map(t => t.id) } },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
+    take: 50, // Menos eventos pois costumam ser menos frequentes
     include: { user: { select: { name: true } } }
   });
 
-  // Une mensagens e eventos, ordenando por data de criação
+  // Une mensagens e eventos, pega os 100 mais recentes no total e ordena ascendente para o chat
   const combined = [
     ...messages.map(m => ({ ...m, _type: 'message' })),
-    ...events.map(e => ({ ...e, _type: 'event', createdAt: e.createdAt }))
-  ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    ...events.map(e => ({ ...e, _type: 'event' }))
+  ]
+  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Mais recentes primeiro
+  .slice(0, 100) // Pega apenas os 100 totais mais recentes
+  .reverse(); // Inverte para ordem cronológica (chat)
 
   // Injeta marcadores de sessão entre tickets
   const ticketMap = Object.fromEntries(allTickets.map(t => [t.id, t]));
@@ -447,7 +451,7 @@ async function sendMediaMessage(req, res) {
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
     const evolutionService = require('../services/evolutionService');
 
-    const base64 = fs.readFileSync(file.path).toString('base64');
+    const base64 = (await fs.promises.readFile(file.path)).toString('base64');
     const mime = file.mimetype;
 
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
@@ -483,7 +487,7 @@ async function sendMediaMessage(req, res) {
         const newPath = await mediaService.normalizeAudio(oldPath);
         const newFilename = path.basename(newPath);
         mediaUrl = `/uploads/media/${newFilename}`;
-        const oggBase64 = fs.readFileSync(newPath).toString('base64');
+        const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
         result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, oggBase64, quotedMsgId);
       } catch (err) {
         console.error('[audioConvert] erro:', err.message);
@@ -540,7 +544,7 @@ async function sendMediaMessage(req, res) {
           // Usa path.resolve para evitar problemas de caminho relativo no background
           const audioPath = path.resolve(__dirname, '..', '..', 'uploads', 'media', path.basename(mediaUrl));
           if (!fs.existsSync(audioPath)) return;
-          const audioBase64 = fs.readFileSync(audioPath).toString('base64');
+          const audioBase64 = (await fs.promises.readFile(audioPath)).toString('base64');
           const transcription = await geminiService.transcribeAudio(settings.geminiKey, audioBase64, 'audio/ogg');
           if (transcription) {
             const updated = await prisma.message.update({ where: { id: message.id }, data: { transcription } });

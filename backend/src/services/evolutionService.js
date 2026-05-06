@@ -101,7 +101,7 @@ async function saveMediaFile(base64, mimetype, messageId) {
 
   const rawFilename = `${messageId}.${ext}`;
   const rawPath = path.join(dir, rawFilename);
-  fs.writeFileSync(rawPath, Buffer.from(base64, 'base64'));
+  await fs.promises.writeFile(rawPath, Buffer.from(base64, 'base64'));
 
   // Converte áudio (WhatsApp PTT OGG/Opus) para MP3 para playback correto no browser
   if (isAudio) {
@@ -134,7 +134,7 @@ async function saveMediaFile(base64, mimetype, messageId) {
           .on('error', err => { console.error('[audio] FFmpeg erro:', err.message); reject(err); })
           .save(mp3Path)
       );
-      fs.unlinkSync(rawPath);
+      await fs.promises.unlink(rawPath);
       return `/uploads/media/${mp3Filename}`;
     } catch (err) {
       console.error('[audio] falhou, usando arquivo original:', err.message);

@@ -108,6 +108,14 @@ export default function Inbox() {
   useEffect(() => { tabRef.current = tab; }, [tab]);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
   useEffect(() => { searchRef.current = search; }, [search]);
+  
+  const debounceTimerRef = useRef(null);
+  const debouncedLoadTickets = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      loadTickets();
+    }, 500); 
+  }, [tab, search, page]);
 
   useEffect(() => {
     loadInitial();
@@ -127,7 +135,7 @@ export default function Inbox() {
           return [...prev, message];
         });
       }
-      loadTickets();
+      debouncedLoadTickets();
     });
 
     s.on('connect', () => {
@@ -144,7 +152,7 @@ export default function Inbox() {
     });
 
     s.on('ticket_updated', () => {
-      loadTickets();
+      debouncedLoadTickets();
     });
 
     s.on('connect_error', (err) => {

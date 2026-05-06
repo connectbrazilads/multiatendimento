@@ -307,7 +307,7 @@ async function handleWebhook(req, res) {
         if (media.type === 'audio' && tenant.settings?.geminiKey) {
           try {
             if (fs.existsSync(fullPath)) {
-              const audioBase64 = fs.readFileSync(fullPath).toString('base64');
+              const audioBase64 = (await fs.promises.readFile(fullPath)).toString('base64');
               const mimeType = mediaUrl.endsWith('.mp3') ? 'audio/mp3' : 'audio/ogg';
               transcription = await geminiService.transcribeAudio(tenant.settings.geminiKey, audioBase64, mimeType);
             }
@@ -318,7 +318,7 @@ async function handleWebhook(req, res) {
         if (media.type === 'image' && tenant.settings?.geminiKey) {
           try {
             if (fs.existsSync(fullPath)) {
-              const imgBase64 = fs.readFileSync(fullPath).toString('base64');
+              const imgBase64 = (await fs.promises.readFile(fullPath)).toString('base64');
               const mimeType = mediaUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
               console.log('[vision] analisando imagem...');
               transcription = await geminiService.analyzeImage(tenant.settings.geminiKey, imgBase64, mimeType);
@@ -531,18 +531,6 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     } catch (err) { console.error('[bot] erro semântica:', err.message); }
   }
 
-  // Grava log de auditoria da IA
-  try {
-    await prisma.knowledgeLog.create({
-      data: {
-        tenantId: tenant.id,
-        query: userMessage,
-        content: topContent,
-        similarity: topSimilarity,
-        found
-      }
-    });
-  } catch (err) { console.error('[log] erro ao gravar auditoria:', err.message); }
 
   const finalPrompt = `[COMANDO DE SISTEMA PRIORITÁRIO]:
 Você deve seguir ESTRITAMENTE as regras abaixo. Ignore qualquer tendência de ser excessivamente prestativo. Seja CURTO, DIRETO e aja como um humano no WhatsApp.
