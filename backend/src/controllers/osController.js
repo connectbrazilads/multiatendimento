@@ -259,7 +259,7 @@ async function generatePdf(req, res) {
     }
 
     const settings = os.tenant.settings;
-    const primaryColor = os.tenant.primaryColor || '#D4AF37';
+    const primaryColor = '#000000'; // Alterado de dourado para preto conforme solicitado
     const attendantName = os.user ? os.user.name : 'N/A';
 
     const docDefinition = {
@@ -443,21 +443,21 @@ async function generatePdf(req, res) {
                 { 
                   stack: [
                     { text: 'CONTADOR P&B', style: 'label', alignment: 'center' },
-                    { text: meters.mono || 'N/I', style: 'meterValue', alignment: 'center' }
+                    { text: meters.mono || '____________', style: 'meterValue', alignment: 'center' }
                   ],
                   fillColor: '#FAFAFA'
                 },
                 { 
                   stack: [
                     { text: 'CONTADOR COR', style: 'label', alignment: 'center' },
-                    { text: meters.color || 'N/I', style: 'meterValue', alignment: 'center' }
+                    { text: meters.color || '____________', style: 'meterValue', alignment: 'center' }
                   ],
                   fillColor: '#FAFAFA'
                 },
                 { 
                   stack: [
                     { text: 'CONTADOR SCAN', style: 'label', alignment: 'center' },
-                    { text: meters.scan || 'N/I', style: 'meterValue', alignment: 'center' }
+                    { text: meters.scan || '____________', style: 'meterValue', alignment: 'center' }
                   ],
                   fillColor: '#FAFAFA'
                 }
