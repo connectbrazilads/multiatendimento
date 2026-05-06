@@ -14,7 +14,12 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
 
   async function loadData() {
     try {
-      const contactId = ticket.contact.id;
+      const contactId = ticket.contact?.id;
+      if (!contactId) {
+        alert('Contato não vinculado ao ticket.');
+        onClose();
+        return;
+      }
       const resEquips = await getEquipments(contactId);
       setEquipments(resEquips.data);
       
@@ -40,7 +45,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
     if (!formData.defect) return alert('Informe o defeito reportado');
     try {
       const res = await api.post('/os', {
-        contactId: ticket.contact.id,
+        contactId: ticket.contact?.id,
         equipmentId: formData.equipmentId,
         ticketId: ticket.id,
         defect: formData.defect,

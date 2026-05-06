@@ -398,12 +398,12 @@ async function sendMessage(req, res) {
     }
     
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
-    let phone = ticket.contact.phone.replace(/\D/g, '');
+    let phone = (ticket.contact?.phone || '').replace(/\D/g, '');
     if (phone.length <= 11 && !phone.startsWith('55')) {
       phone = '55' + phone;
     }
 
-    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, finalBody, quotedMsgId);
+    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, finalBody, quotedMsgId);
     const externalId = result?.key?.id || result?.message?.key?.id;
 
     // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -455,7 +455,7 @@ async function sendMediaMessage(req, res) {
     const mime = file.mimetype;
 
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
-    let phone = ticket.contact.phone.replace(/\D/g, '');
+    let phone = (ticket.contact?.phone || '').replace(/\D/g, '');
     if (phone.length <= 11 && !phone.startsWith('55')) {
       phone = '55' + phone;
     }
@@ -465,7 +465,7 @@ async function sendMediaMessage(req, res) {
 
     const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
     // Só adiciona o nome do agente se houver legenda ou se for imagem/vídeo
-    const finalCaption = caption ? `*${agent.name}*\n${caption}` : `*${agent.name}*`;
+    const finalCaption = caption ? `*${agent?.name || 'Agente'}*\n${caption}` : `*${agent?.name || 'Agente'}*`;
     
     let quotedMsgBody = null;
     if (quotedMsgId) {
@@ -476,7 +476,7 @@ async function sendMediaMessage(req, res) {
     let result;
     if (mime.startsWith('image/')) {
       mediaType = 'image';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
         mediatype: 'image', media: base64, mimetype: mime, caption: finalCaption, quoted: quotedMsgId
       });
     } else if (mime.startsWith('audio/')) {
@@ -488,14 +488,14 @@ async function sendMediaMessage(req, res) {
         const newFilename = path.basename(newPath);
         mediaUrl = `/uploads/media/${newFilename}`;
         const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, oggBase64, quotedMsgId);
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, oggBase64, quotedMsgId);
       } catch (err) {
         console.error('[audioConvert] erro:', err.message);
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, base64, quotedMsgId);
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, base64, quotedMsgId);
       }
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
         mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
       });
     } else {

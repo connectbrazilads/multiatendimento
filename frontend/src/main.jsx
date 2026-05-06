@@ -5,6 +5,19 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Inbox from './pages/Inbox';
+import api from './services/api';
+
+// Interceptor global para tratar erros de autenticação (401)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 import Settings from './pages/Settings';
 import Users from './pages/Users';
 import Teams from './pages/Teams';

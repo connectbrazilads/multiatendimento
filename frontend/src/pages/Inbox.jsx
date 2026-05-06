@@ -426,7 +426,7 @@ export default function Inbox() {
               <Avatar name={t.contact?.name || t.contact?.phone || 'Desconhecido'} src={t.contact?.avatarUrl} size={36} />
               <div style={s.rowInfo}>
                 <div style={s.rowTop}>
-                  <span style={s.rowName}>{t.contact.name || t.contact.phone}</span>
+                  <span style={s.rowName}>{t.contact?.name || t.contact?.phone || 'Desconhecido'}</span>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={s.rowTime}>{fmt(t.updatedAt)}</span>
                   </div>
@@ -440,7 +440,7 @@ export default function Inbox() {
                 </div>
                 
                 {/* TAGS NA LISTA LATERAL - Mais compactas */}
-                {t.contact.tags && (
+                {t.contact?.tags && (
                   <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
                     {JSON.parse(t.contact.tags).slice(0, 2).map(tag => (
                       <span key={tag} style={{ 
@@ -491,7 +491,7 @@ export default function Inbox() {
                 {!isMobile && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ ...s.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
-                      {selectedTicket.contact.phone}
+                      {selectedTicket.contact?.phone}
                     </div>
                   </div>
                 )}
@@ -777,7 +777,7 @@ export default function Inbox() {
 
       {showInfo && selectedTicket && (
         <ContactPanel 
-          key={selectedTicket.contact.id + '_' + updateTrigger}
+          key={(selectedTicket.contact?.id || 'new') + '_' + updateTrigger}
           ticket={selectedTicket} 
           onClose={() => setShowInfo(false)} 
           onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}

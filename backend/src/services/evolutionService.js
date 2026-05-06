@@ -57,6 +57,12 @@ async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
   return data;
 }
 
+// Função de compatibilidade para evitar erros de "not a function" em códigos legados
+async function sendMessage(url, key, instanceName, phone, body, quoted = null) {
+  console.warn('[evolutionService] sendMessage (legado) chamado. Redirecionando para sendText.');
+  return sendText(url, key, instanceName, phone, body, quoted);
+}
+
 async function getMediaBase64(url, key, instanceName, messageKey) {
   const client = getClient(url, key);
   
@@ -228,6 +234,6 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
 }
 
 module.exports = {
-  sendText, sendMedia, sendAudio, getMediaBase64, saveMediaFile,
+  sendText, sendMedia, sendAudio, sendMessage, getMediaBase64, saveMediaFile,
   getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage
 };
