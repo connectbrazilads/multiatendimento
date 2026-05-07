@@ -14,20 +14,22 @@
 - Autenticação JWT com interceptor global de 401 no frontend
 - Cron jobs: agendamento de mensagens (1 min) + retry de mídias (5 min) + limpeza noturna (03:00)
 
-## Skills Automáticas
+## Skills & Diretrizes Automáticas
 
-O agente DEVE aplicar as seguintes skills automaticamente conforme o contexto, sem precisar ser solicitado:
+O agente DEVE aplicar as seguintes skills automaticamente conforme o contexto para manter a estabilidade e qualidade técnica:
 
-| Situação | Skill a aplicar |
-|----------|----------------|
-| Qualquer bug, erro ou comportamento inesperado | @debugging-strategies |
-| Rotas de API, autenticação, JWT, permissões | @security-auditor |
-| Criação ou modificação de endpoints REST | @api-design-principles |
-| Mudanças no `schema.prisma` ou migrations | @database-migration |
-| Componentes React, CSS, layout, UX | @frontend-design |
-| Planejamento de nova feature ou arquitetura | @brainstorming |
-| Lentidão, uso de CPU/memória, queries lentas | @performance-profiling |
-| Antes de qualquer `git push` | @code-review |
+| Contexto | Skill a aplicar | Por que? |
+| :--- | :--- | :--- |
+| **Bugs / Erros** | `@systematic-debugging` | Resolução definitiva de problemas de estado/sync. |
+| **Prisma / Banco** | `@prisma-expert` | Gerenciamento de schema e queries otimizadas. |
+| **React / Frontend** | `@react-patterns` | Refatoração de componentes grandes (ex: Inbox.jsx). |
+| **Backend / Express**| `@nodejs-backend-patterns` | Segurança em middlewares e controllers. |
+| **WhatsApp / Webhooks**| `@whatsapp-automation` | Estabilidade na Evolution API e mídias. |
+| **UX / UI** | `@high-end-visual-design` | Manutenção do tema Premium Violet/White. |
+| **IA / Gemini** | `@gemini-api-integration` | Transcrições e bots com alta precisão. |
+| **Multi-tenant** | `@saas-multi-tenant` | Garantia de isolamento por `tenantId`. |
+| **Segurança** | `@security-auditor` | Proteção de endpoints e auditoria de JWT. |
+| **Qualidade** | `@tdd-workflow` | Antes de alterações críticas no backend. |
 
 ## Padrões Estabelecidos
 - Sempre usar optional chaining (`?.`) ao acessar `contact`, `ticket`, `instance`

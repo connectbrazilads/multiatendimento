@@ -940,7 +940,7 @@ function MediaContent({ message: m, onImageClick }) {
   const url = getMediaUrl(m.mediaUrl);
   
   // Mídia com falha definitiva — token expirou ou download impossível
-  if (!url && m.mediaStatus === 'failed' && m.mediaType) {
+  if (!url && m.mediaStatus === 'failed' && m.mediaType && m.mediaType !== 'text') {
     return (
       <div style={{ 
         padding: '0.75rem 1rem', 
@@ -959,7 +959,7 @@ function MediaContent({ message: m, onImageClick }) {
   }
 
   // Mídia ainda sendo baixada (pending)
-  if (!url && (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'audio' || m.mediaType === 'document' || m.mediaType === 'sticker')) {
+  if (!url && m.mediaType && m.mediaType !== 'text' && (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'audio' || m.mediaType === 'document' || m.mediaType === 'sticker')) {
     return (
       <div style={{ 
         padding: '1rem', 

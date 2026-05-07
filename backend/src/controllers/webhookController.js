@@ -247,7 +247,7 @@ async function handleWebhook(req, res) {
         body: body || media?.caption || '',
         fromMe,
         fromBot: false, // Mensagem de webhook nunca é do robô (robô grava via Controller)
-        mediaType: media?.type || 'text',
+        mediaType: media?.type || null,
         fileName: media?.fileName || null,
         externalId,
         quotedMsgId,
@@ -397,7 +397,7 @@ async function handleWebhook(req, res) {
           // 4. LÓGICA DO ROBÔ (IA) - Se for mídia, o robô responde via debounce após o download/transcrição
           if (ticket.status === 'bot' && tenant.settings?.botEnabled && !fromMe && !media) {
             await handleBotReply(tenant, waInstance, ticket, contact, body, message);
-          } else if (media.type === 'image' || media.type === 'audio') {
+          } else if (media?.type === 'image' || media?.type === 'audio') {
             console.log(`[bot] Mídia detectada, aguardando transcrição/visão para responder.`);
           }
           delete pendingReplies[ticket.id];

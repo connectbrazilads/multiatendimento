@@ -27,6 +27,7 @@ model Tenant {
   tickets        Ticket[]
   users          User[]
   instances      WaInstance[]
+  metaInstances  MetaInstance[]
   knowledges     Knowledge[]
   businessHours  BusinessHour[]
   knowledgeLogs  KnowledgeLog[]
@@ -121,6 +122,24 @@ model WaInstance {
   tenant       Tenant    @relation(fields: [tenantId], references: [id])
 }
 
+model MetaInstance {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String    // Nome amigável (ex: "Facebook Loja X")
+  type         String    // "facebook" ou "instagram"
+  externalId   String?   // ID da Página ou do Instagram Account
+  accessToken  String?   // Token da Página (se disponível)
+  
+  metaBrowserSession Json? // Cookies/LocalStorage para automação fallback
+
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  tickets      Ticket[]
+}
+
 model Contact {
   id         String     @id @default(cuid())
   tenantId   String
@@ -155,7 +174,8 @@ model Contact {
 model Ticket {
   id         String     @id @default(cuid())
   tenantId   String
-  instanceId String
+  instanceId String?
+  metaInstanceId String?
   contactId  String
   teamId     String?
   agentId    String?
@@ -181,7 +201,8 @@ model Ticket {
   events     TicketEvent[]
   agent      User?      @relation(fields: [agentId], references: [id])
   contact    Contact    @relation(fields: [contactId], references: [id])
-  instance   WaInstance @relation(fields: [instanceId], references: [id])
+  instance   WaInstance? @relation(fields: [instanceId], references: [id])
+  metaInstance MetaInstance? @relation(fields: [metaInstanceId], references: [id])
   team       Team?      @relation(fields: [teamId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
   serviceOrders ServiceOrder[]
