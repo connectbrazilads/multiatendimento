@@ -98,7 +98,7 @@ async function list(req, res) {
   });
 
   // Busca as contagens globais para os badges
-  const [countMine, countPending, countResolved] = await Promise.all([
+  const [countMine, countPending, countResolved, countAll] = await Promise.all([
     prisma.ticket.count({ where: { tenantId: req.user.tenantId, agentId: req.user.userId, status: 'open' } }),
     prisma.ticket.count({ 
       where: { 
