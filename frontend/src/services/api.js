@@ -93,6 +93,7 @@ export const sendAudioMessage = (ticketId, blob, quotedMsgId = null) => {
   if (quotedMsgId) form.append('quotedMsgId', quotedMsgId);
   return api.post(`/tickets/${ticketId}/media`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
+export const forwardMessage = (ticketId, messageId, contactId) => api.post(`/tickets/${ticketId}/forward`, { messageId, contactId });
 
 // Users
 export const getUsers = () => api.get('/users');

@@ -42,6 +42,9 @@ async function list(req, res) {
       } else {
         where.OR = pendingCondition.OR;
       }
+    } else if (status === 'all') {
+      // "Contatos" - Mostra resolvidos e todos os em atendimento (independente de quem atende)
+      where.status = { in: ['resolved', 'open'] };
     } else {
       where.status = status;
     }
@@ -106,7 +109,8 @@ async function list(req, res) {
         ]
       } 
     }),
-    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: 'resolved' } })
+    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: 'resolved' } }),
+    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: { in: ['resolved', 'open'] } } })
   ]);
 
   res.json({
@@ -114,7 +118,8 @@ async function list(req, res) {
     counts: {
       mine: countMine,
       pending: countPending,
-      resolved: countResolved
+      resolved: countResolved,
+      all: countAll
     }
   });
 }
@@ -746,4 +751,98 @@ async function spellCheck(req, res) {
   }
 }
 
-module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, spellCheck, linkContact, setIo };
+async function forwardMessage(req, res) {
+  const { messageId, contactId } = req.body;
+  const tenantId = req.user.tenantId;
+
+  try {
+    const originalMsg = await prisma.message.findUnique({
+      where: { id: parseInt(messageId) },
+      include: { ticket: { include: { contact: true, instance: true } } }
+    });
+
+    if (!originalMsg) return res.status(404).json({ error: 'Mensagem original não encontrada' });
+
+    const contact = await prisma.contact.findUnique({ where: { id: parseInt(contactId) } });
+    if (!contact) return res.status(404).json({ error: 'Contato de destino não encontrado' });
+
+    // Encontra ou cria um ticket aberto para o contato
+    let ticket = await prisma.ticket.findFirst({
+      where: { contactId: contact.id, status: 'open', tenantId },
+      include: { instance: true }
+    });
+
+    if (!ticket) {
+      const instanceId = originalMsg.ticket?.instanceId || (await prisma.instance.findFirst({ where: { tenantId, status: 'connected' } }))?.id;
+      if (!instanceId) return res.status(400).json({ error: 'Nenhuma instância disponível' });
+
+      ticket = await prisma.ticket.create({
+        data: { contactId: contact.id, instanceId, status: 'open', tenantId, agentId: req.user.userId },
+        include: { instance: true }
+      });
+    }
+
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+    const evolutionService = require('../services/evolutionService');
+    const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
+
+    let phone = (contact.phone || '').replace(/\D/g, '');
+    if (phone.length <= 11 && !phone.startsWith('55')) phone = '55' + phone;
+
+    let result;
+    const body = originalMsg.body;
+    const mediaUrl = originalMsg.mediaUrl;
+    const mediaType = originalMsg.mediaType;
+
+    if (mediaUrl) {
+      const filePath = path.resolve(__dirname, '..', '..', mediaUrl.startsWith('/') ? mediaUrl.substring(1) : mediaUrl);
+      if (fs.existsSync(filePath)) {
+        const base64 = (await fs.promises.readFile(filePath)).toString('base64');
+        const mimetype = mediaType === 'image' ? 'image/jpeg' : 
+                         mediaType === 'video' ? 'video/mp4' : 
+                         mediaType === 'audio' ? 'audio/mpeg' : 'application/pdf';
+        
+        const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
+
+        if (mediaType === 'audio') {
+           result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, base64);
+        } else {
+           result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
+             mediatype: mediaType === 'document' ? 'document' : mediaType, 
+             media: base64, mimetype, caption: finalCaption
+           });
+        }
+      } else {
+        return res.status(400).json({ error: 'Arquivo de mídia não encontrado no servidor' });
+      }
+    } else {
+      const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body}`;
+      result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, finalBody);
+    }
+
+    const externalId = result?.key?.id || result?.message?.key?.id;
+    const newMessage = await prisma.message.create({
+      data: {
+        ticketId: ticket.id,
+        agentId: req.user.userId,
+        body: originalMsg.body,
+        mediaUrl: originalMsg.mediaUrl,
+        mediaType: originalMsg.mediaType,
+        fromMe: true,
+        externalId
+      }
+    });
+
+    if (io) {
+      io.to(tenantId).emit('new_message', { message: newMessage, ticket });
+      io.to(tenantId).emit('ticket_updated', { ticketId: ticket.id });
+    }
+
+    res.json(newMessage);
+  } catch (err) {
+    console.error('[forwardMessage] erro:', err.message);
+    res.status(500).json({ error: 'Erro ao encaminhar mensagem' });
+  }
+}
+
+module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, spellCheck, linkContact, forwardMessage, setIo };

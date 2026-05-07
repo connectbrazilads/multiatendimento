@@ -4,7 +4,7 @@ import api, {
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
   getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
-  getTags, getSettings, getMediaUrl, getEquipments, BACKEND_URL
+  getTags, getSettings, getMediaUrl, getEquipments, forwardMessage, getContacts, BACKEND_URL
 } from '../services/api';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
@@ -16,7 +16,7 @@ import LinkContactModal from '../components/LinkContactModal';
 
 export default function Inbox() {
   const [tickets, setTickets] = useState([]);
-  const [tab, setTab] = useState('mine'); // mine, pending, resolved
+  const [tab, setTab] = useState('mine'); // mine, pending, all
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -45,6 +45,7 @@ export default function Inbox() {
   const [spellChecking, setSpellChecking] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
+  const [forwardingMessage, setForwardingMessage] = useState(null);
   const isMobile = useIsMobile();
 
   // Volta para view lista quando janela é expandida para desktop
@@ -96,7 +97,7 @@ export default function Inbox() {
 
   const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-  const [counts, setCounts] = useState({ mine: 0, pending: 0, resolved: 0 });
+  const [counts, setCounts] = useState({ mine: 0, pending: 0, all: 0 });
 
   const selectedIdRef = React.useRef(selectedId);
   const tabRef = React.useRef(tab);
@@ -120,7 +121,7 @@ export default function Inbox() {
         { ...currentFilters, search: currentSearch }
       );
       setTickets(data.tickets || []);
-      setCounts(data.counts || { mine: 0, pending: 0, resolved: 0 });
+      setCounts(data.counts || { mine: 0, pending: 0, all: 0 });
     } catch (e) { console.error(e); }
   }, []);
 
@@ -420,9 +421,9 @@ export default function Inbox() {
       }}>
         <div style={s.tabsWrap}>
           <div style={s.tabs}>
-            {['mine', 'pending', 'resolved'].map(t => (
+            {['mine', 'pending', 'all'].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{ ...s.tab, ...(tab === t ? s.tabActive : {}) }}>
-                {t === 'mine' ? 'Meus' : t === 'pending' ? 'Espera' : 'Fechados'}
+                {t === 'mine' ? 'Meus' : t === 'pending' ? 'Espera' : 'Contatos'}
                 {counts[t] > 0 && <span style={s.badge}>{counts[t]}</span>}
               </button>
             ))}
@@ -663,13 +664,22 @@ export default function Inbox() {
                           {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
                         </div>
                         {!m.isDeleted && (
-                          <button 
-                            onClick={() => setReplyingTo(m)}
-                            style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
-                            title="Responder"
-                          >
-                            ↩️
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => setReplyingTo(m)}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              title="Responder"
+                            >
+                              ↩️
+                            </button>
+                            <button 
+                              onClick={() => setForwardingMessage(m)}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              title="Encaminhar"
+                            >
+                              🚀
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -896,6 +906,22 @@ export default function Inbox() {
         />
       )}
 
+      {forwardingMessage && (
+        <ForwardModal 
+          onClose={() => setForwardingMessage(null)}
+          onForward={async (contact) => {
+            try {
+              await forwardMessage(selectedId, forwardingMessage.id, contact.id);
+              toast.success('Mensagem encaminhada!');
+              setForwardingMessage(null);
+              loadTickets();
+            } catch (e) {
+              toast.error('Erro ao encaminhar mensagem');
+            }
+          }}
+        />
+      )}
+
       {showOsModal && selectedTicket && (
         <CreateOsModal
           ticket={selectedTicket}
@@ -1011,6 +1037,8 @@ function AudioPlayer({ src, fromMe, transcription }) {
 function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM }) {
   const contact = ticket.contact;
   const [notes, setNotes] = useState(contact.notes || '');
+  const [city, setCity] = useState(contact.city || '');
+  const [state, setState] = useState(contact.state || '');
   const [priority, setPriority] = useState(ticket.priority || 'medium');
   const [tags, setTags] = useState(() => { try { return JSON.parse(contact.tags || '[]'); } catch { return []; } });
   const [newTag, setNewTag] = useState('');
@@ -1035,7 +1063,7 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLin
   }, [contact.id]);
 
   async function saveContact() { 
-    await updateContact(contact.id, { notes, tags: JSON.stringify(tags) }); 
+    await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state }); 
     onUpdate(); 
   }
 
@@ -1149,6 +1177,27 @@ function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLin
         </div>
 
         <div style={s.infoSection}>
+          <h5 style={s.infoLabel}>📍 LOCALIZAÇÃO</h5>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input 
+              style={{ ...s.modalInput, flex: 2, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} 
+              placeholder="Cidade" 
+              value={city} 
+              onChange={e => setCity(e.target.value)} 
+              onBlur={saveContact}
+            />
+            <input 
+              style={{ ...s.modalInput, flex: 1, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} 
+              placeholder="UF" 
+              value={state} 
+              maxLength={2}
+              onChange={e => setState(e.target.value.toUpperCase())} 
+              onBlur={saveContact}
+            />
+          </div>
+        </div>
+
+        <div style={s.infoSection}>
           <h5 style={s.infoLabel}>⚡ PRIORIDADE DO TICKET</h5>
           <div style={s.priorityGrid}>
             {[
@@ -1236,6 +1285,69 @@ function TransferModal({ users, teams, onClose, onTransfer }) {
         <div style={{ padding: '1rem', maxHeight: 300, overflowY: 'auto' }}>
           {target === 'users' ? users.map(u => <div key={u.id} style={s.transferRow} onClick={() => onTransfer(u.id, null)}><Avatar name={u.name} size={30} />{u.name}</div>) : teams.map(t => <div key={t.id} style={s.transferRow} onClick={() => onTransfer(null, t.id)}>👥 {t.name}</div>)}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ForwardModal({ onClose, onForward }) {
+  const [contacts, setContacts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(true);
+      getContacts(search).then(r => {
+        setContacts(r.data.contacts || r.data || []);
+        setLoading(false);
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  return (
+    <div style={s.overlay} onClick={onClose}>
+      <div style={{ ...s.modal, maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+        <div style={s.modalHeader}>
+          <h3 style={{ margin: 0 }}>🚀 Encaminhar Mensagem</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+        </div>
+        <div style={{ padding: '1rem' }}>
+          <input 
+            style={{ ...s.modalInput, marginBottom: '1rem' }} 
+            placeholder="🔍 Buscar contato..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+          <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+            {loading ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Carregando...</div> : (
+              contacts.map(c => (
+                <div key={c.id} onClick={() => onForward(c)} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px', 
+                  padding: '12px', 
+                  borderRadius: '12px', 
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--border-color)',
+                  transition: 'background 0.2s'
+                }} className="hover-item">
+                  <Avatar name={c.name} src={c.avatarUrl} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</div>
+                  </div>
+                  <div style={{ color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 800 }}>SELECIONAR</div>
+                </div>
+              ))
+            )}
+            {!loading && contacts.length === 0 && <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Nenhum contato encontrado</div>}
+          </div>
+        </div>
+        <style>{`
+          .hover-item:hover { background: rgba(212,175,55,0.08) !important; }
+        `}</style>
       </div>
     </div>
   );
