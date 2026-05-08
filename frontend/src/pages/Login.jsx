@@ -140,7 +140,6 @@ const s = {
     background: '#0F0F0F', 
     padding: '3rem', 
     borderRadius: '24px', 
-    width: '420px', 
     border: '1px solid #1A1A1B',
     boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
     zIndex: 1,

@@ -184,7 +184,7 @@ function KpiCard({ icon, label, value, hint, accentColor }) {
 }
 
 const s = {
-  container: { padding: '2.5rem', background: 'var(--bg-base)', flex: 1, overflowY: 'auto', color: 'var(--text-main)' },
+  container: { padding: '1.5rem', background: 'var(--bg-base)', flex: 1, overflowY: 'auto', color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' },
   headerInfo: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   title: { fontSize: '2rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' },
@@ -199,7 +199,7 @@ const s = {
   kpiValue: { fontSize: '1.8rem', fontWeight: 900, margin: '4px 0', color: 'var(--text-main)' },
   kpiHint: { color: 'var(--text-dim)', fontSize: '0.75rem' },
 
-  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' },
+  mainGrid: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
   chartSection: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '2rem' },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
   sectionTitle: { fontSize: '1.1rem', fontWeight: 800, margin: 0, fontFamily: 'var(--font-display)' },

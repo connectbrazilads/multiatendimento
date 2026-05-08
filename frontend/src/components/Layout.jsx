@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
-import { MessageSquare, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck, Zap } from 'lucide-react';
+import { MessageSquare, MessageCircle, LayoutDashboard, Settings, Users, Link as LinkIcon, HelpCircle, Megaphone, Sun, Moon, LogOut, FileText, ShieldCheck, Zap } from 'lucide-react';
 import { getMe, getMediaUrl } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ToastContainer from './ToastContainer';
@@ -29,7 +29,7 @@ export default function Layout() {
   }, [theme]);
 
   React.useEffect(() => {
-    if (Notification.permission === 'default') {
+    if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
@@ -53,7 +53,7 @@ export default function Layout() {
         setTimeout(() => setNotification(null), 5000);
 
         // Notificação de Navegador (Background)
-        if (Notification.permission === 'granted') {
+        if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
           new Notification(`Nova mensagem de ${contact.name || contact.phone}`, {
             body: message.body,
             icon: '/logo192.png'
@@ -73,7 +73,7 @@ export default function Layout() {
         });
         setTimeout(() => setNotification(null), 5000);
 
-        if (Notification.permission === 'granted') {
+        if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
           new Notification(`Equipe: ${msg.sender?.name || 'Colega'}`, { body: msg.body });
         }
       });
@@ -125,6 +125,9 @@ export default function Layout() {
                 </NavLink>
                 <NavLink to="/inbox" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                   <MessageSquare size={18} /> Chat
+                </NavLink>
+                <NavLink to="/internal-chat" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <MessageCircle size={18} /> Chat Interno
                 </NavLink>
                 <NavLink to="/connections" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                   <LinkIcon size={18} /> Conexões

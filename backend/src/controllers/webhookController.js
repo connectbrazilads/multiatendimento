@@ -8,8 +8,17 @@ const businessHourService = require('../services/businessHourService');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
+function getMessageContent(m) {
+  if (!m) return null;
+  if (m.ephemeralMessage) return getMessageContent(m.ephemeralMessage.message);
+  if (m.viewOnceMessage) return getMessageContent(m.viewOnceMessage.message);
+  if (m.viewOnceMessageV2) return getMessageContent(m.viewOnceMessageV2.message);
+  if (m.documentWithCaptionMessage) return getMessageContent(m.documentWithCaptionMessage.message);
+  return m;
+}
+
 function extractMedia(msg) {
-  const m = msg.message;
+  const m = getMessageContent(msg.message);
   if (!m) return null;
   if (m.imageMessage)    return { type: 'image',    caption: m.imageMessage.caption || '' };
   if (m.videoMessage)    return { type: 'video',    caption: m.videoMessage.caption || '' };
@@ -122,24 +131,26 @@ async function handleWebhook(req, res) {
     }
 
     const media = extractMedia(msg);
-    const body = msg.message?.conversation
-      || msg.message?.extendedTextMessage?.text
+    const mContent = getMessageContent(msg.message);
+    const body = mContent?.conversation
+      || mContent?.extendedTextMessage?.text
       || media?.caption
       || '';
 
-    const contextInfo = msg.message?.extendedTextMessage?.contextInfo 
-                     || msg.message?.imageMessage?.contextInfo
-                     || msg.message?.videoMessage?.contextInfo
-                     || msg.message?.audioMessage?.contextInfo
-                     || msg.message?.documentMessage?.contextInfo;
+    const contextInfo = mContent?.extendedTextMessage?.contextInfo 
+                     || mContent?.imageMessage?.contextInfo
+                     || mContent?.videoMessage?.contextInfo
+                     || mContent?.audioMessage?.contextInfo
+                     || mContent?.documentMessage?.contextInfo;
     
     const quotedMsgId = contextInfo?.stanzaId;
-    const quotedMsgBody = contextInfo?.quotedMessage?.conversation 
-                       || contextInfo?.quotedMessage?.extendedTextMessage?.text
-                       || contextInfo?.quotedMessage?.imageMessage?.caption
-                       || contextInfo?.quotedMessage?.videoMessage?.caption
-                       || (contextInfo?.quotedMessage?.audioMessage ? '🎤 Áudio' : null)
-                       || (contextInfo?.quotedMessage?.documentMessage ? '📎 Documento' : null);
+    const qContent = getMessageContent(contextInfo?.quotedMessage);
+    const quotedMsgBody = qContent?.conversation 
+                       || qContent?.extendedTextMessage?.text
+                       || qContent?.imageMessage?.caption
+                       || qContent?.videoMessage?.caption
+                       || (qContent?.audioMessage ? '🎤 Áudio' : null)
+                       || (qContent?.documentMessage ? '📎 Documento' : null);
 
     // Trata atualização de conexão e QR Code
     if (event === 'connection.update' || event === 'qrcode.updated') {
