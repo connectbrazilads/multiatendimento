@@ -147,3 +147,22 @@ body {
   .settings-header { margin-bottom: 2rem !important; }
   .settings-title { font-size: 1.5rem !important; }
 }
+
+/* PWA App-like feel */
+body {
+  overscroll-behavior-y: contain; /* Prevents pull-to-refresh in some browsers */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* Prevents text selection globally for app feel */
+}
+
+/* Allow selection only in inputs and messages */
+input, textarea, .messages, [contenteditable="true"] {
+  user-select: text;
+}
+
+/* Hide scrollbars for cleaner mobile look */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
