@@ -2,7 +2,7 @@ const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
 
 async function list(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  // Removido bloqueio estrito de admin para permitir que agentes vejam colegas para transferência
 
   const users = await prisma.user.findMany({
     where: { tenantId: req.user.tenantId },

@@ -211,16 +211,22 @@ export default function Inbox() {
 
   async function loadInitial() {
     try {
-      const [{ data: meData }, { data: uData }, { data: tData }, { data: qData }, { data: sData }] = await Promise.all([
-        getMe(), getUsers(), getTeams(), getQuickResponses(), getSettings()
-      ]);
+      // getMe é o único crítico para sair do loop de "Sincronizando Inbox"
+      const { data: meData } = await getMe();
       setMe(meData);
-      setUsers(uData || []);
-      setTeams(tData || []);
-      setQuickResponses(qData || []);
-      if (sData?.botName) setBotName(sData.botName);
+
+      // Carrega o restante em paralelo sem bloquear se um falhar
+      Promise.all([
+        getUsers().then(r => setUsers(r.data || [])).catch(e => console.error('getUsers error:', e)),
+        getTeams().then(r => setTeams(r.data || [])).catch(e => console.error('getTeams error:', e)),
+        getQuickResponses().then(r => setQuickResponses(r.data || [])).catch(e => console.error('getQuickResponses error:', e)),
+        getSettings().then(r => {
+          if (r.data?.botName) setBotName(r.data.botName);
+        }).catch(e => console.error('getSettings error:', e))
+      ]);
     } catch (e) {
-      console.error('Erro ao carregar dados iniciais:', e);
+      console.error('Erro crítico ao carregar perfil:', e);
+      // Se nem o getMe funcionar, o interceptor 401 do axios provavelmente vai redirecionar para o login
     }
   }
 
