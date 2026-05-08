@@ -704,7 +704,7 @@ export default function Inbox() {
                       )}
 
                       <MediaContent message={m} onImageClick={setPreviewImg} />
-                      {!m.mediaUrl && <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: m.fromMe ? 500 : 400 }}>{m.body}</div>}
+                      {m.body && <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: m.fromMe ? 500 : 400, marginTop: m.mediaUrl ? '8px' : 0 }}>{m.body}</div>}
                       <div style={{ ...s.time, color: m.fromMe ? 'rgba(0,0,0,0.4)' : '#717171' }}>{fmt(m.createdAt)}</div>
                     </div>
                   </div>
