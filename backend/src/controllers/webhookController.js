@@ -20,6 +20,10 @@ function getMessageContent(m) {
 function extractMedia(msg) {
   const m = getMessageContent(msg.message);
   if (!m) return null;
+  
+  // Debug log for media structure
+  console.log('[webhook] Extracting media from:', JSON.stringify(m).substring(0, 500));
+
   if (m.imageMessage)    return { type: 'image',    caption: m.imageMessage.caption || '' };
   if (m.videoMessage)    return { type: 'video',    caption: m.videoMessage.caption || '' };
   if (m.audioMessage)    return { type: 'audio',    caption: '🎤 Áudio' };
@@ -132,8 +136,13 @@ async function handleWebhook(req, res) {
 
     const media = extractMedia(msg);
     const mContent = getMessageContent(msg.message);
+    
+    // Tentativa robusta de pegar o texto (body) da mensagem
     const body = mContent?.conversation
       || mContent?.extendedTextMessage?.text
+      || mContent?.imageMessage?.caption
+      || mContent?.videoMessage?.caption
+      || mContent?.documentMessage?.caption
       || media?.caption
       || '';
 
@@ -141,7 +150,8 @@ async function handleWebhook(req, res) {
                      || mContent?.imageMessage?.contextInfo
                      || mContent?.videoMessage?.contextInfo
                      || mContent?.audioMessage?.contextInfo
-                     || mContent?.documentMessage?.contextInfo;
+                     || mContent?.documentMessage?.contextInfo
+                     || mContent?.documentWithCaptionMessage?.message?.documentMessage?.contextInfo;
     
     const quotedMsgId = contextInfo?.stanzaId;
     const qContent = getMessageContent(contextInfo?.quotedMessage);
