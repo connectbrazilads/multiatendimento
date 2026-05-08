@@ -70,7 +70,7 @@ export const importContacts = (formData) => api.post('/contacts/import', formDat
 
 // Tickets
 export const getTickets = (status, mine = false, filters = {}) => api.get('/tickets', { params: { status, mine, ...filters } });
-export const getMessages = (ticketId) => api.get(`/tickets/${ticketId}/messages`);
+export const getMessages = (ticketId, params = {}) => api.get(`/tickets/${ticketId}/messages`, { params });
 export const sendMessage = (ticketId, body, quotedMsgId = null) => api.post(`/tickets/${ticketId}/messages`, { body, quotedMsgId });
 export const deleteMessage = (ticketId, messageId) => api.delete(`/tickets/${ticketId}/messages/${messageId}`);
 export const assignTicket = (ticketId, agentId, teamId) => api.patch(`/tickets/${ticketId}/assign`, { agentId, teamId });

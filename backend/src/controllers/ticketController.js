@@ -126,10 +126,11 @@ async function list(req, res) {
 
 async function getMessages(req, res) {
   const { id } = req.params;
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 20), 100);
+  const before = req.query.before ? new Date(req.query.before) : null;
   const ticket = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
-  if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+  if (!ticket) return res.status(404).json({ error: 'Ticket nao encontrado' });
 
-  // Reset unread count
   if (ticket.unreadCount > 0) {
     await prisma.ticket.update({
       where: { id },
@@ -138,38 +139,46 @@ async function getMessages(req, res) {
     if (io) io.to(req.user.tenantId).emit('ticket_updated', { id, unreadCount: 0 });
   }
 
-  // Busca todos os tickets do contato para montar histórico completo (filtrando pelo tenant)
   const allTickets = await prisma.ticket.findMany({
     where: { contactId: ticket.contactId, tenantId: req.user.tenantId },
     orderBy: { createdAt: 'asc' },
     select: { id: true, createdAt: true, status: true },
   });
 
-  // Busca as últimas 100 mensagens (mais recentes primeiro para o take, depois ordena asc)
+  const ticketIds = allTickets.map(t => t.id);
+  const createdAtFilter = before && !Number.isNaN(before.getTime()) ? { lt: before } : undefined;
+
   const messages = await prisma.message.findMany({
-    where: { ticketId: { in: allTickets.map(t => t.id) } },
+    where: {
+      ticketId: { in: ticketIds },
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+    },
     orderBy: { createdAt: 'desc' },
-    take: 100,
+    take: limit * 2,
     include: { agent: { select: { name: true } } },
   });
 
   const events = await prisma.ticketEvent.findMany({
-    where: { ticketId: { in: allTickets.map(t => t.id) } },
+    where: {
+      ticketId: { in: ticketIds },
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+    },
     orderBy: { createdAt: 'desc' },
-    take: 50, // Menos eventos pois costumam ser menos frequentes
+    take: limit,
     include: { user: { select: { name: true } } }
   });
 
-  // Une mensagens e eventos, pega os 100 mais recentes no total e ordena ascendente para o chat
-  const combined = [
+  const combinedDesc = [
     ...messages.map(m => ({ ...m, _type: 'message' })),
     ...events.map(e => ({ ...e, _type: 'event' }))
   ]
-  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Mais recentes primeiro
-  .slice(0, 100) // Pega apenas os 100 totais mais recentes
-  .reverse(); // Inverte para ordem cronológica (chat)
+  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  .slice(0, limit + 1);
 
-  // Injeta marcadores de sessão entre tickets
+  const hasMore = combinedDesc.length > limit;
+  const pageItems = hasMore ? combinedDesc.slice(0, limit) : combinedDesc;
+  const combined = pageItems.reverse();
+
   const ticketMap = Object.fromEntries(allTickets.map(t => [t.id, t]));
   const result = [];
   let lastTicketId = null;
@@ -189,9 +198,13 @@ async function getMessages(req, res) {
     result.push(item);
   }
 
-  res.json(result);
+  const nextCursor = hasMore ? pageItems[pageItems.length - 1]?.createdAt : null;
+  res.json({
+    items: result,
+    hasMore,
+    nextCursor: nextCursor ? new Date(nextCursor).toISOString() : null,
+  });
 }
-
 async function assign(req, res) {
   const { id } = req.params;
   const { agentId, teamId } = req.body;

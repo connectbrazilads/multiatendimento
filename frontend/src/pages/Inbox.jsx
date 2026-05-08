@@ -15,12 +15,16 @@ import CreateOsModal from '../components/CreateOsModal';
 import LinkContactModal from '../components/LinkContactModal';
 
 export default function Inbox() {
+  const MESSAGE_PAGE_SIZE = 60;
   const [tickets, setTickets] = useState([]);
   const [tab, setTab] = useState('mine'); // mine, pending, all
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [nextMessagesCursor, setNextMessagesCursor] = useState(null);
   const [me, setMe] = useState(null);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -57,6 +61,7 @@ export default function Inbox() {
   const socketRef = useRef();
   const mediaRecorderRef = useRef(null);
   const timerRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(false);
 
   async function startRecording() {
     try {
@@ -145,6 +150,7 @@ export default function Inbox() {
 
     s.on('new_message', ({ message, ticket: t }) => {
       if (t.id === selectedIdRef.current) {
+        shouldScrollToBottomRef.current = true;
         setMessages(prev => {
           const exists = prev.find(m => m.id === message.id);
           if (exists) return prev.map(m => m.id === message.id ? message : m);
@@ -157,9 +163,7 @@ export default function Inbox() {
     s.on('connect', () => {
       loadTickets();
       if (selectedIdRef.current) {
-        getMessages(selectedIdRef.current).then(res => {
-          setMessages(res.data);
-        }).catch(e => console.error(e));
+        loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch(e => console.error(e));
       }
     });
 
@@ -189,7 +193,10 @@ export default function Inbox() {
   }, [selectedId]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (shouldScrollToBottomRef.current) {
+      shouldScrollToBottomRef.current = false;
+      scrollToBottom();
+    }
   }, [messages]);
 
   function scrollToBottom() {
@@ -217,13 +224,44 @@ export default function Inbox() {
     }
   }
 
-  async function loadMessages() {
-    setLoading(true);
+  async function loadMessages({ ticketId = selectedIdRef.current, before = null, replace = true } = {}) {
+    if (!ticketId) return;
+
+    if (replace) setLoading(true);
+    else setLoadingMoreMessages(true);
+
     setSummary(null);
+    const prevScrollHeight = scrollRef.current?.scrollHeight || 0;
+    const prevScrollTop = scrollRef.current?.scrollTop || 0;
+
     try {
-      const { data } = await getMessages(selectedId);
-      setMessages(data);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      const { data } = await getMessages(ticketId, { limit: MESSAGE_PAGE_SIZE, ...(before ? { before } : {}) });
+      const incomingItems = data?.items || [];
+
+      if (replace) {
+        shouldScrollToBottomRef.current = true;
+        setMessages(incomingItems);
+      } else {
+        setMessages(prev => mergeMessagePages(prev, incomingItems, true));
+        setTimeout(() => {
+          if (scrollRef.current) {
+            const newHeight = scrollRef.current.scrollHeight;
+            scrollRef.current.scrollTop = newHeight - prevScrollHeight + prevScrollTop;
+          }
+        }, 0);
+      }
+
+      setHasMoreMessages(Boolean(data?.hasMore));
+      setNextMessagesCursor(data?.nextCursor || null);
+    } catch (e) { console.error(e); } finally {
+      if (replace) setLoading(false);
+      else setLoadingMoreMessages(false);
+    }
+  }
+
+  async function handleLoadMoreMessages() {
+    if (!selectedId || !hasMoreMessages || !nextMessagesCursor || loadingMoreMessages) return;
+    await loadMessages({ ticketId: selectedId, before: nextMessagesCursor, replace: false });
   }
 
   async function handleDeleteMessage(msgId) {
@@ -569,13 +607,25 @@ export default function Inbox() {
             )}
 
             <div style={s.messages} ref={scrollRef}>
-              {loading ? <Empty>Carregando histórico...</Empty> : messages.map((m, i) => {
+              {loading ? <Empty>Carregando historico...</Empty> : <>
+                {hasMoreMessages && (
+                  <div style={s.loadMoreWrap}>
+                    <button
+                      onClick={handleLoadMoreMessages}
+                      disabled={loadingMoreMessages}
+                      style={{ ...s.loadMoreBtn, opacity: loadingMoreMessages ? 0.7 : 1 }}
+                    >
+                      {loadingMoreMessages ? 'Carregando...' : 'Carregar mais'}
+                    </button>
+                  </div>
+                )}
+                {messages.map((m, i) => {
                 if (m._separator) {
                   return (
                     <div key={`sep-${i}`} style={s.separator}>
                       <div style={s.sepLine} />
                       <div style={{ ...s.sepLabel, background: m.isCurrent ? '#D4AF37' : '#333' }}>
-                        {m.isCurrent ? 'SESSÃO ATUAL' : `SESSÃO ANTERIOR (${new Date(m.date).toLocaleDateString()})`}
+                        {m.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(m.date).toLocaleDateString()})`}
                       </div>
                       <div style={s.sepLine} />
                     </div>
@@ -584,18 +634,18 @@ export default function Inbox() {
 
                 if (m._type === 'event') {
                   let payload = {};
-                  try { 
+                  try {
                     if (typeof m.payload === 'string') {
-                      payload = JSON.parse(m.payload || '{}'); 
+                      payload = JSON.parse(m.payload || '{}');
                     } else if (typeof m.payload === 'object' && m.payload !== null) {
                       payload = m.payload;
                     }
-                  } catch(e) { console.error('Erro ao processar payload do evento:', e); }
-                  
+                  } catch (e) { console.error('Erro ao processar payload do evento:', e); }
+
                   if (m.type === 'ia_summary' && payload?.summary) {
                     return (
                       <div key={m.id} style={s.summaryCard}>
-                         <div style={s.summaryHeader}>🪄 RESUMO DE CONTEXTO (IA)</div>
+                         <div style={s.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
                          <div style={s.summaryBody}>{payload.summary}</div>
                       </div>
                     );
@@ -606,33 +656,33 @@ export default function Inbox() {
                     transferred: `Transferiu para ${payload?.teamName || 'outra equipe'}`,
                     resolved: 'Encerrou o atendimento',
                     reopened: 'Reabriu o atendimento',
-                    ooo_message: 'Aviso de Fora de Horário Enviado'
+                    ooo_message: 'Aviso de Fora de Horario Enviado'
                   }[m.type] || m.type;
 
                   return (
                     <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                       <div style={{ 
-                         background: m.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)', 
-                         color: m.type === 'resolved' ? '#2ecc71' : m.type === 'ooo_message' ? '#e67e22' : '#D4AF37', 
-                         fontSize: '0.65rem', 
-                         padding: '6px 16px', 
-                         borderRadius: '20px', 
-                         border: `1px solid ${m.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`, 
-                         textTransform: 'uppercase', 
+                       <div style={{
+                         background: m.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
+                         color: m.type === 'resolved' ? '#2ecc71' : m.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
+                         fontSize: '0.65rem',
+                         padding: '6px 16px',
+                         borderRadius: '20px',
+                         border: `1px solid ${m.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
+                         textTransform: 'uppercase',
                          letterSpacing: '0.08em',
                          fontWeight: 600,
                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                        }}>
-                          {m.user?.name || 'Sistema'} • {eventLabel} {m.createdAt ? `em ${new Date(m.createdAt).toLocaleDateString('pt-BR')} às ${new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                          {m.user?.name || 'Sistema'} - {eventLabel} {m.createdAt ? `em ${new Date(m.createdAt).toLocaleDateString('pt-BR')} as ${new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                        </div>
                     </div>
                   );
                 }
                 return (
                   <div key={m.id} style={{ ...s.bubbleWrap, justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ 
-                      ...s.bubble, 
-                      background: m.fromMe ? (m.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)', 
+                    <div style={{
+                      ...s.bubble,
+                      background: m.fromMe ? (m.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
                       color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
                       opacity: m.isDeleted ? 0.6 : 1,
                       textDecoration: m.isDeleted ? 'line-through' : 'none',
@@ -642,50 +692,48 @@ export default function Inbox() {
                       borderBottomLeftRadius: m.fromMe ? '20px' : '4px',
                     }}>
                       {m.fromMe && !m.isDeleted && (
-                        <button 
+                        <button
                           onClick={() => handleDeleteMessage(m.id)}
                           style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Apagar para o cliente"
                         >
-                          ✕
+                          X
                         </button>
                       )}
-                      
-                      {/* NOME DE QUEM ESTÁ FALANDO */}
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <div style={{ 
-                          fontSize: '0.7rem', 
-                          fontWeight: 800, 
-                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.5)') : 'var(--accent)', 
+                        <div style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.5)') : 'var(--accent)',
                           textTransform: 'uppercase',
                           letterSpacing: '0.05em',
                           opacity: m.fromBot ? 0.8 : 1
                         }}>
-                          {m.fromMe ? (m.fromBot ? `🤖 ${botName}` : (m.agent?.name || 'Você')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
+                          {m.fromMe ? (m.fromBot ? `BOT ${botName}` : (m.agent?.name || 'Voce')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
                         </div>
                         {!m.isDeleted && (
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
+                            <button
                               onClick={() => setReplyingTo(m)}
                               style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
                               title="Responder"
                             >
-                              ↩️
+                              Resp.
                             </button>
-                            <button 
+                            <button
                               onClick={() => setForwardingMessage(m)}
                               style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
                               title="Encaminhar"
                             >
-                              🚀
+                              Enc.
                             </button>
                           </div>
                         )}
                       </div>
 
-                      {/* MENSAGEM RESPONDIDA (QUOTED) */}
                       {m.quotedMsgBody && (
-                        <div style={{ 
+                        <div style={{
                           background: m.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
                           borderLeft: `3px solid ${m.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
                           padding: '6px 10px',
@@ -710,6 +758,8 @@ export default function Inbox() {
                   </div>
                 );
               })}
+                {!messages.length && <Empty>Nenhuma mensagem encontrada</Empty>}
+              </>}
             </div>
 
             {filteredQuick.length > 0 && (
@@ -1355,6 +1405,30 @@ function ForwardModal({ onClose, onForward }) {
 
 function Empty({ children }) { return <div style={{ textAlign: 'center', padding: '3rem', color: '#717171' }}>{children}</div>; }
 function fmt(d) { const date = new Date(d); return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+function mergeMessagePages(current, incoming, prepend = false) {
+  const items = prepend ? [...incoming, ...current] : [...current, ...incoming];
+  const seen = new Set();
+  const merged = [];
+
+  for (const item of items) {
+    const key = item._separator
+      ? `sep:${item.ticketId}:${new Date(item.date).toISOString()}`
+      : `${item._type || 'message'}:${item.id}`;
+
+    if (seen.has(key)) continue;
+
+    const previous = merged[merged.length - 1];
+    if (item._separator && previous?._separator && previous.ticketId === item.ticketId) {
+      continue;
+    }
+
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return merged;
+}
+
 function waitingSince(d) {
   const diff = Date.now() - new Date(d).getTime();
   const min = Math.floor(diff / 60000);
@@ -1448,6 +1522,8 @@ const s = {
   infoBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', width: '38px', height: '38px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   
   messages: { flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', boxSizing: 'border-box' },
+  loadMoreWrap: { display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' },
+  loadMoreBtn: { background: 'rgba(255,255,255,0.9)', color: '#4a5568', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '999px', padding: '0.55rem 1.15rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem', boxShadow: '0 6px 18px rgba(0,0,0,0.08)' },
   bubbleWrap: { display: 'flex', width: '100%' },
   bubble: { 
     padding: '0.85rem 1.1rem', 
