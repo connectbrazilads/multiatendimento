@@ -138,6 +138,7 @@ async function getMessages(req, res) {
   const { id } = req.params;
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 20), 100);
   const before = req.query.before ? new Date(req.query.before) : null;
+  const includeHistory = req.query.includeHistory === 'true';
   const ticket = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!ticket) return res.status(404).json({ error: 'Ticket nao encontrado' });
 
@@ -149,11 +150,13 @@ async function getMessages(req, res) {
     if (io) io.to(req.user.tenantId).emit('ticket_updated', { id, unreadCount: 0 });
   }
 
-  const allTickets = await prisma.ticket.findMany({
-    where: { contactId: ticket.contactId, tenantId: req.user.tenantId },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, createdAt: true, status: true },
-  });
+  const allTickets = includeHistory
+    ? await prisma.ticket.findMany({
+        where: { contactId: ticket.contactId, tenantId: req.user.tenantId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, createdAt: true, status: true },
+      })
+    : [{ id: ticket.id, createdAt: ticket.createdAt, status: ticket.status }];
 
   const ticketIds = allTickets.map(t => t.id);
   const createdAtFilter = before && !Number.isNaN(before.getTime()) ? { lt: before } : undefined;
@@ -757,23 +760,6 @@ async function linkContact(req, res) {
   }
 }
 
-async function spellCheck(req, res) {
-  const { text } = req.body;
-  if (!text || text.trim().length < 3) return res.json({ corrected: null });
-
-  try {
-    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
-    if (!settings?.geminiKey) return res.json({ corrected: null });
-
-    const geminiService = require('../services/geminiService');
-    const corrected = await geminiService.spellCheck(settings.geminiKey, text.trim());
-    res.json({ corrected });
-  } catch (err) {
-    console.error('[spellCheck] erro:', err.message);
-    res.json({ corrected: null }); // Nunca bloqueia o envio
-  }
-}
-
 async function forwardMessage(req, res) {
   const { messageId, contactId } = req.body;
   const tenantId = req.user.tenantId;
@@ -868,4 +854,4 @@ async function forwardMessage(req, res) {
   }
 }
 
-module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, spellCheck, linkContact, forwardMessage, setIo };
+module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, linkContact, forwardMessage, setIo };

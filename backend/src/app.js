@@ -32,6 +32,7 @@ const app = express();
 app.use('/api/report', require('./routes/report'));
 
 const server = http.createServer(app);
+const bootAt = Date.now();
 
 const io = new Server(server, {
   cors: { 
@@ -53,6 +54,22 @@ setIoCampaign(io);
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5174', credentials: true }));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+
+    if (durationMs < 1500) return;
+
+    const memoryMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    console.warn(
+      `[perf] ${req.method} ${req.originalUrl} -> ${res.statusCode} em ${durationMs}ms | rss=${memoryMb}MB | uptime=${Math.round(process.uptime())}s`
+    );
+  });
+
+  next();
+});
 
 // Serve arquivos estáticos ANTES das rotas da API
 const uploadsPath = path.resolve(__dirname, '..', 'uploads');
@@ -115,7 +132,16 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
   console.log(`[server] rodando na porta ${PORT}`);
+  console.log(`[server] boot=${new Date(bootAt).toISOString()} pid=${process.pid}`);
   scheduleProcessor.start();
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason);
 });
 
 module.exports = { app, server };

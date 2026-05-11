@@ -218,26 +218,6 @@ async function analyzeImage(apiKey, imageBase64, mimeType, prompt = 'Descreva es
   return null;
 }
 
-async function spellCheck(apiKey, text) {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const prompt = `Voce e um corretor ortografico de portugues brasileiro para mensagens de atendimento ao cliente.
-Analise o texto abaixo e corrija APENAS erros de ortografia/gramatica, sem mudar o tom. Responda OK se estiver correto ou o texto corrigido se houver erros.\n\nTexto: "${text}"`;
-
-  for (const modelName of getModels('GEMINI_LIGHT_MODELS', DEFAULT_LIGHT_MODELS)) {
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
-      const corrected = result.response.text().trim();
-      return corrected === 'OK' || corrected.toLowerCase() === 'ok' || corrected === text ? null : corrected;
-    } catch (err) {
-      if (shouldTryNextModel(err)) continue;
-      return null;
-    }
-  }
-
-  return null;
-}
-
 async function extractClientInfo(apiKey, history, currentNotes) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const historyText = history.map((m) => `${m.fromMe ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
@@ -289,7 +269,6 @@ module.exports = {
   generateTransferSummary,
   getEmbedding,
   cosineSimilarity,
-  spellCheck,
   extractClientInfo,
   draftServiceOrder,
 };

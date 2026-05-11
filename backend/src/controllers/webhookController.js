@@ -8,6 +8,68 @@ const businessHourService = require('../services/businessHourService');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
+const teamCache = new Map();
+const knowledgeCache = new Map();
+
+function getCacheEntry(cache, key, ttlMs) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.createdAt > ttlMs) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCacheEntry(cache, key, value) {
+  cache.set(key, { value, createdAt: Date.now() });
+  return value;
+}
+
+async function getTeamsCached(tenantId) {
+  const cached = getCacheEntry(teamCache, tenantId, 5 * 60 * 1000);
+  if (cached) return cached;
+
+  const teams = await prisma.team.findMany({ where: { tenantId } });
+  return setCacheEntry(teamCache, tenantId, teams);
+}
+
+async function getKnowledgeCached(tenantId) {
+  const cached = getCacheEntry(knowledgeCache, tenantId, 2 * 60 * 1000);
+  if (cached) return cached;
+
+  const knowledges = await prisma.knowledge.findMany({
+    where: { tenantId, active: true, embedding: { not: null } },
+    select: { id: true, question: true, answer: true, embedding: true }
+  });
+
+  return setCacheEntry(knowledgeCache, tenantId, knowledges);
+}
+
+function shouldUseKnowledgeSearch(message) {
+  const normalized = (message || '').trim().toLowerCase();
+  if (normalized.length < 18) return false;
+
+  return normalized.includes('?')
+    || normalized.includes('como')
+    || normalized.includes('qual')
+    || normalized.includes('quando')
+    || normalized.includes('onde')
+    || normalized.includes('porque')
+    || normalized.includes('por que')
+    || normalized.includes('procedimento')
+    || normalized.includes('configur')
+    || normalized.includes('instal')
+    || normalized.includes('erro');
+}
+
+function shouldExtractClientMemory(message) {
+  const normalized = (message || '').trim();
+  if (normalized.length < 30) return false;
+
+  return /modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized);
+}
+
 function getMessageContent(m) {
   if (!m) return null;
   if (m.ephemeralMessage) return getMessageContent(m.ephemeralMessage.message);
@@ -537,13 +599,11 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   let topContent = null;
   let found = false;
 
-  if (settings.geminiKey) {
+  if (settings.geminiKey && shouldUseKnowledgeSearch(userMessage)) {
     try {
       const userEmbedding = await geminiService.getEmbedding(settings.geminiKey, userMessage);
       if (userEmbedding) {
-        const allKnowledges = await prisma.knowledge.findMany({
-          where: { tenantId: tenant.id, active: true, embedding: { not: null } }
-        });
+        const allKnowledges = await getKnowledgeCached(tenant.id);
         
         const relevant = allKnowledges.map(k => {
           let vec = null;
@@ -586,18 +646,20 @@ ${technicalInstructions}`;
   let botReply = await geminiService.chat(settings.geminiKey, finalPrompt, reversedHistory, userMessage);
 
   // EXTRAÇÃO DE MEMÓRIA DE LONGO PRAZO (Background Task)
-  const extractionHistory = [...reversedHistory, { fromMe: false, body: userMessage }];
-  geminiService.extractClientInfo(settings.geminiKey, extractionHistory, contact.notes)
-    .then(async (newNotes) => {
-      if (newNotes) {
-        await prisma.contact.update({
-          where: { id: contact.id },
-          data: { notes: newNotes }
-        });
-        if (io) io.to(tenant.id).emit('contact_updated', { contactId: contact.id });
-      }
-    })
-    .catch(err => console.error('[webhook] erro na extração de memória:', err.message));
+  if (shouldExtractClientMemory(userMessage)) {
+    const extractionHistory = [...reversedHistory, { fromMe: false, body: userMessage }];
+    geminiService.extractClientInfo(settings.geminiKey, extractionHistory, contact.notes)
+      .then(async (newNotes) => {
+        if (newNotes) {
+          await prisma.contact.update({
+            where: { id: contact.id },
+            data: { notes: newNotes }
+          });
+          if (io) io.to(tenant.id).emit('contact_updated', { contactId: contact.id });
+        }
+      })
+      .catch(err => console.error('[webhook] erro na extração de memória:', err.message));
+  }
 
   // 4. LÓGICA DE ROTEAMENTO E SALVAMENTO
   const routeMatch = botReply.match(/\[\[ROUTE:\s*(.*?)\]\]/);
@@ -610,7 +672,7 @@ ${technicalInstructions}`;
   const finalMessageBody = `*${botName}*\n${botReply}`;
 
   // Executa o Roteamento
-  const teams = await prisma.team.findMany({ where: { tenantId: tenant.id } });
+  const teams = await getTeamsCached(tenant.id);
   let targetTeam = null;
 
   if (category === 'FINANCEIRO') targetTeam = teams.find(t => t.name.toLowerCase().includes('financeiro'));

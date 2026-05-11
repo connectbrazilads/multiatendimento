@@ -3,7 +3,7 @@ import api, {
   getTickets, getMessages, sendMessage, sendMediaMessage, 
   assignTicket, resolveTicket, getMe, getUsers, getTeams, 
   summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
-  getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage, spellCheckMessage,
+  getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage,
   getTags, getSettings, getMediaUrl, getEquipments, forwardMessage, getContacts, BACKEND_URL
 } from '../services/api';
 import io from 'socket.io-client';
@@ -45,8 +45,6 @@ export default function Inbox() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [view, setView] = useState('list'); // 'list' or 'chat'
-  const [spellModal, setSpellModal] = useState(null); // { original, corrected }
-  const [spellChecking, setSpellChecking] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
@@ -135,8 +133,27 @@ export default function Inbox() {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       loadTickets();
-    }, 500); 
+    }, 2000); 
   }, [loadTickets]);
+
+  const upsertTicket = useCallback((incomingTicket) => {
+    if (!incomingTicket?.id) return;
+
+    setTickets(prev => {
+      const current = prev.find(ticket => ticket.id === incomingTicket.id);
+      const merged = {
+        ...current,
+        ...incomingTicket,
+        contact: incomingTicket.contact || current?.contact,
+        agent: incomingTicket.agent || current?.agent,
+        team: incomingTicket.team || current?.team,
+        instance: incomingTicket.instance || current?.instance,
+      };
+
+      const withoutCurrent = prev.filter(ticket => ticket.id !== incomingTicket.id);
+      return [merged, ...withoutCurrent];
+    });
+  }, []);
 
   useEffect(() => {
     loadInitial();
@@ -147,9 +164,12 @@ export default function Inbox() {
       reconnectionDelayMax: 10000,
     });
     socketRef.current = s;
+    const refreshTimer = setInterval(() => {
+      loadTickets();
+    }, 30000);
 
     s.on('new_message', ({ message, ticket: t }) => {
-      if (t.id === selectedIdRef.current) {
+      if (t?.id === selectedIdRef.current) {
         shouldScrollToBottomRef.current = true;
         setMessages(prev => {
           const exists = prev.find(m => m.id === message.id);
@@ -157,7 +177,13 @@ export default function Inbox() {
           return [...prev, message];
         });
       }
-      debouncedLoadTickets();
+
+      if (t?.id) {
+        const unreadCount = t.id === selectedIdRef.current ? 0 : (typeof t.unreadCount === 'number' ? t.unreadCount : undefined);
+        upsertTicket({ ...t, unreadCount });
+      } else {
+        debouncedLoadTickets();
+      }
     });
 
     s.on('connect', () => {
@@ -171,15 +197,37 @@ export default function Inbox() {
       setMessages(prev => prev.map(m => m.id === message.id ? message : m));
     });
 
-    s.on('ticket_updated', () => {
-      debouncedLoadTickets();
+    s.on('ticket_updated', (payload = {}) => {
+      if (payload.ticket) {
+        upsertTicket(payload.ticket);
+        return;
+      }
+
+      const ticketId = payload.ticketId || payload.id;
+      if (ticketId) {
+        setTickets(prev => prev.map(ticket => (
+          ticket.id === ticketId
+            ? {
+                ...ticket,
+                ...(payload.status ? { status: payload.status } : {}),
+                ...(typeof payload.unreadCount === 'number' ? { unreadCount: payload.unreadCount } : {}),
+                updatedAt: new Date().toISOString(),
+              }
+            : ticket
+        )));
+      } else {
+        debouncedLoadTickets();
+      }
     });
 
     s.on('connect_error', (err) => {
       console.error('[socket] erro de conexão:', err.message);
     });
 
-    return () => s.disconnect();
+    return () => {
+      clearInterval(refreshTimer);
+      s.disconnect();
+    };
   }, []); // Roda apenas uma vez no mount
   useEffect(() => {
     loadTickets();
@@ -287,19 +335,6 @@ export default function Inbox() {
     e?.preventDefault();
     if (!text.trim() && files.length === 0) return;
 
-    // Spell check apenas para mensagens de texto puras (sem arquivos)
-    if (text.trim() && files.length === 0 && text.trim().length >= 5) {
-      setSpellChecking(true);
-      try {
-        const { data } = await spellCheckMessage(text.trim());
-        if (data.corrected && data.corrected !== text.trim()) {
-          setSpellChecking(false);
-          setSpellModal({ original: text.trim(), corrected: data.corrected });
-          return; // Para o envio e exibe o modal
-        }
-      } catch (_) { /* silencioso, não bloqueia */ }
-      setSpellChecking(false);
-    }
 
     if (files.length > 0) {
       const currentFiles = [...files];
@@ -332,7 +367,6 @@ export default function Inbox() {
     const qId = replyingTo?.externalId;
     setText('');
     setFiles([]);
-    setSpellModal(null);
     setReplyingTo(null);
     try {
       if (attachment) {
@@ -846,7 +880,7 @@ export default function Inbox() {
                         }
                       }}
                       placeholder={isMobile ? "Mensagem..." : "Digite sua mensagem..."}
-                      spellCheck={true}
+                      spellCheck={false}
                     />
                   </div>
                   
@@ -864,7 +898,7 @@ export default function Inbox() {
                     onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
                     onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
                   >
-                    {spellChecking ? '⏳' : (!text.trim() && files.length === 0) ? '🎤' : '➤'}
+                    {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
                   </button>
                 </>
               )}
@@ -913,45 +947,6 @@ export default function Inbox() {
         </div>
       )}
 
-      {/* Modal de Correção Ortográfica */}
-      {spellModal && (
-        <div style={s.overlay} onClick={() => setSpellModal(null)}>
-          <div style={{ ...s.modal, maxWidth: '480px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={s.modalHeader}>
-              <h3 style={{ margin: 0 }}>✍️ Correção Sugerida</h3>
-              <button onClick={() => setSpellModal(null)}>✕</button>
-            </div>
-            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: '#717171', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Original</div>
-                <div style={{ background: '#0F0F0F', border: '1px solid #333', borderRadius: '10px', padding: '0.75rem', color: '#A0A0A0', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                  {spellModal.original}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: '#D4AF37', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>✅ Corrigido pela IA</div>
-                <div style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500 }}>
-                  {spellModal.corrected}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: '1px solid #333', background: 'transparent', color: '#A0A0A0', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
-                  onClick={() => doSend(spellModal.original, null)}
-                >
-                  Enviar Original
-                </button>
-                <button
-                  style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#D4AF37', color: '#000', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 }}
-                  onClick={() => { setText(spellModal.corrected); doSend(spellModal.corrected, null); }}
-                >
-                  ✅ Usar Correção
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {transferModal && (
         <TransferModal 

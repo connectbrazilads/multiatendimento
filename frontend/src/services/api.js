@@ -79,7 +79,6 @@ export const createTicket = (contactId) => api.post('/tickets', { contactId });
 export const summarizeTicket = (id) => api.post(`/tickets/${id}/summarize`);
 export const reopenTicket = (contactId) => api.post('/tickets/reopen', { contactId });
 export const updateTicket = (id, data) => api.patch(`/tickets/${id}`, data);
-export const spellCheckMessage = (text) => api.post('/tickets/spellcheck', { text });
 export const sendMediaMessage = (ticketId, file, caption = '', quotedMsgId = null) => {
   const form = new FormData();
   form.append('file', file);

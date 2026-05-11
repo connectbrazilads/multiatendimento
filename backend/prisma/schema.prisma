@@ -169,6 +169,7 @@ model Contact {
   serviceOrders ServiceOrder[]
 
   @@unique([tenantId, instanceId, phone])
+  @@index([tenantId, phone])
 }
 
 model Ticket {
@@ -208,6 +209,9 @@ model Ticket {
   serviceOrders ServiceOrder[]
 
   @@index([tenantId])
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, agentId, status])
+  @@index([tenantId, teamId, status])
   @@index([instanceId])
   @@index([contactId])
   @@index([status])
@@ -224,6 +228,8 @@ model TicketEvent {
   createdAt DateTime @default(now())
   ticket    Ticket   @relation(fields: [ticketId], references: [id])
   user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([ticketId, createdAt])
 }
 
 model Knowledge {
@@ -236,6 +242,8 @@ model Knowledge {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, active])
 }
 
 model BusinessHour {
@@ -279,6 +287,7 @@ model Message {
   ticket     Ticket   @relation(fields: [ticketId], references: [id])
 
   @@index([ticketId])
+  @@index([ticketId, createdAt])
   @@index([externalId])
   @@index([createdAt])
 }
