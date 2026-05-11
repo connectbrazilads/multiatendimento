@@ -1336,10 +1336,12 @@ function TransferModal({ users, teams, onClose, onTransfer }) {
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.modal} onClick={e => e.stopPropagation()}>
-        <div style={s.modalHeader}><h3>Transferir Chat</h3><button onClick={onClose}>✕</button></div>
+        <div style={s.modalHeader}><h3>Transferir Chat</h3><button onClick={onClose}>X</button></div>
         <div style={s.tabs}><button onClick={() => setTarget('users')} style={{ ...s.tab, ...(target === 'users' ? s.tabActive : {}) }}>Agentes</button><button onClick={() => setTarget('teams')} style={{ ...s.tab, ...(target === 'teams' ? s.tabActive : {}) }}>Equipes</button></div>
         <div style={{ padding: '1rem', maxHeight: 300, overflowY: 'auto' }}>
-          {target === 'users' ? users.map(u => <div key={u.id} style={s.transferRow} onClick={() => onTransfer(u.id, null)}><Avatar name={u.name} size={30} />{u.name}</div>) : teams.map(t => <div key={t.id} style={s.transferRow} onClick={() => onTransfer(null, t.id)}>👥 {t.name}</div>)}
+          {target === 'users'
+            ? users.map(u => <div key={u.id} style={s.transferRow} onClick={() => onTransfer(u.id, null)}><Avatar name={u.name} size={30} />{u.name}</div>)
+            : teams.map(t => <div key={t.id} style={s.transferRow} onClick={() => onTransfer(null, t.id)}>Equipe: {t.name}</div>)}
         </div>
       </div>
     </div>
