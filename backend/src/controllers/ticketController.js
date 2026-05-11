@@ -7,22 +7,7 @@ let io;
 function setIo(socketIo) { io = socketIo; }
 
 async function getUserVisibilityFilter(user) {
-  if (user.role === 'admin') return null;
-
-  const userTeams = await prisma.teamMember.findMany({
-    where: { userId: user.userId },
-    select: { teamId: true }
-  });
-
-  const teamIds = userTeams.map((item) => item.teamId);
-
-  return {
-    OR: [
-      { teamId: { in: teamIds } },
-      { teamId: null },
-      { agentId: user.userId }
-    ]
-  };
+  return null;
 }
 
 function buildWhere(conditions) {
