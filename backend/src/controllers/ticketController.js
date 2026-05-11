@@ -6,84 +6,84 @@ const fs = require('fs');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
+async function getUserVisibilityFilter(user) {
+  if (user.role === 'admin') return null;
+
+  const userTeams = await prisma.teamMember.findMany({
+    where: { userId: user.userId },
+    select: { teamId: true }
+  });
+
+  const teamIds = userTeams.map((item) => item.teamId);
+
+  return {
+    OR: [
+      { teamId: { in: teamIds } },
+      { teamId: null },
+      { agentId: user.userId }
+    ]
+  };
+}
+
+function buildWhere(conditions) {
+  const filtered = conditions.filter(Boolean);
+  if (filtered.length === 1) return filtered[0];
+  return { AND: filtered };
+}
+
 async function list(req, res) {
   const { status, mine, priority, agentId, teamId, search } = req.query;
-  const where = { tenantId: req.user.tenantId };
+  const visibilityFilter = await getUserVisibilityFilter(req.user);
+  const pendingCondition = {
+    OR: [
+      { status: { in: ['pending', 'bot'] } },
+      { status: 'open', agentId: null }
+    ]
+  };
+  const conditions = [{ tenantId: req.user.tenantId }];
   
-  if (req.user.role !== 'admin') {
-    const userTeams = await prisma.teamMember.findMany({
-      where: { userId: req.user.userId },
-      select: { teamId: true }
-    });
-    const teamIds = userTeams.map(ut => ut.teamId);
-
-    if (mine === 'true') {
-      where.agentId = req.user.userId;
-    } else {
-      where.OR = [
-        { teamId: { in: teamIds } },
-        { teamId: null },
-        { agentId: req.user.userId }
-      ];
-    }
+  if (mine === 'true') {
+    conditions.push({ agentId: req.user.userId });
+  } else if (visibilityFilter) {
+    conditions.push(visibilityFilter);
   }
 
   if (status) {
     if (status === 'pending') {
-      const pendingCondition = {
-        OR: [
-          { status: { in: ['pending', 'bot'] } },
-          { status: 'open', agentId: null }
-        ]
-      };
-      if (where.OR) {
-        where.AND = [{ OR: where.OR }, pendingCondition];
-        delete where.OR;
-      } else {
-        where.OR = pendingCondition.OR;
-      }
+      conditions.push(pendingCondition);
     } else if (status === 'all') {
       // "Contatos" - Mostra resolvidos e todos os em atendimento (independente de quem atende)
-      where.status = { in: ['resolved', 'open'] };
+      conditions.push({ status: { in: ['resolved', 'open'] } });
     } else {
-      where.status = status;
+      conditions.push({ status });
     }
   } else if (mine === 'true') {
-    where.status = 'open';
+    conditions.push({ status: 'open' });
   }
   
-  if (mine === 'true') {
-    where.agentId = req.user.userId;
-  } else if (agentId) {
-    where.agentId = agentId;
+  if (mine !== 'true' && agentId) {
+    conditions.push({ agentId });
   }
 
   if (teamId) {
-    where.teamId = teamId;
+    conditions.push({ teamId });
   }
 
   if (priority) {
-    where.priority = priority;
+    conditions.push({ priority });
   }
 
   if (search) {
-    const searchFilter = [
-      { contact: { name: { contains: search, mode: 'insensitive' } } },
-      { contact: { fantasyName: { contains: search, mode: 'insensitive' } } },
-      { contact: { phone: { contains: search } } }
-    ];
-    if (where.OR) {
-      // Se já houver OR (filtro de equipe), faz um AND entre o filtro de equipe e a busca
-      const teamFilter = where.OR;
-      delete where.OR;
-      where.AND = [
-        { OR: teamFilter },
-        { OR: searchFilter }
-      ];
-    } else {
-      where.OR = searchFilter;
-    }
+    conditions.push({
+      OR: [
+        { contact: { name: { contains: search, mode: 'insensitive' } } },
+        { contact: { fantasyName: { contains: search, mode: 'insensitive' } } },
+        { contact: { phone: { contains: search } } }
+      ]
+    });
   }
+
+  const where = buildWhere(conditions);
 
   let tickets = await prisma.ticket.findMany({
     where,
@@ -100,17 +100,27 @@ async function list(req, res) {
   // Busca as contagens globais para os badges
   const [countMine, countPending, countResolved, countAll] = await Promise.all([
     prisma.ticket.count({ where: { tenantId: req.user.tenantId, agentId: req.user.userId, status: 'open' } }),
-    prisma.ticket.count({ 
-      where: { 
-        tenantId: req.user.tenantId, 
-        OR: [
-          { status: { in: ['pending', 'bot'] } },
-          { status: 'open', agentId: null }
-        ]
-      } 
+    prisma.ticket.count({
+      where: buildWhere([
+        { tenantId: req.user.tenantId },
+        visibilityFilter,
+        pendingCondition
+      ])
     }),
-    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: 'resolved' } }),
-    prisma.ticket.count({ where: { tenantId: req.user.tenantId, status: { in: ['resolved', 'open'] } } })
+    prisma.ticket.count({
+      where: buildWhere([
+        { tenantId: req.user.tenantId },
+        visibilityFilter,
+        { status: 'resolved' }
+      ])
+    }),
+    prisma.ticket.count({
+      where: buildWhere([
+        { tenantId: req.user.tenantId },
+        visibilityFilter,
+        { status: { in: ['resolved', 'open'] } }
+      ])
+    })
   ]);
 
   res.json({
