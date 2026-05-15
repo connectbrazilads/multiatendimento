@@ -8,7 +8,7 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
-import { fmt, statusColor, statusLabel } from './helpers.jsx';
+import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
 function getSafeTags(rawTags) {
   if (!rawTags) return [];
