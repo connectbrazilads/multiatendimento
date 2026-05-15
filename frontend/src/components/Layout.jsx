@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 import {
@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Zap,
   Bell,
+  ChevronDown,
 } from 'lucide-react';
 import { getMe, getMediaUrl } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -25,9 +26,12 @@ import ToastContainer from './ToastContainer';
 
 export default function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [notification, setNotification] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const audioRef = React.useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'));
+  const desktopMenuRef = React.useRef(null);
   const role = localStorage.getItem('role')?.toLowerCase();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const isMobile = useIsMobile();
@@ -111,6 +115,24 @@ export default function Layout() {
     return () => socket.disconnect();
   }, []);
 
+  React.useEffect(() => {
+    function handlePointerDown(event) {
+      if (desktopMenuRef.current && !desktopMenuRef.current.contains(event.target)) {
+        setDesktopMenuOpen(false);
+      }
+    }
+
+    if (desktopMenuOpen) {
+      document.addEventListener('mousedown', handlePointerDown);
+    }
+
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [desktopMenuOpen]);
+
+  React.useEffect(() => {
+    setDesktopMenuOpen(false);
+  }, [location.pathname]);
+
   const desktopLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', roles: ['admin', 'agent', 'superadmin'] },
@@ -126,6 +148,10 @@ export default function Layout() {
   ];
 
   const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
+  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/internal-chat', '/connections', '/contacts', '/campaigns'];
+  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryDesktopRoutes.includes(link.to));
+  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryDesktopRoutes.includes(link.to));
+  const secondaryMenuActive = secondaryDesktopLinks.some((link) => location.pathname === link.to);
 
   const mobileLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
@@ -136,6 +162,11 @@ export default function Layout() {
 
   return (
     <div style={styles.root}>
+      <style>{`
+        .desktop-nav-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       <nav style={{ ...styles.nav, padding: isMobile ? '0 1rem' : '0 1.5rem' }}>
         <div style={styles.brandGroup}>
           {tenant?.logoUrl ? (
@@ -160,13 +191,48 @@ export default function Layout() {
         </div>
 
         {!isMobile ? (
-          <div style={styles.links}>
-            {visibleDesktopLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-                {link.icon}
-                {link.label}
-              </NavLink>
-            ))}
+          <div style={styles.centerNav}>
+            <div style={{ ...styles.links }} className="desktop-nav-scroll">
+              {primaryDesktopLinks.map((link) => (
+                <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  {link.icon}
+                  {link.label}
+                </NavLink>
+              ))}
+            </div>
+
+            {secondaryDesktopLinks.length > 0 ? (
+              <div ref={desktopMenuRef} style={styles.moreMenuWrap}>
+                <button
+                  type="button"
+                  onClick={() => setDesktopMenuOpen((previous) => !previous)}
+                  style={{ ...styles.link, ...styles.moreMenuBtn, ...((desktopMenuOpen || secondaryMenuActive) ? styles.linkActive : {}) }}
+                >
+                  Mais
+                  <ChevronDown size={16} style={{ transform: desktopMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                </button>
+
+                {desktopMenuOpen ? (
+                  <div style={styles.moreMenuDropdown}>
+                    {secondaryDesktopLinks.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        end={link.to === '/dashboard'}
+                        onClick={() => setDesktopMenuOpen(false)}
+                        style={({ isActive }) => ({
+                          ...styles.moreMenuItem,
+                          ...(isActive ? styles.moreMenuItemActive : {}),
+                        })}
+                      >
+                        {link.icon}
+                        {link.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -233,7 +299,7 @@ const styles = {
     color: 'var(--text-main)',
     flexShrink: 0,
   },
-  brandGroup: { display: 'flex', alignItems: 'center', gap: '0.75rem', marginRight: 'auto' },
+  brandGroup: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 },
   brandIcon: {
     width: '34px',
     height: '34px',
@@ -249,7 +315,8 @@ const styles = {
   },
   brand: { fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' },
   proTag: { color: 'var(--accent)', fontSize: '0.62rem', verticalAlign: 'top', marginLeft: '0.2rem' },
-  links: { display: 'flex', gap: '0.45rem', flexWrap: 'wrap' },
+  centerNav: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.65rem', justifyContent: 'center' },
+  links: { display: 'flex', gap: '0.45rem', minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' },
   link: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -261,6 +328,8 @@ const styles = {
     fontSize: '0.88rem',
     fontWeight: 600,
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   linkActive: {
     background: 'var(--accent-light)',
@@ -268,7 +337,40 @@ const styles = {
     fontWeight: 700,
     boxShadow: 'inset 0 0 0 1px var(--accent-border)',
   },
-  rightActions: { display: 'flex', alignItems: 'center', gap: '0.8rem' },
+  moreMenuWrap: { position: 'relative', flexShrink: 0 },
+  moreMenuBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)' },
+  moreMenuDropdown: {
+    position: 'absolute',
+    top: 'calc(100% + 0.6rem)',
+    right: 0,
+    minWidth: '220px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '18px',
+    padding: '0.5rem',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.22)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
+    zIndex: 1200,
+  },
+  moreMenuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.75rem 0.9rem',
+    borderRadius: '12px',
+    textDecoration: 'none',
+    color: 'var(--text-muted)',
+    fontWeight: 700,
+    fontSize: '0.88rem',
+  },
+  moreMenuItemActive: {
+    background: 'var(--accent-light)',
+    color: 'var(--accent)',
+    boxShadow: 'inset 0 0 0 1px var(--accent-border)',
+  },
+  rightActions: { display: 'flex', alignItems: 'center', gap: '0.8rem', flexShrink: 0 },
   themeBtn: {
     background: 'transparent',
     border: '1px solid var(--border-color)',

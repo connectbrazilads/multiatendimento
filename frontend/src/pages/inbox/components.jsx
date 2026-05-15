@@ -8,6 +8,7 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
+import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
 function getSafeTags(rawTags) {
@@ -52,6 +53,21 @@ function getContactDisplayName(contact, fallback = 'Desconhecido') {
 
 function getContactPhone(contact, fallback = '') {
   return getSafeText(contact?.phone, fallback);
+}
+
+async function copyText(text, successMessage = 'Copiado com sucesso') {
+  const value = getSafeText(text).trim();
+  if (!value) {
+    toast.info('Nada para copiar');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success(successMessage);
+  } catch {
+    toast.error('Nao foi possivel copiar');
+  }
 }
 
 class MessageRenderErrorBoundary extends React.Component {
@@ -270,6 +286,27 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
     updateContact(contact.id, { tags: JSON.stringify(updated) }).then(onUpdate);
   }
 
+  function buildContactSnapshot() {
+    const location = [city, state].filter(Boolean).join(' - ');
+    const equipmentsText = equipments
+      .map((equipment) => {
+        const manufacturer = getSafeText(equipment.manufacturer);
+        const model = getSafeText(equipment.model, 'Equipamento');
+        const serial = getSafeText(equipment.serialNumber, 'S/N');
+        return `${manufacturer ? `${manufacturer} ` : ''}${model} | Serie: ${serial}`;
+      })
+      .join('\n');
+
+    return [
+      `Cliente: ${contactName}`,
+      `Telefone: ${contactPhone}`,
+      location ? `Localizacao: ${location}` : '',
+      tags.length ? `Etiquetas: ${tags.join(', ')}` : '',
+      notes ? `Notas:\n${notes}` : '',
+      equipmentsText ? `Equipamentos:\n${equipmentsText}` : '',
+    ].filter(Boolean).join('\n\n');
+  }
+
   return (
     <div
       style={{
@@ -302,10 +339,22 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               CRM {contact.fantasyName}
             </div>
           ) : null}
-          <div style={styles.infoPhone}>{contactPhone}</div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <div style={styles.infoBadge}>WhatsApp</div>
-            <button onClick={onLinkCRM} style={{ ...styles.infoBadge, background: 'var(--accent)', color: '#000', cursor: 'pointer', border: 'none' }}>
+          <button
+            type="button"
+            onClick={() => copyText(contactPhone, 'Telefone copiado')}
+            style={{ ...styles.infoPhone, ...styles.infoPhoneButton }}
+            title="Copiar telefone"
+          >
+            {contactPhone}
+          </button>
+          <div style={styles.infoActionRow}>
+            <button type="button" onClick={() => copyText(contactName, 'Nome copiado')} style={styles.infoActionBtn}>
+              Copiar nome
+            </button>
+            <button type="button" onClick={() => copyText(buildContactSnapshot(), 'Ficha copiada')} style={styles.infoActionBtn}>
+              Copiar ficha
+            </button>
+            <button onClick={onLinkCRM} style={{ ...styles.infoActionBtn, ...styles.infoActionBtnPrimary }}>
               Vincular CRM
             </button>
           </div>
@@ -1003,17 +1052,21 @@ export function MessageComposer({
               <button style={styles.stopBtn} onClick={stopRecording}>Parar e Enviar</button>
             </div>
           ) : (
-            <>
-              <button style={{ ...styles.attachBtn, fontSize: isMobile ? '1.1rem' : '1.4rem' }} onClick={() => document.getElementById('fileInput').click()}>Anexo</button>
-              <input type="file" id="fileInput" hidden multiple onChange={(event) => setFiles((previous) => [...previous, ...Array.from(event.target.files)])} />
-
-              {!isMobile && (
-                <button style={{ ...styles.attachBtn, fontSize: '1rem' }} onClick={() => setShowScheduling((previous) => !previous)}>
-                  Agendar
+            <div style={styles.composerShell}>
+              <div style={styles.composerToolbar}>
+                <button type="button" style={styles.composerActionBtn} onClick={() => document.getElementById('fileInput').click()}>
+                  Anexo
                 </button>
-              )}
+                <input type="file" id="fileInput" hidden multiple onChange={(event) => setFiles((previous) => [...previous, ...Array.from(event.target.files)])} />
 
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {!isMobile && (
+                  <button type="button" style={styles.composerActionBtnMuted} onClick={() => setShowScheduling((previous) => !previous)}>
+                    Agendar
+                  </button>
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {files.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {files.map((file, index) => (
@@ -1027,44 +1080,47 @@ export function MessageComposer({
                     ))}
                   </div>
                 )}
-                <textarea
-                  style={{ ...styles.textInput, height: 'auto', minHeight: '40px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }}
-                  rows={1}
-                  value={text}
-                  onChange={(event) => {
-                    handleInput(event.target.value);
-                    event.target.style.height = 'auto';
-                    event.target.style.height = `${event.target.scrollHeight}px`;
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      handleSend();
-                      event.target.style.height = '40px';
-                    }
-                  }}
-                  placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
-                  spellCheck={false}
-                />
-              </div>
 
-              <button
-                style={{
-                  ...styles.sendBtn,
-                  width: isMobile ? '40px' : '45px',
-                  height: isMobile ? '40px' : '45px',
-                  background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
-                  border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
-                  color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
-                  fontSize: isMobile ? '1.1rem' : '1.2rem',
-                }}
-                onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
-                onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
-                onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
-              >
-                {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
-              </button>
-            </>
+                <div style={styles.composerInputRow}>
+                  <textarea
+                    style={{ ...styles.textInput, height: 'auto', minHeight: '48px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }}
+                    rows={1}
+                    value={text}
+                    onChange={(event) => {
+                      handleInput(event.target.value);
+                      event.target.style.height = 'auto';
+                      event.target.style.height = `${event.target.scrollHeight}px`;
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleSend();
+                        event.target.style.height = '48px';
+                      }
+                    }}
+                    placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
+                    spellCheck={false}
+                  />
+
+                  <button
+                    style={{
+                      ...styles.sendBtn,
+                      width: isMobile ? '44px' : '48px',
+                      height: isMobile ? '44px' : '48px',
+                      background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
+                      border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
+                      color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
+                      fontSize: isMobile ? '1rem' : '1.1rem',
+                    }}
+                    onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
+                    onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
+                    onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
+                  >
+                    {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
