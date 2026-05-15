@@ -90,6 +90,7 @@ export default function Inbox() {
   const [showScheduling, setShowScheduling] = useState(false);
   const [scheduleData, setScheduleData] = useState({ body: '', sendAt: '' });
   const [previewImg, setPreviewImg] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [view, setView] = useState('list'); // 'list' or 'chat'
@@ -217,6 +218,24 @@ export default function Inbox() {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
     }, 100);
+  }
+
+  function openPreviewImage(url) {
+    setPreviewZoom(1);
+    setPreviewImg(url);
+  }
+
+  function closePreviewImage() {
+    setPreviewImg(null);
+    setPreviewZoom(1);
+  }
+
+  function handlePreviewWheel(event) {
+    event.preventDefault();
+    setPreviewZoom((previous) => {
+      const next = previous + (event.deltaY < 0 ? 0.12 : -0.12);
+      return Math.min(4, Math.max(0.6, Number(next.toFixed(2))));
+    });
   }
 
   const [botName, setBotName] = useState('Robo');
@@ -517,12 +536,12 @@ export default function Inbox() {
                 handleLoadMoreMessages={handleLoadMoreMessages}
                 hasMoreMessages={hasMoreMessages}
                 loading={loading}
-                loadingMoreMessages={loadingMoreMessages}
-                messages={messages}
-                onImageClick={setPreviewImg}
-                scrollRef={scrollRef}
-                selectedTicket={selectedTicket}
-                setForwardingMessage={setForwardingMessage}
+              loadingMoreMessages={loadingMoreMessages}
+              messages={messages}
+              onImageClick={openPreviewImage}
+              scrollRef={scrollRef}
+              selectedTicket={selectedTicket}
+              setForwardingMessage={setForwardingMessage}
                 setReplyingTo={setReplyingTo}
                 styles={s}
               />
@@ -568,7 +587,7 @@ export default function Inbox() {
             ticket={selectedTicket} 
             onClose={() => setShowInfo(false)} 
             onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}
-            onImageClick={setPreviewImg}
+            onImageClick={openPreviewImage}
             isMobile={isMobile}
             onLinkCRM={() => setLinkModal(true)}
             styles={s}
@@ -592,8 +611,16 @@ export default function Inbox() {
       )}
 
       {previewImg && (
-        <div style={s.overlay} onClick={() => setPreviewImg(null)}>
-          <img src={previewImg} alt="Preview" style={s.previewImg} />
+        <div style={s.overlay} onClick={closePreviewImage}>
+          <div style={s.previewToolbar} onClick={(event) => event.stopPropagation()}>
+            <span style={s.previewHint}>Scroll para zoom</span>
+            <button type="button" style={s.previewZoomBtn} onClick={() => setPreviewZoom((previous) => Math.max(0.6, Number((previous - 0.2).toFixed(2))))}>-</button>
+            <button type="button" style={s.previewZoomValue} onClick={() => setPreviewZoom(1)}>{Math.round(previewZoom * 100)}%</button>
+            <button type="button" style={s.previewZoomBtn} onClick={() => setPreviewZoom((previous) => Math.min(4, Number((previous + 0.2).toFixed(2))))}>+</button>
+          </div>
+          <div style={s.previewViewport} onWheel={handlePreviewWheel} onClick={(event) => event.stopPropagation()}>
+            <img src={previewImg} alt="Preview" style={{ ...s.previewImg, transform: `scale(${previewZoom})` }} />
+          </div>
         </div>
       )}
 
@@ -795,7 +822,12 @@ const s = {
   modalInput: { width: '100%', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1rem', color: 'var(--text-main)', fontSize: '1rem', outline: 'none' },
   saveBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' },
 
-  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: '24px', boxShadow: 'var(--shadow-lg)' },
+  previewViewport: { maxWidth: '92vw', maxHeight: '88vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' },
+  previewToolbar: { position: 'absolute', top: '1.5rem', right: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(10,10,10,0.72)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '0.45rem 0.55rem', zIndex: 2, backdropFilter: 'blur(8px)' },
+  previewHint: { color: '#fff', fontSize: '0.8rem', fontWeight: 700, padding: '0 0.35rem' },
+  previewZoomBtn: { width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 900 },
+  previewZoomValue: { minWidth: '58px', height: '34px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 800, padding: '0 0.75rem' },
+  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: '24px', boxShadow: 'var(--shadow-lg)', transition: 'transform 0.12s ease-out', transformOrigin: 'center center' },
   summaryCard: { margin: '0 2rem 1.5rem', background: 'rgba(155, 89, 182, 0.08)', border: '1px solid rgba(155, 89, 182, 0.2)', borderRadius: '20px', padding: '1.5rem' },
   summaryHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 900, color: '#9b59b6', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em' },
   summaryBody: { fontSize: '0.95rem', color: '#b794f4', lineHeight: '1.6' },

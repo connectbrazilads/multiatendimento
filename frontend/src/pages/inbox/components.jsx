@@ -8,6 +8,7 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
+import { Mic, SendHorizontal } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
@@ -1058,12 +1059,6 @@ export function MessageComposer({
                   Anexo
                 </button>
                 <input type="file" id="fileInput" hidden multiple onChange={(event) => setFiles((previous) => [...previous, ...Array.from(event.target.files)])} />
-
-                {!isMobile && (
-                  <button type="button" style={styles.composerActionBtnMuted} onClick={() => setShowScheduling((previous) => !previous)}>
-                    Agendar
-                  </button>
-                )}
               </div>
 
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1116,7 +1111,7 @@ export function MessageComposer({
                     onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
                     onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
                   >
-                    {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
+                    {(!text.trim() && files.length === 0) ? <Mic size={18} strokeWidth={2.4} /> : <SendHorizontal size={18} strokeWidth={2.4} />}
                   </button>
                 </div>
               </div>
