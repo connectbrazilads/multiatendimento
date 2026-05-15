@@ -65,13 +65,15 @@ export function Avatar({ name, src, size = 40 }) {
 }
 
 function AudioPlayer({ src, fromMe, transcription, styles }) {
+  const transcriptionText = getSafeText(transcription);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <audio controls style={{ height: 32, maxWidth: 200, filter: fromMe ? 'invert(1) hue-rotate(180deg)' : 'none' }}>
         <source src={src} type="audio/ogg; codecs=opus" />
         <source src={src} type="audio/mpeg" />
       </audio>
-      {transcription ? (
+      {transcriptionText ? (
         <div
           style={{
             ...styles.transcription,
@@ -79,7 +81,7 @@ function AudioPlayer({ src, fromMe, transcription, styles }) {
             color: fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
           }}
         >
-          {transcription}
+          {transcriptionText}
         </div>
       ) : null}
     </div>
@@ -134,12 +136,13 @@ export function MediaContent({ message, onImageClick, styles }) {
   if (url && message.mediaType === 'audio') return <AudioPlayer src={url} fromMe={message.fromMe} transcription={message.transcription} styles={styles} />;
   if (url && message.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
   if (url && message.mediaType === 'document') {
-    const isPdf = message.fileName?.toLowerCase().endsWith('.pdf');
+    const fileName = getSafeText(message.fileName, 'Arquivo');
+    const isPdf = fileName.toLowerCase().endsWith('.pdf');
     return (
       <a href={url} target="_blank" rel="noreferrer" style={styles.pdfCard}>
         <div style={styles.pdfIcon}>{isPdf ? 'PDF' : 'DOC'}</div>
         <div style={styles.pdfInfo}>
-          <div style={styles.pdfName}>{message.fileName || 'Arquivo'}</div>
+          <div style={styles.pdfName}>{fileName}</div>
           <div style={styles.pdfSize}>{isPdf ? 'Documento PDF' : 'Documento'}</div>
         </div>
       </a>
