@@ -57,11 +57,14 @@ function getContactPhone(contact, fallback = '') {
 class MessageRenderErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: '' };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Erro desconhecido',
+    };
   }
 
   componentDidCatch(error) {
@@ -87,6 +90,9 @@ class MessageRenderErrorBoundary extends React.Component {
             }}
           >
             Uma mensagem deste historico nao pode ser exibida, mas a conversa continua disponivel.
+            <div style={{ marginTop: '0.35rem', fontSize: '0.78rem', fontWeight: 600, opacity: 0.92 }}>
+              {this.state.errorMessage}
+            </div>
           </div>
         </div>
       );

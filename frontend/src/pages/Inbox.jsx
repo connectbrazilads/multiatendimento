@@ -30,11 +30,14 @@ import { useInboxMessages, useInboxRealtime, useInboxTickets } from './inbox/hoo
 class InboxSectionErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: '' };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Erro desconhecido',
+    };
   }
 
   componentDidCatch(error) {
@@ -57,6 +60,9 @@ class InboxSectionErrorBoundary extends React.Component {
           }}
         >
           Nao foi possivel exibir a secao "{this.props.label}" desta conversa, mas o restante da tela continua disponivel.
+          <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', fontWeight: 600, opacity: 0.92 }}>
+            Erro: {this.state.errorMessage}
+          </div>
         </div>
       );
     }
