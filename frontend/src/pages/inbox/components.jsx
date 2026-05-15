@@ -30,6 +30,18 @@ function getInstanceLabel(ticket) {
   return label.toUpperCase();
 }
 
+function getSafeText(value, fallback = '') {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value == null) return fallback;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+}
+
 export function Avatar({ name, src, size = 40 }) {
   const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
   if (src) return <img src={src} alt={name} style={base} />;
@@ -644,6 +656,9 @@ export function MessageList({
             </div>
           )}
           {messages.map((message, index) => {
+            const quotedText = getSafeText(message.quotedMsgBody);
+            const bodyText = getSafeText(message.body);
+
             if (message._separator) {
               return (
                 <div key={`sep-${index}`} style={styles.separator}>
@@ -756,7 +771,7 @@ export function MessageList({
                     )}
                   </div>
 
-                  {message.quotedMsgBody && (
+                  {quotedText && (
                     <div
                       style={{
                         background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
@@ -773,12 +788,12 @@ export function MessageList({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {message.quotedMsgBody}
+                      {quotedText}
                     </div>
                   )}
 
                   <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
-                  {message.body && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{message.body}</div>}
+                  {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
                   <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
                 </div>
               </div>
@@ -843,7 +858,7 @@ export function MessageComposer({
                 Respondendo a {replyingTo.fromMe ? 'voce' : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'cliente')}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {replyingTo.body || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
+                {getSafeText(replyingTo.body) || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
               </div>
             </div>
             <button onClick={() => setReplyingTo(null)} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1rem', padding: '0 8px' }}>X</button>

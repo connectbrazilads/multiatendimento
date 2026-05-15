@@ -97,6 +97,18 @@ export default function Inbox() {
     shouldScrollToBottomRef,
   });
 
+  function normalizeText(value) {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (value == null) return '';
+
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '';
+    }
+  }
+
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -213,9 +225,13 @@ export default function Inbox() {
 
   async function handleCopyMessage(message) {
     const parts = [];
-    if (message.quotedMsgBody) parts.push(`Respondendo: ${message.quotedMsgBody}`);
-    if (message.body) parts.push(message.body);
-    if (message.transcription) parts.push(`Transcricao: ${message.transcription}`);
+    const quotedText = normalizeText(message.quotedMsgBody);
+    const bodyText = normalizeText(message.body);
+    const transcriptionText = normalizeText(message.transcription);
+
+    if (quotedText) parts.push(`Respondendo: ${quotedText}`);
+    if (bodyText) parts.push(bodyText);
+    if (transcriptionText) parts.push(`Transcricao: ${transcriptionText}`);
     if (!parts.length) return toast.info('Nada para copiar nesta mensagem');
 
     try {
