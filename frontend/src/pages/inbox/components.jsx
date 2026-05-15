@@ -10,6 +10,26 @@ import api, {
 } from '../../services/api';
 import { fmt, statusColor, statusLabel } from './helpers.jsx';
 
+function getSafeTags(rawTags) {
+  if (!rawTags) return [];
+
+  try {
+    const parsed = JSON.parse(rawTags);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInstanceLabel(ticket) {
+  const rawName = ticket?.instance?.instanceName;
+  if (!rawName) return 'Sem instancia';
+
+  const parts = rawName.split('_');
+  const label = parts[parts.length - 1] || rawName;
+  return label.toUpperCase();
+}
+
 export function Avatar({ name, src, size = 40 }) {
   const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
   if (src) return <img src={src} alt={name} style={base} />;
@@ -470,14 +490,14 @@ export function TicketSidebar({
               <div style={styles.rowSub}>
                 <span style={{ ...styles.dot, background: statusColor(ticket.status), color: statusColor(ticket.status) }} />
                 <span style={styles.rowMsg}>
-                  {ticket.instance?.instanceName?.split('_').pop().toUpperCase()} - {statusLabel(ticket.status)}
+                  {getInstanceLabel(ticket)} - {statusLabel(ticket.status)}
                 </span>
                 {ticket.unreadCount > 0 && <div style={styles.unreadBadge}>{ticket.unreadCount}</div>}
               </div>
 
-              {ticket.contact?.tags && (
+              {getSafeTags(ticket.contact?.tags).length > 0 && (
                 <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
-                  {JSON.parse(ticket.contact.tags).slice(0, 2).map((tag) => (
+                  {getSafeTags(ticket.contact?.tags).slice(0, 2).map((tag) => (
                     <span
                       key={tag}
                       style={{

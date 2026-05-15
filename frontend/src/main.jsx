@@ -58,39 +58,99 @@ function RouteFallback() {
   );
 }
 
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('[frontend] erro de renderizacao:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--bg-base)',
+            color: 'var(--text-main)',
+            gap: '1rem',
+            padding: '2rem',
+            textAlign: 'center',
+          }}
+        >
+          <h2 style={{ margin: 0 }}>Nao foi possivel carregar esta tela</h2>
+          <p style={{ margin: 0, color: 'var(--text-muted)', maxWidth: '28rem' }}>
+            Atualize a pagina para carregar a versao mais recente do sistema.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--text-inverse)',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '0.85rem 1.2rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            Atualizar agora
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/:slug/login" element={<Login />} />
+    <AppErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/:slug/login" element={<Login />} />
 
-        <Route
-          element={(
-            <PrivateRoute>
-              <Layout />
-            </PrivateRoute>
-          )}
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route index element={<Dashboard />} />
-          <Route path="/inbox" element={<Inbox />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/teams" element={<Teams />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/internal-chat" element={<InternalChat />} />
-          <Route path="/connections" element={<Connections />} />
-          <Route path="/knowledge" element={<KnowledgeBase />} />
-          <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/os" element={<ServiceOrders />} />
-          <Route path="/quick-responses" element={<QuickResponses />} />
-          <Route path="/superadmin" element={<SuperAdmin />} />
-        </Route>
+          <Route
+            element={(
+              <PrivateRoute>
+                <Layout />
+              </PrivateRoute>
+            )}
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route index element={<Dashboard />} />
+            <Route path="/inbox" element={<Inbox />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/teams" element={<Teams />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/internal-chat" element={<InternalChat />} />
+            <Route path="/connections" element={<Connections />} />
+            <Route path="/knowledge" element={<KnowledgeBase />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/os" element={<ServiceOrders />} />
+            <Route path="/quick-responses" element={<QuickResponses />} />
+            <Route path="/superadmin" element={<SuperAdmin />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </AppErrorBoundary>
   </BrowserRouter>
 );
