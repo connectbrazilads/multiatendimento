@@ -6,6 +6,43 @@ const fs = require('fs');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
+function getMimeTypeFromFileName(fileName = '', mediaType = 'document') {
+  const ext = path.extname(fileName).toLowerCase();
+  const mimeByExt = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.mp4': 'video/mp4',
+    '.mov': 'video/quicktime',
+    '.mkv': 'video/x-matroska',
+    '.webm': 'video/webm',
+    '.3gp': 'video/3gpp',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+
+  if (mimeByExt[ext]) return mimeByExt[ext];
+  if (mediaType === 'image') return 'image/jpeg';
+  if (mediaType === 'video') return 'video/mp4';
+  if (mediaType === 'audio') return 'audio/mpeg';
+  return 'application/octet-stream';
+}
+
+function getRecentConversation(messages = [], hours = 24, maxItems = 30) {
+  const cutoff = Date.now() - (hours * 60 * 60 * 1000);
+  const recent = messages.filter(message => new Date(message.createdAt).getTime() >= cutoff);
+  return recent.slice(-maxItems);
+}
+
 async function getUserVisibilityFilter(user) {
   return null;
 }
@@ -241,11 +278,12 @@ async function assign(req, res) {
          if (settings?.geminiKey && settings?.botEnabled) {
             const history = await prisma.message.findMany({
               where: { ticketId: ticket.id },
-              orderBy: { createdAt: 'desc' },
-              take: 30
+              orderBy: { createdAt: 'asc' },
+              take: 100
             });
-            if (history.length >= 5) { // Só resume se houver conversa mínima
-               const summary = await geminiService.generateTransferSummary(settings.geminiKey, history.reverse());
+            const recentHistory = getRecentConversation(history, 24, 30);
+            if (recentHistory.length >= 5) {
+               const summary = await geminiService.generateTransferSummary(settings.geminiKey, recentHistory);
                if (summary) {
                   await historyService.logEvent({
                     ticketId: ticket.id,
@@ -622,7 +660,7 @@ async function summarize(req, res) {
   const ticket = await prisma.ticket.findFirst({
     where: { id, tenantId: req.user.tenantId },
     include: {
-      messages: { orderBy: { createdAt: 'asc' }, take: 50 },
+      messages: { orderBy: { createdAt: 'asc' }, take: 100 },
       contact: true,
     },
   });
@@ -633,10 +671,13 @@ async function summarize(req, res) {
   if (!settings?.geminiKey) return res.status(400).json({ error: 'IA não configurada para este tenant' });
 
   const geminiService = require('../services/geminiService');
-  const history = ticket.messages;
-  const prompt = `Resuma o histórico desta conversa de atendimento ao cliente com ${ticket.contact.name || ticket.contact.phone}. Identifique o problema principal e o estado atual da resolução. Seja conciso e use tópicos.`;
+  const history = getRecentConversation(ticket.messages, 24, 50);
+  const prompt = `Resuma apenas a conversa mais recente, considerando no maximo as ultimas 24 horas de atendimento com ${ticket.contact.name || ticket.contact.phone}. Identifique o problema principal e o estado atual da resolucao. Seja conciso e use topicos.`;
   
   try {
+    if (history.length === 0) {
+      return res.json({ summary: 'Nao ha mensagens recentes nas ultimas 24 horas para resumir.' });
+    }
     const summary = await geminiService.summarize(settings.geminiKey, 'Você é um supervisor de atendimento. Gere resumos executivos.', history, prompt);
     res.json({ summary });
   } catch (err) {
@@ -792,9 +833,7 @@ async function forwardMessage(req, res) {
       const filePath = path.resolve(__dirname, '..', '..', mediaUrl.startsWith('/') ? mediaUrl.substring(1) : mediaUrl);
       if (fs.existsSync(filePath)) {
         const base64 = (await fs.promises.readFile(filePath)).toString('base64');
-        const mimetype = mediaType === 'image' ? 'image/jpeg' : 
-                         mediaType === 'video' ? 'video/mp4' : 
-                         mediaType === 'audio' ? 'audio/mpeg' : 'application/pdf';
+        const mimetype = getMimeTypeFromFileName(originalMsg.fileName, mediaType);
         
         const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
 
@@ -803,7 +842,10 @@ async function forwardMessage(req, res) {
         } else {
            result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
              mediatype: mediaType === 'document' ? 'document' : mediaType, 
-             media: base64, mimetype, caption: finalCaption
+             media: base64,
+             mimetype,
+             filename: originalMsg.fileName || `${mediaType || 'arquivo'}${path.extname(filePath) || ''}`,
+             caption: finalCaption
            });
         }
       } else {

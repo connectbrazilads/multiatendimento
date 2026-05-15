@@ -65,6 +65,21 @@ export default function Users() {
     } catch { toast.info('Erro ao mudar status'); }
   }
 
+  async function handleDelete(user) {
+    toast.confirm(
+      `Excluir o atendente ${user.name}? Essa ação remove o acesso dele e desvincula atendimentos anteriores.`,
+      async () => {
+        try {
+          await deleteUser(user.id);
+          toast.success('Atendente excluído com sucesso');
+          load();
+        } catch (err) {
+          toast.error(err.response?.data?.error || 'Erro ao excluir atendente');
+        }
+      }
+    );
+  }
+
   const filtered = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? u.active : !u.active);
@@ -149,6 +164,13 @@ export default function Users() {
                         title={u.active ? 'Arquivar' : 'Reativar'}
                       >
                         {u.active ? '🚫' : '✅'}
+                      </button>
+                      <button
+                        style={{ ...s.actionBtn, color: '#ff8a8a', background: 'rgba(229, 62, 62, 0.12)' }}
+                        onClick={() => handleDelete(u)}
+                        title="Excluir atendente"
+                      >
+                        🗑️
                       </button>
                     </div>
                   </td>

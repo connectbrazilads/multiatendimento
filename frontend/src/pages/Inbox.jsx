@@ -106,11 +106,13 @@ export default function Inbox() {
   const tabRef = React.useRef(tab);
   const filtersRef = React.useRef(filters);
   const searchRef = React.useRef(search);
+  const meRef = React.useRef(me);
 
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
   useEffect(() => { tabRef.current = tab; }, [tab]);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
   useEffect(() => { searchRef.current = search; }, [search]);
+  useEffect(() => { meRef.current = me; }, [me]);
   
   const loadTickets = useCallback(async () => {
     try {
@@ -136,10 +138,49 @@ export default function Inbox() {
     }, 2000); 
   }, [loadTickets]);
 
+  const ticketMatchesCurrentView = useCallback((ticket) => {
+    if (!ticket?.id) return false;
+
+    const currentTab = tabRef.current;
+    const currentFilters = filtersRef.current || {};
+    const currentSearch = (searchRef.current || '').trim().toLowerCase();
+    const currentUserId = meRef.current?.id;
+
+    const pendingMatch = ticket.status === 'pending'
+      || ticket.status === 'bot'
+      || (ticket.status === 'open' && !ticket.agentId);
+
+    const tabMatch = currentTab === 'mine'
+      ? ticket.status === 'open' && ticket.agentId === currentUserId
+      : currentTab === 'pending'
+        ? pendingMatch
+        : ['open', 'resolved'].includes(ticket.status);
+
+    if (!tabMatch) return false;
+    if (currentFilters.priority && ticket.priority !== currentFilters.priority) return false;
+    if (currentFilters.agentId && ticket.agentId !== currentFilters.agentId) return false;
+    if (currentFilters.teamId && ticket.teamId !== currentFilters.teamId) return false;
+
+    if (currentSearch) {
+      const name = (ticket.contact?.name || '').toLowerCase();
+      const fantasyName = (ticket.contact?.fantasyName || '').toLowerCase();
+      const phone = (ticket.contact?.phone || '').toLowerCase();
+      if (!name.includes(currentSearch) && !fantasyName.includes(currentSearch) && !phone.includes(currentSearch)) {
+        return false;
+      }
+    }
+
+    return true;
+  }, []);
+
   const upsertTicket = useCallback((incomingTicket) => {
     if (!incomingTicket?.id) return;
 
     setTickets(prev => {
+      if (!ticketMatchesCurrentView(incomingTicket)) {
+        return prev.filter(ticket => ticket.id !== incomingTicket.id);
+      }
+
       const current = prev.find(ticket => ticket.id === incomingTicket.id);
       const merged = {
         ...current,
@@ -153,7 +194,7 @@ export default function Inbox() {
       const withoutCurrent = prev.filter(ticket => ticket.id !== incomingTicket.id);
       return [merged, ...withoutCurrent];
     });
-  }, []);
+  }, [ticketMatchesCurrentView]);
 
   useEffect(() => {
     loadInitial();
@@ -331,6 +372,21 @@ export default function Inbox() {
     );
   }
 
+  async function handleCopyMessage(message) {
+    const parts = [];
+    if (message.quotedMsgBody) parts.push(`Respondendo: ${message.quotedMsgBody}`);
+    if (message.body) parts.push(message.body);
+    if (message.transcription) parts.push(`Transcricao: ${message.transcription}`);
+    if (!parts.length) return toast.info('Nada para copiar nesta mensagem');
+
+    try {
+      await navigator.clipboard.writeText(parts.join('\n\n'));
+      toast.success('Texto copiado');
+    } catch (e) {
+      toast.error('Nao foi possivel copiar o texto');
+    }
+  }
+
   async function handleSend(e) {
     e?.preventDefault();
     if (!text.trim() && files.length === 0) return;
@@ -344,19 +400,22 @@ export default function Inbox() {
       setFiles([]);
       setReplyingTo(null);
       
-      for (let i = 0; i < currentFiles.length; i++) {
-        try {
-          // O primeiro arquivo leva o texto como legenda, os outros vão sem
-          await sendMediaMessage(selectedId, currentFiles[i], i === 0 ? currentText : '', qId);
-          // Pequeno delay para não sobrecarregar o backend/whatsapp
-          if (i < currentFiles.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 800));
+      toast.info(`Enviando ${currentFiles.length} anexo(s) em segundo plano...`);
+      (async () => {
+        for (let i = 0; i < currentFiles.length; i++) {
+          try {
+            await sendMediaMessage(selectedId, currentFiles[i], i === 0 ? currentText : '', qId);
+            if (i < currentFiles.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 350));
+            }
+          } catch (e) {
+            console.error('Erro ao enviar arquivo:', currentFiles[i].name, e);
+            toast.error(`Falha ao enviar ${currentFiles[i].name}`);
           }
-        } catch (e) {
-          console.error('Erro ao enviar arquivo:', currentFiles[i].name, e);
         }
-      }
-      loadMessages();
+        await loadMessages();
+      })();
+      return;
     } else {
       await doSend(text, null);
     }
@@ -704,14 +763,16 @@ export default function Inbox() {
                        <div style={{
                          background: m.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
                          color: m.type === 'resolved' ? '#2ecc71' : m.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
-                         fontSize: '0.65rem',
-                         padding: '6px 16px',
-                         borderRadius: '20px',
+                         fontSize: '0.9rem',
+                         padding: '12px 18px',
+                         borderRadius: '16px',
                          border: `1px solid ${m.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
-                         textTransform: 'uppercase',
-                         letterSpacing: '0.08em',
-                         fontWeight: 600,
-                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                         letterSpacing: '0.01em',
+                         fontWeight: 800,
+                         lineHeight: 1.45,
+                         textAlign: 'center',
+                         boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                         maxWidth: 'min(92%, 760px)'
                        }}>
                           {m.user?.name || 'Sistema'} - {eventLabel} {m.createdAt ? `em ${new Date(m.createdAt).toLocaleDateString('pt-BR')} as ${new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                        </div>
@@ -762,6 +823,13 @@ export default function Inbox() {
                               Resp.
                             </button>
                             <button
+                              onClick={() => handleCopyMessage(m)}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              title="Copiar texto"
+                            >
+                              Cop.
+                            </button>
+                            <button
                               onClick={() => setForwardingMessage(m)}
                               style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
                               title="Encaminhar"
@@ -792,7 +860,7 @@ export default function Inbox() {
                       )}
 
                       <MediaContent message={m} onImageClick={setPreviewImg} />
-                      {m.body && <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: m.fromMe ? 500 : 400, marginTop: m.mediaUrl ? '8px' : 0 }}>{m.body}</div>}
+                      {m.body && <div style={{ ...s.messageText, fontWeight: m.fromMe ? 500 : 400, marginTop: m.mediaUrl ? '8px' : 0 }}>{m.body}</div>}
                       <div style={{ ...s.time, color: m.fromMe ? 'rgba(0,0,0,0.4)' : '#717171' }}>{fmt(m.createdAt)}</div>
                     </div>
                   </div>
@@ -1537,7 +1605,15 @@ const s = {
     flexDirection: 'column', 
     position: 'relative', 
     boxShadow: 'var(--shadow-sm)',
-    lineHeight: 1.5
+    lineHeight: 1.5,
+    userSelect: 'text',
+    WebkitUserSelect: 'text'
+  },
+  messageText: {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    userSelect: 'text',
+    WebkitUserSelect: 'text'
   },
   time: { fontSize: '0.6rem', marginTop: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.5 },
   imgMedia: { maxWidth: '320px', maxHeight: '400px', borderRadius: '16px', cursor: 'pointer', objectFit: 'cover', border: '1px solid var(--border-color)' },
@@ -1546,7 +1622,7 @@ const s = {
   pdfInfo: { display: 'flex', flexDirection: 'column', minWidth: 0 },
   pdfName: { fontSize: '0.9rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   pdfSize: { fontSize: '0.7rem', color: 'var(--text-muted)' },
-  transcription: { fontSize: '0.85rem', fontStyle: 'italic', padding: '10px 14px', marginTop: 10, background: 'var(--border-light)', borderRadius: '12px', border: '1px solid var(--glass-border)' },
+  transcription: { fontSize: '0.85rem', fontStyle: 'italic', padding: '10px 14px', marginTop: 10, background: 'var(--border-light)', borderRadius: '12px', border: '1px solid var(--glass-border)', userSelect: 'text', WebkitUserSelect: 'text' },
   
   inputArea: { padding: '1.5rem 2rem', background: 'transparent', width: '100%', boxSizing: 'border-box', position: 'relative' },
   textInput: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '1rem 1.5rem', color: 'var(--text-main)', outline: 'none', resize: 'none', minHeight: '52px', maxHeight: '150px', fontSize: '1rem', boxShadow: 'var(--shadow-lg)' },
@@ -1573,9 +1649,9 @@ const s = {
   summaryHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 900, color: '#9b59b6', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em' },
   summaryBody: { fontSize: '0.95rem', color: '#b794f4', lineHeight: '1.6' },
   
-  separator: { display: 'flex', alignItems: 'center', gap: '1.5rem', margin: '2.5rem 0' },
+  separator: { display: 'flex', alignItems: 'center', gap: '1rem', margin: '2.5rem 0' },
   sepLine: { flex: 1, height: '1px', background: 'var(--border-color)' },
-  sepLabel: { fontSize: '0.65rem', fontWeight: 900, padding: '6px 16px', borderRadius: '20px', color: 'var(--text-inverse)', background: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em' },
+  sepLabel: { fontSize: '0.88rem', fontWeight: 900, padding: '10px 18px', borderRadius: '16px', color: 'var(--text-inverse)', background: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.18)' },
   
   infoPanel: { width: '380px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column' },
   infoPanelHeader: { padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
