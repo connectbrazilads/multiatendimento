@@ -91,6 +91,7 @@ export default function Inbox() {
   const [scheduleData, setScheduleData] = useState({ body: '', sendAt: '' });
   const [previewImg, setPreviewImg] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [view, setView] = useState('list'); // 'list' or 'chat'
@@ -109,6 +110,7 @@ export default function Inbox() {
   const timerRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const selectedIdRef = React.useRef(selectedId);
+  const previewDragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
   const {
     counts,
@@ -222,20 +224,52 @@ export default function Inbox() {
 
   function openPreviewImage(url) {
     setPreviewZoom(1);
+    setPreviewOffset({ x: 0, y: 0 });
     setPreviewImg(url);
   }
 
   function closePreviewImage() {
     setPreviewImg(null);
     setPreviewZoom(1);
+    setPreviewOffset({ x: 0, y: 0 });
   }
 
   function handlePreviewWheel(event) {
     event.preventDefault();
     setPreviewZoom((previous) => {
       const next = previous + (event.deltaY < 0 ? 0.12 : -0.12);
-      return Math.min(4, Math.max(0.6, Number(next.toFixed(2))));
+      const normalized = Math.min(4, Math.max(0.6, Number(next.toFixed(2))));
+      if (normalized <= 1) setPreviewOffset({ x: 0, y: 0 });
+      return normalized;
     });
+  }
+
+  function handlePreviewPointerDown(event) {
+    if (previewZoom <= 1) return;
+    event.preventDefault();
+    previewDragRef.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: previewOffset.x,
+      originY: previewOffset.y,
+    };
+  }
+
+  function handlePreviewPointerMove(event) {
+    if (!previewDragRef.current.active) return;
+
+    const deltaX = event.clientX - previewDragRef.current.startX;
+    const deltaY = event.clientY - previewDragRef.current.startY;
+
+    setPreviewOffset({
+      x: previewDragRef.current.originX + deltaX,
+      y: previewDragRef.current.originY + deltaY,
+    });
+  }
+
+  function handlePreviewPointerUp() {
+    previewDragRef.current.active = false;
   }
 
   const [botName, setBotName] = useState('Robo');
@@ -611,15 +645,44 @@ export default function Inbox() {
       )}
 
       {previewImg && (
-        <div style={s.overlay} onClick={closePreviewImage}>
+        <div style={s.overlay}>
           <div style={s.previewToolbar} onClick={(event) => event.stopPropagation()}>
-            <span style={s.previewHint}>Scroll para zoom</span>
-            <button type="button" style={s.previewZoomBtn} onClick={() => setPreviewZoom((previous) => Math.max(0.6, Number((previous - 0.2).toFixed(2))))}>-</button>
-            <button type="button" style={s.previewZoomValue} onClick={() => setPreviewZoom(1)}>{Math.round(previewZoom * 100)}%</button>
+            <span style={s.previewHint}>Scroll para zoom{previewZoom > 1 ? ' e arraste para mover' : ''}</span>
+            <button type="button" style={s.previewZoomBtn} onClick={() => {
+              setPreviewZoom((previous) => {
+                const next = Math.max(0.6, Number((previous - 0.2).toFixed(2)));
+                if (next <= 1) setPreviewOffset({ x: 0, y: 0 });
+                return next;
+              });
+            }}>-</button>
+            <button type="button" style={s.previewZoomValue} onClick={() => {
+              setPreviewZoom(1);
+              setPreviewOffset({ x: 0, y: 0 });
+            }}>{Math.round(previewZoom * 100)}%</button>
             <button type="button" style={s.previewZoomBtn} onClick={() => setPreviewZoom((previous) => Math.min(4, Number((previous + 0.2).toFixed(2))))}>+</button>
           </div>
-          <div style={s.previewViewport} onWheel={handlePreviewWheel} onClick={(event) => event.stopPropagation()}>
-            <img src={previewImg} alt="Preview" style={{ ...s.previewImg, transform: `scale(${previewZoom})` }} />
+          <div
+            style={{
+              ...s.previewViewport,
+              cursor: previewZoom > 1 ? 'grab' : 'zoom-in',
+            }}
+            onWheel={handlePreviewWheel}
+            onMouseDown={handlePreviewPointerDown}
+            onMouseMove={handlePreviewPointerMove}
+            onMouseUp={handlePreviewPointerUp}
+            onMouseLeave={handlePreviewPointerUp}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closePreviewImage();
+            }}
+          >
+            <img
+              src={previewImg}
+              alt="Preview"
+              style={{
+                ...s.previewImg,
+                transform: `translate3d(${previewOffset.x}px, ${previewOffset.y}px, 0) scale(${previewZoom})`,
+              }}
+            />
           </div>
         </div>
       )}
@@ -822,12 +885,12 @@ const s = {
   modalInput: { width: '100%', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1rem', color: 'var(--text-main)', fontSize: '1rem', outline: 'none' },
   saveBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '1rem' },
 
-  previewViewport: { maxWidth: '92vw', maxHeight: '88vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' },
+  previewViewport: { width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5.5rem 2rem 2rem', boxSizing: 'border-box', touchAction: 'none' },
   previewToolbar: { position: 'absolute', top: '1.5rem', right: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(10,10,10,0.72)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '0.45rem 0.55rem', zIndex: 2, backdropFilter: 'blur(8px)' },
   previewHint: { color: '#fff', fontSize: '0.8rem', fontWeight: 700, padding: '0 0.35rem' },
   previewZoomBtn: { width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 900 },
   previewZoomValue: { minWidth: '58px', height: '34px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 800, padding: '0 0.75rem' },
-  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: '24px', boxShadow: 'var(--shadow-lg)', transition: 'transform 0.12s ease-out', transformOrigin: 'center center' },
+  previewImg: { maxWidth: '92vw', maxHeight: '88vh', borderRadius: '24px', boxShadow: 'var(--shadow-lg)', transition: 'transform 0.12s ease-out', transformOrigin: 'center center', userSelect: 'none', WebkitUserSelect: 'none', display: 'block', willChange: 'transform' },
   summaryCard: { margin: '0 2rem 1.5rem', background: 'rgba(155, 89, 182, 0.08)', border: '1px solid rgba(155, 89, 182, 0.2)', borderRadius: '20px', padding: '1.5rem' },
   summaryHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 900, color: '#9b59b6', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em' },
   summaryBody: { fontSize: '0.95rem', color: '#b794f4', lineHeight: '1.6' },
