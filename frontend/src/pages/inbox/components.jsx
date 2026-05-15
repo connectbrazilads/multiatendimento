@@ -1,0 +1,905 @@
+import React, { useEffect, useState } from 'react';
+import api, {
+  updateContact,
+  getContactMedia,
+  updateTicket,
+  getTags,
+  getMediaUrl,
+  getEquipments,
+  getContacts,
+} from '../../services/api';
+import { fmt, statusColor, statusLabel } from './helpers.jsx';
+
+export function Avatar({ name, src, size = 40 }) {
+  const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
+  if (src) return <img src={src} alt={name} style={base} />;
+  const initials = name?.split(' ').map((item) => item[0]).join('').slice(0, 2).toUpperCase() || '?';
+  return (
+    <div
+      style={{
+        ...base,
+        background: 'rgba(212,175,55,0.1)',
+        color: '#D4AF37',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 800,
+        fontSize: size * 0.4,
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function AudioPlayer({ src, fromMe, transcription, styles }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <audio controls style={{ height: 32, maxWidth: 200, filter: fromMe ? 'invert(1) hue-rotate(180deg)' : 'none' }}>
+        <source src={src} type="audio/ogg; codecs=opus" />
+        <source src={src} type="audio/mpeg" />
+      </audio>
+      {transcription ? (
+        <div
+          style={{
+            ...styles.transcription,
+            borderLeft: `2px solid ${fromMe ? '#000' : '#D4AF37'}`,
+            color: fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+          }}
+        >
+          {transcription}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function MediaContent({ message, onImageClick, styles }) {
+  const url = getMediaUrl(message.mediaUrl);
+
+  if (!url && message.mediaStatus === 'failed' && message.mediaType && message.mediaType !== 'text') {
+    return (
+      <div
+        style={{
+          padding: '0.75rem 1rem',
+          background: 'rgba(255,80,80,0.05)',
+          borderRadius: '8px',
+          border: '1px dashed rgba(255,80,80,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.8rem',
+          color: '#ff6b6b',
+        }}
+      >
+        <span style={{ fontSize: '1rem' }}>Indisponivel</span> Midia indisponivel
+      </div>
+    );
+  }
+
+  if (!url && message.mediaType && message.mediaType !== 'text' && ['image', 'video', 'audio', 'document', 'sticker'].includes(message.mediaType)) {
+    return (
+      <div
+        style={{
+          padding: '1rem',
+          background: 'rgba(212,175,55,0.05)',
+          borderRadius: '8px',
+          border: '1px dashed rgba(212,175,55,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.85rem',
+          color: '#D4AF37',
+        }}
+      >
+        <span style={{ fontSize: '1.2rem' }}>Baixando</span> Baixando midia do WhatsApp...
+      </div>
+    );
+  }
+
+  if (url && message.mediaType === 'image') return <img src={url} alt="" style={styles.imgMedia} onClick={() => onImageClick(url)} />;
+  if (url && message.mediaType === 'video') return <video src={url} controls style={styles.imgMedia} />;
+  if (url && message.mediaType === 'audio') return <AudioPlayer src={url} fromMe={message.fromMe} transcription={message.transcription} styles={styles} />;
+  if (url && message.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
+  if (url && message.mediaType === 'document') {
+    const isPdf = message.fileName?.toLowerCase().endsWith('.pdf');
+    return (
+      <a href={url} target="_blank" rel="noreferrer" style={styles.pdfCard}>
+        <div style={styles.pdfIcon}>{isPdf ? 'PDF' : 'DOC'}</div>
+        <div style={styles.pdfInfo}>
+          <div style={styles.pdfName}>{message.fileName || 'Arquivo'}</div>
+          <div style={styles.pdfSize}>{isPdf ? 'Documento PDF' : 'Documento'}</div>
+        </div>
+      </a>
+    );
+  }
+  return null;
+}
+
+export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM, styles }) {
+  const contact = ticket.contact;
+  const [notes, setNotes] = useState(contact.notes || '');
+  const [city, setCity] = useState(contact.city || '');
+  const [state, setState] = useState(contact.state || '');
+  const [priority, setPriority] = useState(ticket.priority || 'medium');
+  const [tags, setTags] = useState(() => {
+    try {
+      return JSON.parse(contact.tags || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [media, setMedia] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [equipments, setEquipments] = useState([]);
+  const [linkedCrm, setLinkedCrm] = useState(null);
+
+  useEffect(() => {
+    getContactMedia(contact.id).then((response) => setMedia(response.data));
+    getTags().then((response) => setAvailableTags(response.data));
+    getEquipments(contact.id).then((response) => setEquipments(response.data));
+    api
+      .get(`/contacts?search=${contact.phone}`)
+      .then((response) => {
+        const list = response.data.contacts || response.data || [];
+        const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contact.phone);
+        setLinkedCrm(crm);
+      })
+      .catch(() => {});
+  }, [contact.id, contact.phone]);
+
+  async function saveContact() {
+    await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state });
+    onUpdate();
+  }
+
+  async function handlePriorityChange(nextPriority) {
+    setPriority(nextPriority);
+    await updateTicket(ticket.id, { priority: nextPriority });
+    onUpdate();
+  }
+
+  function addTag(tagName) {
+    if (!tagName || tags.includes(tagName)) return;
+    const updated = [...tags, tagName];
+    setTags(updated);
+    updateContact(contact.id, { tags: JSON.stringify(updated) }).then(onUpdate);
+  }
+
+  function removeTag(tagName) {
+    const updated = tags.filter((item) => item !== tagName);
+    setTags(updated);
+    updateContact(contact.id, { tags: JSON.stringify(updated) }).then(onUpdate);
+  }
+
+  return (
+    <div
+      style={{
+        ...styles.infoPanel,
+        position: isMobile ? 'fixed' : 'relative',
+        inset: isMobile ? 0 : 'auto',
+        width: isMobile ? '100%' : '380px',
+        zIndex: isMobile ? 2000 : 1,
+        height: '100%',
+      }}
+    >
+      <div style={styles.infoPanelHeader}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Ficha do cliente</h3>
+        </div>
+        <button style={styles.infoClose} onClick={onClose}>
+          x
+        </button>
+      </div>
+      <div style={styles.infoScroll}>
+        <div style={styles.infoProfile}>
+          <Avatar name={contact.name || contact.phone} src={contact.avatarUrl} size={80} />
+          <h4 style={styles.infoName}>{contact.name || contact.phone}</h4>
+          {linkedCrm ? (
+            <div style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              CRM {linkedCrm.fantasyName || linkedCrm.name}
+            </div>
+          ) : contact.fantasyName ? (
+            <div style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 700, marginBottom: 8, padding: '4px 12px', background: 'rgba(212,175,55,0.1)', borderRadius: '8px', display: 'inline-block' }}>
+              CRM {contact.fantasyName}
+            </div>
+          ) : null}
+          <div style={styles.infoPhone}>{contact.phone}</div>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <div style={styles.infoBadge}>WhatsApp</div>
+            <button onClick={onLinkCRM} style={{ ...styles.infoBadge, background: 'var(--accent)', color: '#000', cursor: 'pointer', border: 'none' }}>
+              Vincular CRM
+            </button>
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Etiquetas</h5>
+          <div style={styles.tagContainer}>
+            {tags.map((tag) => (
+              <span key={tag} style={styles.tagItem}>
+                {tag} <button onClick={() => removeTag(tag)} style={styles.tagDel}>x</button>
+              </span>
+            ))}
+            <select style={styles.tagSelect} value="" onChange={(e) => addTag(e.target.value)}>
+              <option value="">+ Tag</option>
+              {availableTags.filter((tag) => !tags.includes(tag.name)).map((tag) => (
+                <option key={tag.id} value={tag.name}>{tag.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Localizacao</h5>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input style={{ ...styles.modalInput, flex: 2, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} onBlur={saveContact} />
+            <input style={{ ...styles.modalInput, flex: 1, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} placeholder="UF" value={state} maxLength={2} onChange={(e) => setState(e.target.value.toUpperCase())} onBlur={saveContact} />
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Prioridade do ticket</h5>
+          <div style={styles.priorityGrid}>
+            {[{ id: 'urgent', label: 'Urgente', color: '#e53e3e' }, { id: 'high', label: 'Alta', color: '#dd6b20' }, { id: 'medium', label: 'Normal', color: '#d4af37' }, { id: 'low', label: 'Baixa', color: '#3182ce' }].map((priorityOption) => (
+              <button key={priorityOption.id} onClick={() => handlePriorityChange(priorityOption.id)} style={{ ...styles.priorityBtn, background: priority === priorityOption.id ? priorityOption.color : 'rgba(255,255,255,0.03)', color: priority === priorityOption.id ? '#000' : '#717171', borderColor: priority === priorityOption.id ? priorityOption.color : '#333' }}>
+                {priorityOption.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Notas internas</h5>
+          <textarea style={styles.notesArea} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveContact} placeholder="Adicione observacoes sobre este cliente..." />
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Equipamentos</h5>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {equipments.map((equipment) => (
+              <div key={equipment.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                  {equipment.model.toLowerCase().startsWith(equipment.manufacturer?.toLowerCase()) ? equipment.model : (equipment.manufacturer ? `${equipment.manufacturer} ${equipment.model}` : equipment.model)}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{equipment.type || 'Equipamento'}</div>
+                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Serie: {equipment.serialNumber || 'S/N'}</div>
+                {equipment.sector ? <div style={{ fontSize: '0.75rem', color: '#888' }}>Setor: {equipment.sector}</div> : null}
+              </div>
+            ))}
+            {equipments.length === 0 ? <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhum equipamento vinculado</div> : null}
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Midias compartilhadas</h5>
+          <div style={styles.mediaGrid}>
+            {media.filter((item) => item.mediaType === 'image').slice(0, 9).map((item) => (
+              <img key={item.id} src={item.mediaUrl} style={styles.mediaThumb} onClick={() => onImageClick(item.mediaUrl)} />
+            ))}
+            {media.length === 0 ? <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhuma midia enviada</div> : null}
+          </div>
+        </div>
+        <div style={styles.infoSection}>
+          <h5 style={styles.infoLabel}>Detalhes tecnicos</h5>
+          <div style={styles.techInfo}>
+            <div style={styles.techRow}><span>ID Ticket</span> <span>#{ticket.id}</span></div>
+            <div style={styles.techRow}><span>Criado em</span> <span>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
+            <div style={styles.techRow}><span>Atendente</span> <span>{ticket.agent?.name || 'Aguardando'}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
+  const [target, setTarget] = useState('users');
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalHeader}><h3>Transferir chat</h3><button onClick={onClose}>X</button></div>
+        <div style={styles.tabs}><button onClick={() => setTarget('users')} style={{ ...styles.tab, ...(target === 'users' ? styles.tabActive : {}) }}>Agentes</button><button onClick={() => setTarget('teams')} style={{ ...styles.tab, ...(target === 'teams' ? styles.tabActive : {}) }}>Equipes</button></div>
+        <div style={{ padding: '1rem', maxHeight: 300, overflowY: 'auto' }}>
+          {target === 'users'
+            ? users.map((user) => <div key={user.id} style={styles.transferRow} onClick={() => onTransfer(user.id, null)}><Avatar name={user.name} size={30} />{user.name}</div>)
+            : teams.map((team) => <div key={team.id} style={styles.transferRow} onClick={() => onTransfer(null, team.id)}>Equipe: {team.name}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ForwardModal({ onClose, onForward, styles }) {
+  const [contacts, setContacts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(true);
+      getContacts(search).then((response) => {
+        setContacts(response.data.contacts || response.data || []);
+        setLoading(false);
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={{ ...styles.modal, maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <h3 style={{ margin: 0 }}>Encaminhar mensagem</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem' }}>x</button>
+        </div>
+        <div style={{ padding: '1rem' }}>
+          <input style={{ ...styles.modalInput, marginBottom: '1rem' }} placeholder="Buscar contato..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+            {loading ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Carregando...</div> : (
+              contacts.map((contact) => (
+                <div key={contact.id} onClick={() => onForward(contact)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="hover-item">
+                  <Avatar name={contact.name} src={contact.avatarUrl} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contact.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{contact.phone}</div>
+                  </div>
+                  <div style={{ color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 800 }}>Selecionar</div>
+                </div>
+              ))
+            )}
+            {!loading && contacts.length === 0 ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Nenhum contato encontrado</div> : null}
+          </div>
+        </div>
+        <style>{`
+          .hover-item:hover { background: rgba(212,175,55,0.08) !important; }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+export function TicketSidebar({
+  counts,
+  filters,
+  isMobile,
+  search,
+  selectedId,
+  selectTicket,
+  setFilters,
+  setSearch,
+  setTab,
+  styles,
+  tab,
+  tickets,
+  users,
+  teams,
+  view,
+}) {
+  return (
+    <aside
+      style={{
+        ...styles.sidebar,
+        display: (isMobile && view === 'chat') ? 'none' : 'flex',
+        width: isMobile ? '100%' : styles.sidebar.width,
+        minWidth: isMobile ? '100%' : styles.sidebar.minWidth,
+      }}
+    >
+      <div style={styles.tabsWrap}>
+        <div style={styles.tabs}>
+          {['mine', 'pending', 'all'].map((tabId) => (
+            <button
+              key={tabId}
+              onClick={() => setTab(tabId)}
+              style={{ ...styles.tab, ...(tab === tabId ? styles.tabActive : {}) }}
+            >
+              {tabId === 'mine' ? 'Meus' : tabId === 'pending' ? 'Espera' : 'Contatos'}
+              {counts[tabId] > 0 && <span style={styles.badge}>{counts[tabId]}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={styles.searchWrap}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <input
+            style={styles.search}
+            placeholder="Pesquisar..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <button
+            onClick={() => setFilters({ priority: '', agentId: '', teamId: '' })}
+            style={styles.clearBtn}
+          >
+            Limpar
+          </button>
+        </div>
+
+        <div style={styles.filterBar}>
+          <select
+            style={styles.filterSelect}
+            value={filters.priority}
+            onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
+          >
+            <option value="">Prioridade</option>
+            <option value="urgent">Urgente</option>
+            <option value="high">Alta</option>
+            <option value="medium">Normal</option>
+            <option value="low">Baixa</option>
+          </select>
+
+          <select
+            style={styles.filterSelect}
+            value={filters.agentId}
+            onChange={(event) => setFilters({ ...filters, agentId: event.target.value })}
+          >
+            <option value="">Atendente</option>
+            {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+          </select>
+
+          <select
+            style={styles.filterSelect}
+            value={filters.teamId}
+            onChange={(event) => setFilters({ ...filters, teamId: event.target.value })}
+          >
+            <option value="">Equipe</option>
+            {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={styles.list}>
+        {tickets.filter((ticket) => {
+          const query = (search || '').toLowerCase();
+          const name = (ticket.contact?.name || '').toLowerCase();
+          const phone = ticket.contact?.phone || '';
+          return name.includes(query) || phone.includes(query);
+        }).map((ticket) => (
+          <div
+            key={ticket.id}
+            onClick={() => selectTicket(ticket.id)}
+            style={{ ...styles.row, ...(selectedId === ticket.id ? styles.rowActive : {}) }}
+          >
+            <Avatar
+              name={ticket.contact?.name || ticket.contact?.phone || 'Desconhecido'}
+              src={ticket.contact?.avatarUrl}
+              size={36}
+            />
+            <div style={styles.rowInfo}>
+              <div style={styles.rowTop}>
+                <span style={styles.rowName}>{ticket.contact?.name || ticket.contact?.phone || 'Desconhecido'}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <span style={styles.rowTime}>{fmt(ticket.updatedAt)}</span>
+                </div>
+              </div>
+              <div style={styles.rowSub}>
+                <span style={{ ...styles.dot, background: statusColor(ticket.status), color: statusColor(ticket.status) }} />
+                <span style={styles.rowMsg}>
+                  {ticket.instance?.instanceName?.split('_').pop().toUpperCase()} - {statusLabel(ticket.status)}
+                </span>
+                {ticket.unreadCount > 0 && <div style={styles.unreadBadge}>{ticket.unreadCount}</div>}
+              </div>
+
+              {ticket.contact?.tags && (
+                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
+                  {JSON.parse(ticket.contact.tags).slice(0, 2).map((tag) => (
+                    <span
+                      key={tag}
+                      style={{
+                        fontSize: '0.5rem',
+                        background: 'rgba(212,175,55,0.05)',
+                        color: '#D4AF37',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        fontWeight: 700,
+                        border: '1px solid rgba(212,175,55,0.1)',
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {tickets.length === 0 && <Empty>Nenhuma conversa encontrada</Empty>}
+      </div>
+    </aside>
+  );
+}
+
+export function ChatHeader({
+  botName,
+  handleReopen,
+  handleResolve,
+  handleSummarize,
+  isMobile,
+  selectedTicket,
+  setShowInfo,
+  setShowOsModal,
+  setTransferModal,
+  setView,
+  showInfo,
+  styles,
+  summarizing,
+}) {
+  return (
+    <header style={{ ...styles.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
+      {isMobile && <button style={styles.backBtn} onClick={() => setView('list')}>{'<'}</button>}
+      <Avatar
+        name={selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
+        src={selectedTicket.contact?.avatarUrl}
+        size={isMobile ? 32 : 40}
+      />
+      <div style={{ ...styles.rowInfo, overflow: 'hidden' }}>
+        <div
+          style={{
+            ...styles.chatName,
+            fontSize: isMobile ? '0.9rem' : '1.1rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
+        </div>
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ ...styles.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
+              {selectedTicket.contact?.phone}
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ ...styles.headerActions, gap: isMobile ? '4px' : '0.75rem' }}>
+        <button
+          style={{ ...styles.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+          onClick={() => setShowOsModal(true)}
+        >
+          {isMobile ? 'OS' : 'Gerar O.S.'}
+        </button>
+        <button
+          style={{ ...styles.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+          onClick={handleSummarize}
+          disabled={summarizing}
+        >
+          {isMobile ? 'IA' : 'Resumo IA'}
+        </button>
+        {selectedTicket.status !== 'resolved' ? (
+          <>
+            <button
+              style={{ ...styles.transferBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+              onClick={() => setTransferModal(true)}
+            >
+              {isMobile ? '->' : 'Transferir'}
+            </button>
+            <button
+              style={{ ...styles.resolveBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+              onClick={handleResolve}
+            >
+              {isMobile ? 'OK' : 'Encerrar'}
+            </button>
+          </>
+        ) : (
+          <button
+            style={{ ...styles.resolveBtn, background: 'var(--text-muted)', padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
+            onClick={handleReopen}
+          >
+            {isMobile ? 'Re' : 'Reabrir'}
+          </button>
+        )}
+        <button style={styles.infoBtn} onClick={() => setShowInfo(!showInfo)}>
+          i
+        </button>
+      </div>
+    </header>
+  );
+}
+
+export function MessageList({
+  botName,
+  handleCopyMessage,
+  handleDeleteMessage,
+  handleLoadMoreMessages,
+  hasMoreMessages,
+  loading,
+  loadingMoreMessages,
+  messages,
+  onImageClick,
+  scrollRef,
+  selectedTicket,
+  setForwardingMessage,
+  setReplyingTo,
+  styles,
+}) {
+  return (
+    <div style={styles.messages} ref={scrollRef}>
+      {loading ? <Empty>Carregando historico...</Empty> : (
+        <>
+          {hasMoreMessages && (
+            <div style={styles.loadMoreWrap}>
+              <button
+                onClick={handleLoadMoreMessages}
+                disabled={loadingMoreMessages}
+                style={{ ...styles.loadMoreBtn, opacity: loadingMoreMessages ? 0.7 : 1 }}
+              >
+                {loadingMoreMessages ? 'Carregando...' : 'Carregar mais'}
+              </button>
+            </div>
+          )}
+          {messages.map((message, index) => {
+            if (message._separator) {
+              return (
+                <div key={`sep-${index}`} style={styles.separator}>
+                  <div style={styles.sepLine} />
+                  <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
+                    {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                  </div>
+                  <div style={styles.sepLine} />
+                </div>
+              );
+            }
+
+            if (message._type === 'event') {
+              let payload = {};
+              try {
+                if (typeof message.payload === 'string') {
+                  payload = JSON.parse(message.payload || '{}');
+                } else if (typeof message.payload === 'object' && message.payload !== null) {
+                  payload = message.payload;
+                }
+              } catch (error) {
+                console.error('Erro ao processar payload do evento:', error);
+              }
+
+              if (message.type === 'ia_summary' && payload?.summary) {
+                return (
+                  <div key={message.id} style={styles.summaryCard}>
+                    <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
+                    <div style={styles.summaryBody}>{payload.summary}</div>
+                  </div>
+                );
+              }
+
+              const eventLabel = {
+                assigned: 'Assumiu o atendimento',
+                transferred: `Transferiu para ${payload?.teamName || 'outra equipe'}`,
+                resolved: 'Encerrou o atendimento',
+                reopened: 'Reabriu o atendimento',
+                ooo_message: 'Aviso de Fora de Horario Enviado',
+              }[message.type] || message.type;
+
+              return (
+                <div key={message.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+                  <div
+                    style={{
+                      background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
+                      color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
+                      fontSize: '0.9rem',
+                      padding: '12px 18px',
+                      borderRadius: '16px',
+                      border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
+                      letterSpacing: '0.01em',
+                      fontWeight: 800,
+                      lineHeight: 1.45,
+                      textAlign: 'center',
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                      maxWidth: 'min(92%, 760px)',
+                    }}
+                  >
+                    {message.user?.name || 'Sistema'} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={message.id} style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
+                <div
+                  style={{
+                    ...styles.bubble,
+                    background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
+                    color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
+                    opacity: message.isDeleted ? 0.6 : 1,
+                    textDecoration: message.isDeleted ? 'line-through' : 'none',
+                    border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
+                    alignItems: message.fromMe ? 'flex-end' : 'flex-start',
+                    borderBottomRightRadius: message.fromMe ? '4px' : '20px',
+                    borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
+                  }}
+                >
+                  {message.fromMe && !message.isDeleted && (
+                    <button
+                      onClick={() => handleDeleteMessage(message.id)}
+                      style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Apagar para o cliente"
+                    >
+                      X
+                    </button>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        opacity: message.fromBot ? 0.8 : 1,
+                      }}
+                    >
+                      {message.fromMe ? (message.fromBot ? `BOT ${botName}` : (message.agent?.name || 'Voce')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
+                    </div>
+                    {!message.isDeleted && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
+                        <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
+                        <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {message.quotedMsgBody && (
+                    <div
+                      style={{
+                        background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
+                        borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        fontSize: '0.8rem',
+                        color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+                        fontStyle: 'italic',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {message.quotedMsgBody}
+                    </div>
+                  )}
+
+                  <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
+                  {message.body && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{message.body}</div>}
+                  <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
+                </div>
+              </div>
+            );
+          })}
+          {!messages.length && <Empty>Nenhuma mensagem encontrada</Empty>}
+        </>
+      )}
+    </div>
+  );
+}
+
+export function MessageComposer({
+  files,
+  filteredQuick,
+  fmtTime,
+  handleInput,
+  handleSend,
+  isMobile,
+  isRecording,
+  replyingTo,
+  selectedTicket,
+  setFiles,
+  setFilteredQuick,
+  setReplyingTo,
+  setShowScheduling,
+  startRecording,
+  stopRecording,
+  styles,
+  setText,
+  text,
+  recordingTime,
+}) {
+  return (
+    <>
+      {filteredQuick.length > 0 && (
+        <div style={styles.quickList}>
+          {filteredQuick.map((response) => (
+            <div key={response.id} style={styles.quickItem} onClick={() => { setText(response.message); setFilteredQuick([]); }}>
+              <strong>{response.shortcut}</strong>: {response.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ ...styles.inputArea, padding: isMobile ? '0.75rem' : '1rem', gap: isMobile ? '0.5rem' : '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
+        {replyingTo && (
+          <div
+            style={{
+              background: 'rgba(212,175,55,0.1)',
+              borderLeft: '4px solid #D4AF37',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
+                Respondendo a {replyingTo.fromMe ? 'voce' : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {replyingTo.body || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
+              </div>
+            </div>
+            <button onClick={() => setReplyingTo(null)} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1rem', padding: '0 8px' }}>X</button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
+          {isRecording ? (
+            <div style={styles.recordingWrap}>
+              <div style={styles.recordingDot} />
+              <span style={styles.recordingTime}>{fmtTime(recordingTime)}</span>
+              <button style={styles.stopBtn} onClick={stopRecording}>Parar e Enviar</button>
+            </div>
+          ) : (
+            <>
+              <button style={{ ...styles.attachBtn, fontSize: isMobile ? '1.1rem' : '1.4rem' }} onClick={() => document.getElementById('fileInput').click()}>Anexo</button>
+              <input type="file" id="fileInput" hidden multiple onChange={(event) => setFiles((previous) => [...previous, ...Array.from(event.target.files)])} />
+
+              {!isMobile && (
+                <button style={{ ...styles.attachBtn, fontSize: '1rem' }} onClick={() => setShowScheduling((previous) => !previous)}>
+                  Agendar
+                </button>
+              )}
+
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {files.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {files.map((file, index) => (
+                      <div key={index} style={styles.filePreview}>
+                        Anexo {file.name.length > 15 ? `${file.name.substring(0, 12)}...` : file.name}
+                        <button onClick={() => setFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))}>X</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  style={{ ...styles.textInput, height: 'auto', minHeight: '40px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }}
+                  rows={1}
+                  value={text}
+                  onChange={(event) => {
+                    handleInput(event.target.value);
+                    event.target.style.height = 'auto';
+                    event.target.style.height = `${event.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSend();
+                      event.target.style.height = '40px';
+                    }
+                  }}
+                  placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
+                  spellCheck={false}
+                />
+              </div>
+
+              <button
+                style={{
+                  ...styles.sendBtn,
+                  width: isMobile ? '40px' : '45px',
+                  height: isMobile ? '40px' : '45px',
+                  background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
+                  border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
+                  color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
+                  fontSize: isMobile ? '1.1rem' : '1.2rem',
+                }}
+                onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
+                onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
+                onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
+              >
+                {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,30 +1,36 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import api, { 
-  getTickets, getMessages, sendMessage, sendMediaMessage, 
-  assignTicket, resolveTicket, getMe, getUsers, getTeams, 
-  summarizeTicket, updateContact, getContactMedia, reopenTicket, updateTicket,
-  getQuickResponses, scheduleMessage, sendAudioMessage, deleteMessage,
-  getTags, getSettings, getMediaUrl, getEquipments, forwardMessage, getContacts, BACKEND_URL
+﻿import React, { useEffect, useState, useRef, useCallback } from 'react';
+import api, {
+  getTickets,
+  getMessages,
+  sendMessage,
+  sendMediaMessage,
+  assignTicket,
+  resolveTicket,
+  getMe,
+  getUsers,
+  getTeams,
+  summarizeTicket,
+  reopenTicket,
+  getQuickResponses,
+  scheduleMessage,
+  sendAudioMessage,
+  deleteMessage,
+  getSettings,
+  forwardMessage,
+  BACKEND_URL,
 } from '../services/api';
-import io from 'socket.io-client';
-import { SOCKET_URL } from '../services/socket';
 import { toast } from '../utils/toast';
 import { useIsMobile } from '../hooks/useIsMobile';
-
 import CreateOsModal from '../components/CreateOsModal';
 import LinkContactModal from '../components/LinkContactModal';
+import { ChatHeader, ContactPanel, ForwardModal, MessageComposer, MessageList, TicketSidebar, TransferModal } from './inbox/components';
+import { Empty } from './inbox/helpers.jsx';
+import { useInboxMessages, useInboxRealtime, useInboxTickets } from './inbox/hooks';
 
 export default function Inbox() {
   const MESSAGE_PAGE_SIZE = 60;
-  const [tickets, setTickets] = useState([]);
-  const [tab, setTab] = useState('mine'); // mine, pending, all
   const [selectedId, setSelectedId] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [nextMessagesCursor, setNextMessagesCursor] = useState(null);
   const [me, setMe] = useState(null);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -35,8 +41,6 @@ export default function Inbox() {
   const [summarizing, setSummarizing] = useState(false);
   const [summary, setSummary] = useState(null);
   const [files, setFiles] = useState([]);
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ priority: '', agentId: '', teamId: '' });
   const [quickResponses, setQuickResponses] = useState([]);
   const [filteredQuick, setFilteredQuick] = useState([]);
   const [showScheduling, setShowScheduling] = useState(false);
@@ -45,21 +49,53 @@ export default function Inbox() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [view, setView] = useState('list'); // 'list' or 'chat'
-  const [updateTrigger, setUpdateTrigger] = useState(0); // Força atualização de componentes filhos
+  const [updateTrigger, setUpdateTrigger] = useState(0); // Forca atualizacao de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
   const isMobile = useIsMobile();
 
-  // Volta para view lista quando janela é expandida para desktop
+  // Volta para a lista quando a janela retorna ao desktop
   useEffect(() => {
     if (!isMobile) setView('list');
   }, [isMobile]);
 
   const scrollRef = useRef();
-  const socketRef = useRef();
   const mediaRecorderRef = useRef(null);
   const timerRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
+  const selectedIdRef = React.useRef(selectedId);
+
+  const {
+    counts,
+    debouncedLoadTickets,
+    filters,
+    loadTickets,
+    search,
+    setFilters,
+    setSearch,
+    setTab,
+    setTickets,
+    tab,
+    tickets,
+    upsertTicket,
+  } = useInboxTickets({ me });
+
+  const {
+    handleLoadMoreMessages,
+    hasMoreMessages,
+    loadMessages,
+    loading,
+    loadingMoreMessages,
+    messages,
+    setMessages,
+  } = useInboxMessages({
+    messagePageSize: MESSAGE_PAGE_SIZE,
+    scrollRef,
+    selectedId,
+    selectedIdRef,
+    setSummary,
+    shouldScrollToBottomRef,
+  });
 
   async function startRecording() {
     try {
@@ -79,7 +115,7 @@ export default function Inbox() {
         try {
           await sendAudioMessage(selectedId, blob);
           loadMessages();
-        } catch (e) { toast.error('Erro ao enviar áudio'); }
+        } catch (e) { toast.error('Erro ao enviar audio'); }
         stream.getTracks().forEach(t => t.stop());
       };
       recorder.start();
@@ -87,7 +123,7 @@ export default function Inbox() {
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-    } catch (e) { toast.error('Permissão de microfone negada'); }
+    } catch (e) { toast.error('Permissao de microfone negada'); }
   }
 
   function stopRecording() {
@@ -100,176 +136,7 @@ export default function Inbox() {
 
   const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-  const [counts, setCounts] = useState({ mine: 0, pending: 0, all: 0 });
-
-  const selectedIdRef = React.useRef(selectedId);
-  const tabRef = React.useRef(tab);
-  const filtersRef = React.useRef(filters);
-  const searchRef = React.useRef(search);
-  const meRef = React.useRef(me);
-
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
-  useEffect(() => { tabRef.current = tab; }, [tab]);
-  useEffect(() => { filtersRef.current = filters; }, [filters]);
-  useEffect(() => { searchRef.current = search; }, [search]);
-  useEffect(() => { meRef.current = me; }, [me]);
-  
-  const loadTickets = useCallback(async () => {
-    try {
-      const currentTab = tabRef.current;
-      const currentFilters = filtersRef.current;
-      const currentSearch = searchRef.current || '';
-
-      const { data } = await getTickets(
-        currentTab === 'mine' ? null : currentTab, 
-        currentTab === 'mine', 
-        { ...currentFilters, search: currentSearch }
-      );
-      setTickets(data.tickets || []);
-      setCounts(data.counts || { mine: 0, pending: 0, all: 0 });
-    } catch (e) { console.error(e); }
-  }, []);
-
-  const debounceTimerRef = useRef(null);
-  const debouncedLoadTickets = useCallback(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      loadTickets();
-    }, 2000); 
-  }, [loadTickets]);
-
-  const ticketMatchesCurrentView = useCallback((ticket) => {
-    if (!ticket?.id) return false;
-
-    const currentTab = tabRef.current;
-    const currentFilters = filtersRef.current || {};
-    const currentSearch = (searchRef.current || '').trim().toLowerCase();
-    const currentUserId = meRef.current?.id;
-
-    const pendingMatch = ticket.status === 'pending'
-      || ticket.status === 'bot'
-      || (ticket.status === 'open' && !ticket.agentId);
-
-    const tabMatch = currentTab === 'mine'
-      ? ticket.status === 'open' && ticket.agentId === currentUserId
-      : currentTab === 'pending'
-        ? pendingMatch
-        : ['open', 'resolved'].includes(ticket.status);
-
-    if (!tabMatch) return false;
-    if (currentFilters.priority && ticket.priority !== currentFilters.priority) return false;
-    if (currentFilters.agentId && ticket.agentId !== currentFilters.agentId) return false;
-    if (currentFilters.teamId && ticket.teamId !== currentFilters.teamId) return false;
-
-    if (currentSearch) {
-      const name = (ticket.contact?.name || '').toLowerCase();
-      const fantasyName = (ticket.contact?.fantasyName || '').toLowerCase();
-      const phone = (ticket.contact?.phone || '').toLowerCase();
-      if (!name.includes(currentSearch) && !fantasyName.includes(currentSearch) && !phone.includes(currentSearch)) {
-        return false;
-      }
-    }
-
-    return true;
-  }, []);
-
-  const upsertTicket = useCallback((incomingTicket) => {
-    if (!incomingTicket?.id) return;
-
-    setTickets(prev => {
-      if (!ticketMatchesCurrentView(incomingTicket)) {
-        return prev.filter(ticket => ticket.id !== incomingTicket.id);
-      }
-
-      const current = prev.find(ticket => ticket.id === incomingTicket.id);
-      const merged = {
-        ...current,
-        ...incomingTicket,
-        contact: incomingTicket.contact || current?.contact,
-        agent: incomingTicket.agent || current?.agent,
-        team: incomingTicket.team || current?.team,
-        instance: incomingTicket.instance || current?.instance,
-      };
-
-      const withoutCurrent = prev.filter(ticket => ticket.id !== incomingTicket.id);
-      return [merged, ...withoutCurrent];
-    });
-  }, [ticketMatchesCurrentView]);
-
-  useEffect(() => {
-    loadInitial();
-    const token = localStorage.getItem('token');
-    // Força transporte websocket para maior estabilidade em VPS
-    const s = io(SOCKET_URL, { 
-      auth: { token },
-      reconnectionDelayMax: 10000,
-    });
-    socketRef.current = s;
-    const refreshTimer = setInterval(() => {
-      loadTickets();
-    }, 30000);
-
-    s.on('new_message', ({ message, ticket: t }) => {
-      if (t?.id === selectedIdRef.current) {
-        shouldScrollToBottomRef.current = true;
-        setMessages(prev => {
-          const exists = prev.find(m => m.id === message.id);
-          if (exists) return prev.map(m => m.id === message.id ? message : m);
-          return [...prev, message];
-        });
-      }
-
-      if (t?.id) {
-        const unreadCount = t.id === selectedIdRef.current ? 0 : (typeof t.unreadCount === 'number' ? t.unreadCount : undefined);
-        upsertTicket({ ...t, unreadCount });
-      } else {
-        debouncedLoadTickets();
-      }
-    });
-
-    s.on('connect', () => {
-      loadTickets();
-      if (selectedIdRef.current) {
-        loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch(e => console.error(e));
-      }
-    });
-
-    s.on('message_updated', ({ message }) => {
-      setMessages(prev => prev.map(m => m.id === message.id ? message : m));
-    });
-
-    s.on('ticket_updated', (payload = {}) => {
-      if (payload.ticket) {
-        upsertTicket(payload.ticket);
-        return;
-      }
-
-      const ticketId = payload.ticketId || payload.id;
-      if (ticketId) {
-        setTickets(prev => prev.map(ticket => (
-          ticket.id === ticketId
-            ? {
-                ...ticket,
-                ...(payload.status ? { status: payload.status } : {}),
-                ...(typeof payload.unreadCount === 'number' ? { unreadCount: payload.unreadCount } : {}),
-                updatedAt: new Date().toISOString(),
-              }
-            : ticket
-        )));
-      } else {
-        debouncedLoadTickets();
-      }
-    });
-
-    s.on('connect_error', (err) => {
-      console.error('[socket] erro de conexão:', err.message);
-    });
-
-    return () => {
-      clearInterval(refreshTimer);
-      s.disconnect();
-    };
-  }, []); // Roda apenas uma vez no mount
   useEffect(() => {
     loadTickets();
     const params = new URLSearchParams(window.location.search);
@@ -296,11 +163,11 @@ export default function Inbox() {
     }, 100);
   }
 
-  const [botName, setBotName] = useState('Robô');
+  const [botName, setBotName] = useState('Robo');
 
-  async function loadInitial() {
+  const loadInitial = useCallback(async () => {
     try {
-      // getMe é o único crítico para sair do loop de "Sincronizando Inbox"
+      // getMe e o unico critico para sair do loop de sincronizacao
       const { data: meData } = await getMe();
       setMe(meData);
 
@@ -314,54 +181,26 @@ export default function Inbox() {
         }).catch(e => console.error('getSettings error:', e))
       ]);
     } catch (e) {
-      console.error('Erro crítico ao carregar perfil:', e);
+      console.error('Erro critico ao carregar perfil:', e);
       // Se nem o getMe funcionar, o interceptor 401 do axios provavelmente vai redirecionar para o login
     }
-  }
+  }, []);
 
-  async function loadMessages({ ticketId = selectedIdRef.current, before = null, replace = true } = {}) {
-    if (!ticketId) return;
-
-    if (replace) setLoading(true);
-    else setLoadingMoreMessages(true);
-
-    setSummary(null);
-    const prevScrollHeight = scrollRef.current?.scrollHeight || 0;
-    const prevScrollTop = scrollRef.current?.scrollTop || 0;
-
-    try {
-      const { data } = await getMessages(ticketId, { limit: MESSAGE_PAGE_SIZE, ...(before ? { before } : {}) });
-      const incomingItems = data?.items || [];
-
-      if (replace) {
-        shouldScrollToBottomRef.current = true;
-        setMessages(incomingItems);
-      } else {
-        setMessages(prev => mergeMessagePages(prev, incomingItems, true));
-        setTimeout(() => {
-          if (scrollRef.current) {
-            const newHeight = scrollRef.current.scrollHeight;
-            scrollRef.current.scrollTop = newHeight - prevScrollHeight + prevScrollTop;
-          }
-        }, 0);
-      }
-
-      setHasMoreMessages(Boolean(data?.hasMore));
-      setNextMessagesCursor(data?.nextCursor || null);
-    } catch (e) { console.error(e); } finally {
-      if (replace) setLoading(false);
-      else setLoadingMoreMessages(false);
-    }
-  }
-
-  async function handleLoadMoreMessages() {
-    if (!selectedId || !hasMoreMessages || !nextMessagesCursor || loadingMoreMessages) return;
-    await loadMessages({ ticketId: selectedId, before: nextMessagesCursor, replace: false });
-  }
+  useInboxRealtime({
+    debouncedLoadTickets,
+    loadInitial,
+    loadMessages,
+    loadTickets,
+    selectedIdRef,
+    setMessages,
+    setTickets,
+    shouldScrollToBottomRef,
+    upsertTicket,
+  });
 
   async function handleDeleteMessage(msgId) {
     toast.confirm(
-      'Deseja apagar esta mensagem para o cliente? (Ela continuará visível e riscada para você)',
+      'Deseja apagar esta mensagem para o cliente? (Ela continuara visivel e riscada para voce)',
       async () => {
         try {
           await deleteMessage(selectedId, msgId);
@@ -478,7 +317,7 @@ export default function Inbox() {
   }
 
   async function handleSchedule() {
-    if (!scheduleData.body || !scheduleData.sendAt) return toast.error('Preencha a mensagem e o horário');
+    if (!scheduleData.body || !scheduleData.sendAt) return toast.error('Preencha a mensagem e o horario');
     try {
       const ticket = tickets.find(t => t.id === selectedId);
       await scheduleMessage({ ...scheduleData, contactId: ticket.contactId });
@@ -507,7 +346,7 @@ export default function Inbox() {
     // Zera o contador localmente para feedback imediato
     setTickets(prev => prev.map(t => t.id === id ? { ...t, unreadCount: 0 } : t));
     
-    // O backend já zera ao chamar getMessages (que é disparado pelo useEffect do selectedId)
+    // O backend ja zera ao chamar getMessages pelo useEffect do selectedId
   };
 
   if (!me) {
@@ -549,97 +388,23 @@ export default function Inbox() {
           100% { opacity: 1; transform: scale(1); }
         }
       `}</style>
-      {/* Sidebar */}
-      <aside style={{ 
-        ...s.sidebar, 
-        display: (isMobile && view === 'chat') ? 'none' : 'flex',
-        width: isMobile ? '100%' : s.sidebar.width,
-        minWidth: isMobile ? '100%' : s.sidebar.minWidth
-      }}>
-        <div style={s.tabsWrap}>
-          <div style={s.tabs}>
-            {['mine', 'pending', 'all'].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ ...s.tab, ...(tab === t ? s.tabActive : {}) }}>
-                {t === 'mine' ? 'Meus' : t === 'pending' ? 'Espera' : 'Contatos'}
-                {counts[t] > 0 && <span style={s.badge}>{counts[t]}</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={s.searchWrap}>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-             <input style={s.search} placeholder="🔍 Pesquisar..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadTickets()} />
-             <button onClick={() => setFilters({ priority: '', agentId: '', teamId: '' })} style={s.clearBtn}>🧹</button>
-          </div>
-          
-          <div style={s.filterBar}>
-            <select style={s.filterSelect} value={filters.priority} onChange={e => setFilters({...filters, priority: e.target.value})}>
-              <option value="">Prioridade</option>
-              <option value="urgent">Urgente</option>
-              <option value="high">Alta</option>
-              <option value="medium">Normal</option>
-              <option value="low">Baixa</option>
-            </select>
-            
-            <select style={s.filterSelect} value={filters.agentId} onChange={e => setFilters({...filters, agentId: e.target.value})}>
-              <option value="">Atendente</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-
-            <select style={s.filterSelect} value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})}>
-              <option value="">Equipe</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={s.list}>
-          {tickets.filter(t => {
-            const sQuery = (search || '').toLowerCase();
-            const name = (t.contact?.name || '').toLowerCase();
-            const phone = t.contact?.phone || '';
-            return name.includes(sQuery) || phone.includes(sQuery);
-          }).map(t => (
-            <div key={t.id} onClick={() => selectTicket(t.id)} style={{ ...s.row, ...(selectedId === t.id ? s.rowActive : {}) }}>
-              <Avatar name={t.contact?.name || t.contact?.phone || 'Desconhecido'} src={t.contact?.avatarUrl} size={36} />
-              <div style={s.rowInfo}>
-                <div style={s.rowTop}>
-                  <span style={s.rowName}>{t.contact?.name || t.contact?.phone || 'Desconhecido'}</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={s.rowTime}>{fmt(t.updatedAt)}</span>
-                  </div>
-                </div>
-                <div style={s.rowSub}>
-                  <span style={{ ...s.dot, background: statusColor(t.status), color: statusColor(t.status) }} />
-                  <span style={s.rowMsg}>{t.instance?.instanceName?.split('_').pop().toUpperCase()} · {statusLabel(t.status)}</span>
-                  {t.unreadCount > 0 && (
-                    <div style={s.unreadBadge}>{t.unreadCount}</div>
-                  )}
-                </div>
-                
-                {/* TAGS NA LISTA LATERAL - Mais compactas */}
-                {t.contact?.tags && (
-                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
-                    {JSON.parse(t.contact.tags).slice(0, 2).map(tag => (
-                      <span key={tag} style={{ 
-                        fontSize: '0.5rem', 
-                        background: 'rgba(212,175,55,0.05)', 
-                        color: '#D4AF37', 
-                        padding: '1px 5px', 
-                        borderRadius: '3px',
-                        fontWeight: 700,
-                        border: '1px solid rgba(212,175,55,0.1)'
-                      }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          {tickets.length === 0 && <Empty>Nenhuma conversa encontrada</Empty>}
-        </div>
-      </aside>
+      <TicketSidebar
+        counts={counts}
+        filters={filters}
+        isMobile={isMobile}
+        search={search}
+        selectedId={selectedId}
+        selectTicket={selectTicket}
+        setFilters={setFilters}
+        setSearch={setSearch}
+        setTab={setTab}
+        styles={s}
+        tab={tab}
+        teams={teams}
+        tickets={tickets}
+        users={users}
+        view={view}
+      />
 
       {/* Main Chat */}
       <main 
@@ -657,327 +422,73 @@ export default function Inbox() {
       >
         {selectedTicket ? (
           <>
-            <header style={{ ...s.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
-              {isMobile && <button style={s.backBtn} onClick={() => setView('list')}>❮</button>}
-              <Avatar name={selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'} src={selectedTicket.contact?.avatarUrl} size={isMobile ? 32 : 40} />
-              <div style={{ ...s.rowInfo, overflow: 'hidden' }}>
-                <div style={{ ...s.chatName, fontSize: isMobile ? '0.9rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
-                </div>
-                {/* Mostra a empresa vinculada no cabeçalho se existir */}
-                {!isMobile && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ ...s.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
-                      {selectedTicket.contact?.phone}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div style={{ ...s.headerActions, gap: isMobile ? '4px' : '0.75rem' }}>
-                <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={() => setShowOsModal(true)}>
-                  🔧 {isMobile ? 'O.S.' : 'Gerar O.S.'}
-                </button>
-                <button style={{ ...s.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleSummarize} disabled={summarizing}>
-                  {isMobile ? '✨' : '✨ Resumo IA'}
-                </button>
-                {selectedTicket.status !== 'resolved' ? (
-                  <>
-                    <button style={{ ...s.transferBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={() => setTransferModal(true)}>
-                      {isMobile ? '➡️' : '➡️ Transferir'}
-                    </button>
-                    <button style={{ ...s.resolveBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleResolve}>
-                      {isMobile ? '✅' : '✅ Encerrar'}
-                    </button>
-                  </>
-                ) : (
-                  <button style={{ ...s.resolveBtn, background: 'var(--text-muted)', padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }} onClick={handleReopen}>
-                    {isMobile ? '🔄' : '🔄 Reabrir'}
-                  </button>
-                )}
-                <button style={s.infoBtn} onClick={() => setShowInfo(!showInfo)}>ℹ️</button>
-              </div>
-            </header>
+            <ChatHeader
+              botName={botName}
+              handleReopen={handleReopen}
+              handleResolve={handleResolve}
+              handleSummarize={handleSummarize}
+              isMobile={isMobile}
+              selectedTicket={selectedTicket}
+              setShowInfo={setShowInfo}
+              setShowOsModal={setShowOsModal}
+              setTransferModal={setTransferModal}
+              setView={setView}
+              showInfo={showInfo}
+              styles={s}
+              summarizing={summarizing}
+            />
 
             {summary && (
               <div style={s.summaryCard}>
-                <div style={s.summaryHeader}><span>✨ RESUMO DA CONVERSA (IA)</span><button onClick={() => setSummary(null)}>✕</button></div>
+                <div style={s.summaryHeader}><span>RESUMO DA CONVERSA (IA)</span><button onClick={() => setSummary(null)}>X</button></div>
                 <div style={s.summaryBody}>{summary}</div>
               </div>
             )}
 
-            <div style={s.messages} ref={scrollRef}>
-              {loading ? <Empty>Carregando historico...</Empty> : <>
-                {hasMoreMessages && (
-                  <div style={s.loadMoreWrap}>
-                    <button
-                      onClick={handleLoadMoreMessages}
-                      disabled={loadingMoreMessages}
-                      style={{ ...s.loadMoreBtn, opacity: loadingMoreMessages ? 0.7 : 1 }}
-                    >
-                      {loadingMoreMessages ? 'Carregando...' : 'Carregar mais'}
-                    </button>
-                  </div>
-                )}
-                {messages.map((m, i) => {
-                if (m._separator) {
-                  return (
-                    <div key={`sep-${i}`} style={s.separator}>
-                      <div style={s.sepLine} />
-                      <div style={{ ...s.sepLabel, background: m.isCurrent ? '#D4AF37' : '#333' }}>
-                        {m.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(m.date).toLocaleDateString()})`}
-                      </div>
-                      <div style={s.sepLine} />
-                    </div>
-                  );
-                }
+            <MessageList
+              botName={botName}
+              handleCopyMessage={handleCopyMessage}
+              handleDeleteMessage={handleDeleteMessage}
+              handleLoadMoreMessages={handleLoadMoreMessages}
+              hasMoreMessages={hasMoreMessages}
+              loading={loading}
+              loadingMoreMessages={loadingMoreMessages}
+              messages={messages}
+              onImageClick={setPreviewImg}
+              scrollRef={scrollRef}
+              selectedTicket={selectedTicket}
+              setForwardingMessage={setForwardingMessage}
+              setReplyingTo={setReplyingTo}
+              styles={s}
+            />
 
-                if (m._type === 'event') {
-                  let payload = {};
-                  try {
-                    if (typeof m.payload === 'string') {
-                      payload = JSON.parse(m.payload || '{}');
-                    } else if (typeof m.payload === 'object' && m.payload !== null) {
-                      payload = m.payload;
-                    }
-                  } catch (e) { console.error('Erro ao processar payload do evento:', e); }
-
-                  if (m.type === 'ia_summary' && payload?.summary) {
-                    return (
-                      <div key={m.id} style={s.summaryCard}>
-                         <div style={s.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
-                         <div style={s.summaryBody}>{payload.summary}</div>
-                      </div>
-                    );
-                  }
-
-                  const eventLabel = {
-                    assigned: 'Assumiu o atendimento',
-                    transferred: `Transferiu para ${payload?.teamName || 'outra equipe'}`,
-                    resolved: 'Encerrou o atendimento',
-                    reopened: 'Reabriu o atendimento',
-                    ooo_message: 'Aviso de Fora de Horario Enviado'
-                  }[m.type] || m.type;
-
-                  return (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                       <div style={{
-                         background: m.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
-                         color: m.type === 'resolved' ? '#2ecc71' : m.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
-                         fontSize: '0.9rem',
-                         padding: '12px 18px',
-                         borderRadius: '16px',
-                         border: `1px solid ${m.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : m.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
-                         letterSpacing: '0.01em',
-                         fontWeight: 800,
-                         lineHeight: 1.45,
-                         textAlign: 'center',
-                         boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                         maxWidth: 'min(92%, 760px)'
-                       }}>
-                          {m.user?.name || 'Sistema'} - {eventLabel} {m.createdAt ? `em ${new Date(m.createdAt).toLocaleDateString('pt-BR')} as ${new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                       </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={m.id} style={{ ...s.bubbleWrap, justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
-                    <div style={{
-                      ...s.bubble,
-                      background: m.fromMe ? (m.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
-                      color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
-                      opacity: m.isDeleted ? 0.6 : 1,
-                      textDecoration: m.isDeleted ? 'line-through' : 'none',
-                      border: m.fromMe ? (m.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
-                      alignItems: m.fromMe ? 'flex-end' : 'flex-start',
-                      borderBottomRightRadius: m.fromMe ? '4px' : '20px',
-                      borderBottomLeftRadius: m.fromMe ? '20px' : '4px',
-                    }}>
-                      {m.fromMe && !m.isDeleted && (
-                        <button
-                          onClick={() => handleDeleteMessage(m.id)}
-                          style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Apagar para o cliente"
-                        >
-                          X
-                        </button>
-                      )}
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <div style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          opacity: m.fromBot ? 0.8 : 1
-                        }}>
-                          {m.fromMe ? (m.fromBot ? `BOT ${botName}` : (m.agent?.name || 'Voce')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
-                        </div>
-                        {!m.isDeleted && (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              onClick={() => setReplyingTo(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
-                              title="Responder"
-                            >
-                              Resp.
-                            </button>
-                            <button
-                              onClick={() => handleCopyMessage(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
-                              title="Copiar texto"
-                            >
-                              Cop.
-                            </button>
-                            <button
-                              onClick={() => setForwardingMessage(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
-                              title="Encaminhar"
-                            >
-                              Enc.
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {m.quotedMsgBody && (
-                        <div style={{
-                          background: m.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
-                          borderLeft: `3px solid ${m.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
-                          padding: '6px 10px',
-                          borderRadius: '8px',
-                          marginBottom: '8px',
-                          fontSize: '0.8rem',
-                          color: m.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
-                          fontStyle: 'italic',
-                          maxWidth: '100%',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {m.quotedMsgBody}
-                        </div>
-                      )}
-
-                      <MediaContent message={m} onImageClick={setPreviewImg} />
-                      {m.body && <div style={{ ...s.messageText, fontWeight: m.fromMe ? 500 : 400, marginTop: m.mediaUrl ? '8px' : 0 }}>{m.body}</div>}
-                      <div style={{ ...s.time, color: m.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(m.createdAt)}</div>
-                    </div>
-                  </div>
-                );
-              })}
-                {!messages.length && <Empty>Nenhuma mensagem encontrada</Empty>}
-              </>}
-            </div>
-
-            {filteredQuick.length > 0 && (
-              <div style={s.quickList}>
-                {filteredQuick.map(r => (
-                  <div key={r.id} style={s.quickItem} onClick={() => { setText(r.message); setFilteredQuick([]); }}>
-                    <strong>{r.shortcut}</strong>: {r.message}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ ...s.inputArea, padding: isMobile ? '0.75rem' : '1rem', gap: isMobile ? '0.5rem' : '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
-              {replyingTo && (
-                <div style={{ 
-                  background: 'rgba(212,175,55,0.1)', 
-                  borderLeft: '4px solid #D4AF37', 
-                  padding: '8px 12px', 
-                  borderRadius: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '4px'
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
-                      Respondendo a {replyingTo.fromMe ? 'você' : (selectedTicket.contact.name || selectedTicket.contact.phone)}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {replyingTo.body || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Mídia')}
-                    </div>
-                  </div>
-                  <button onClick={() => setReplyingTo(null)} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1rem', padding: '0 8px' }}>✕</button>
-                </div>
-              )}
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
-              {isRecording ? (
-                <div style={s.recordingWrap}>
-                  <div style={s.recordingDot} />
-                  <span style={s.recordingTime}>{fmtTime(recordingTime)}</span>
-                  <button style={s.stopBtn} onClick={stopRecording}>⏹ Parar e Enviar</button>
-                </div>
-              ) : (
-                <>
-                  <button style={{ ...s.attachBtn, fontSize: isMobile ? '1.1rem' : '1.4rem' }} onClick={() => document.getElementById('fileInput').click()}>📎</button>
-                  <input type="file" id="fileInput" hidden multiple onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files)])} />
-                  
-                  {!isMobile && (
-                    <button style={{ ...s.attachBtn, fontSize: '1.4rem' }} onClick={() => setShowScheduling(!showScheduling)}>📅</button>
-                  )}
-                  
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {files.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {files.map((f, idx) => (
-                          <div key={idx} style={s.filePreview}>
-                            📎 {f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name} 
-                            <button onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <textarea 
-                      style={{ ...s.textInput, height: 'auto', minHeight: '40px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }} 
-                      rows={1} 
-                      value={text} 
-                      onChange={e => {
-                        handleInput(e.target.value);
-                        e.target.style.height = 'auto';
-                        e.target.style.height = (e.target.scrollHeight) + 'px';
-                      }} 
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSend();
-                          e.target.style.height = '40px';
-                        }
-                      }}
-                      placeholder={isMobile ? "Mensagem..." : "Digite sua mensagem..."}
-                      spellCheck={false}
-                    />
-                  </div>
-                  
-                  <button 
-                    style={{ 
-                      ...s.sendBtn, 
-                      width: isMobile ? '40px' : '45px', 
-                      height: isMobile ? '40px' : '45px',
-                      background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
-                      border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
-                      color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
-                      fontSize: isMobile ? '1.1rem' : '1.2rem'
-                    }} 
-                    onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
-                    onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
-                    onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
-                  >
-                    {(!text.trim() && files.length === 0) ? 'Mic' : '>'}
-                  </button>
-                </>
-              )}
-              </div>
-            </div>
+            <MessageComposer
+              files={files}
+              filteredQuick={filteredQuick}
+              fmtTime={fmtTime}
+              handleInput={handleInput}
+              handleSend={handleSend}
+              isMobile={isMobile}
+              isRecording={isRecording}
+              recordingTime={recordingTime}
+              replyingTo={replyingTo}
+              selectedTicket={selectedTicket}
+              setFiles={setFiles}
+              setFilteredQuick={setFilteredQuick}
+              setReplyingTo={setReplyingTo}
+              setShowScheduling={setShowScheduling}
+              startRecording={startRecording}
+              stopRecording={stopRecording}
+              styles={s}
+              setText={setText}
+              text={text}
+            />
           </>
         ) : (
-          <div style={s.emptyChat}>
-            <div style={s.emptyIcon}>💬</div>
+            <div style={s.emptyChat}>
+            <div style={s.emptyIcon}>Chat</div>
             <h2>Central de Atendimento</h2>
-            <p>Selecione um chat para começar a atender</p>
+            <p>Selecione um chat para comecar a atender</p>
           </div>
         )}
       </main>
@@ -991,6 +502,7 @@ export default function Inbox() {
           onImageClick={setPreviewImg}
           isMobile={isMobile}
           onLinkCRM={() => setLinkModal(true)}
+          styles={s}
         />
       )}
 
@@ -999,7 +511,7 @@ export default function Inbox() {
       {showScheduling && (
         <div style={s.overlay} onClick={() => setShowScheduling(false)}>
           <div style={s.modal} onClick={e => e.stopPropagation()}>
-            <div style={s.modalHeader}><h3>📅 Agendar Mensagem</h3><button onClick={() => setShowScheduling(false)}>✕</button></div>
+            <div style={s.modalHeader}><h3>Agendar Mensagem</h3><button onClick={() => setShowScheduling(false)}>X</button></div>
             <div style={s.modalBody}>
               <textarea style={s.modalInput} placeholder="Texto da mensagem..." value={scheduleData.body} onChange={e => setScheduleData({...scheduleData, body: e.target.value})} />
               <input style={s.modalInput} type="datetime-local" value={scheduleData.sendAt} onChange={e => setScheduleData({...scheduleData, sendAt: e.target.value})} />
@@ -1022,12 +534,14 @@ export default function Inbox() {
           teams={teams}
           onClose={() => setTransferModal(false)}
           onTransfer={handleTransfer}
+          styles={s}
         />
       )}
 
       {forwardingMessage && (
         <ForwardModal 
           onClose={() => setForwardingMessage(null)}
+          styles={s}
           onForward={async (contact) => {
             try {
               await forwardMessage(selectedId, forwardingMessage.id, contact.id);
@@ -1073,444 +587,6 @@ export default function Inbox() {
     </div>
   );
 }
-
-function Avatar({ name, src, size = 40 }) {
-  const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
-  if (src) return <img src={src} alt={name} style={base} />;
-  const initials = name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-  return <div style={{ ...base, background: 'rgba(212,175,55,0.1)', color: '#D4AF37', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: size * 0.4 }}>{initials}</div>;
-}
-
-function MediaContent({ message: m, onImageClick }) {
-  const url = getMediaUrl(m.mediaUrl);
-  
-  // Mídia com falha definitiva — token expirou ou download impossível
-  if (!url && m.mediaStatus === 'failed' && m.mediaType && m.mediaType !== 'text') {
-    return (
-      <div style={{ 
-        padding: '0.75rem 1rem', 
-        background: 'rgba(255,80,80,0.05)', 
-        borderRadius: '8px', 
-        border: '1px dashed rgba(255,80,80,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '0.8rem',
-        color: '#ff6b6b'
-      }}>
-        <span style={{ fontSize: '1rem' }}>🚫</span> Mídia indisponível
-      </div>
-    );
-  }
-
-  // Mídia ainda sendo baixada (pending)
-  if (!url && m.mediaType && m.mediaType !== 'text' && (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'audio' || m.mediaType === 'document' || m.mediaType === 'sticker')) {
-    return (
-      <div style={{ 
-        padding: '1rem', 
-        background: 'rgba(212,175,55,0.05)', 
-        borderRadius: '8px', 
-        border: '1px dashed rgba(212,175,55,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '0.85rem',
-        color: '#D4AF37'
-      }}>
-        <span style={{ fontSize: '1.2rem' }}>⏳</span> Baixando mídia do WhatsApp...
-      </div>
-    );
-  }
-
-  if (url && m.mediaType === 'image') return <img src={url} alt="" style={s.imgMedia} onClick={() => onImageClick(url)} />;
-  if (url && m.mediaType === 'video') return <video src={url} controls style={s.imgMedia} />;
-  if (url && m.mediaType === 'audio') return <AudioPlayer src={url} fromMe={m.fromMe} transcription={m.transcription} />;
-  if (url && m.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
-  if (url && m.mediaType === 'document') {
-    const isPdf = m.fileName?.toLowerCase().endsWith('.pdf');
-    return (
-      <a href={url} target="_blank" rel="noreferrer" style={s.pdfCard}>
-        <div style={s.pdfIcon}>{isPdf ? '📕' : '📎'}</div>
-        <div style={s.pdfInfo}>
-          <div style={s.pdfName}>{m.fileName || 'Arquivo'}</div>
-          <div style={s.pdfSize}>{isPdf ? 'Documento PDF' : 'Documento'}</div>
-        </div>
-      </a>
-    );
-  }
-  return null;
-}
-
-function AudioPlayer({ src, fromMe, transcription }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <audio controls style={{ height: 32, maxWidth: 200, filter: fromMe ? 'invert(1) hue-rotate(180deg)' : 'none' }}>
-        <source src={src} type="audio/ogg; codecs=opus" />
-        <source src={src} type="audio/mpeg" />
-      </audio>
-      {transcription && <div style={{ ...s.transcription, borderLeft: `2px solid ${fromMe ? '#000' : '#D4AF37'}`, color: fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0' }}>{transcription}</div>}
-    </div>
-  );
-}
-
-function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM }) {
-  const contact = ticket.contact;
-  const [notes, setNotes] = useState(contact.notes || '');
-  const [city, setCity] = useState(contact.city || '');
-  const [state, setState] = useState(contact.state || '');
-  const [priority, setPriority] = useState(ticket.priority || 'medium');
-  const [tags, setTags] = useState(() => { try { return JSON.parse(contact.tags || '[]'); } catch { return []; } });
-  const [newTag, setNewTag] = useState('');
-  const [media, setMedia] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [availableTags, setAvailableTags] = useState([]);
-  const [equipments, setEquipments] = useState([]);
-
-  const [linkedCrm, setLinkedCrm] = useState(null);
-
-  useEffect(() => {
-    getContactMedia(contact.id).then(r => setMedia(r.data));
-    getTags().then(r => setAvailableTags(r.data));
-    getEquipments(contact.id).then(r => setEquipments(r.data));
-    
-    // Busca se existe uma empresa vinculada a este telefone
-    api.get(`/contacts?search=${contact.phone}`).then(r => {
-      const list = r.data.contacts || r.data || [];
-      const crm = list.find(c => c.id !== contact.id && c.whatsapp === contact.phone);
-      setLinkedCrm(crm);
-    }).catch(() => {});
-  }, [contact.id]);
-
-  async function saveContact() { 
-    await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state }); 
-    onUpdate(); 
-  }
-
-  async function handlePriorityChange(p) {
-    setPriority(p);
-    setLoading(true);
-    await updateTicket(ticket.id, { priority: p });
-    onUpdate();
-    setLoading(false);
-  }
-
-  const addTag = (tagName) => {
-    if (!tagName) return;
-    if (tags.includes(tagName)) return;
-    const updated = [...tags, tagName];
-    setTags(updated);
-    updateContact(contact.id, { tags: JSON.stringify(updated) }).then(onUpdate);
-  };
-
-  const removeTag = (tag) => {
-    const updated = tags.filter(t => t !== tag);
-    setTags(updated);
-    updateContact(contact.id, { tags: JSON.stringify(updated) }).then(onUpdate);
-  };
-
-  return (
-    <div style={{
-      ...s.infoPanel,
-      position: isMobile ? 'fixed' : 'relative',
-      inset: isMobile ? 0 : 'auto',
-      width: isMobile ? '100%' : '380px',
-      zIndex: isMobile ? 2000 : 1,
-      height: '100%'
-    }}>
-      <div style={s.infoPanelHeader}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-           <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Ficha do Cliente</h3>
-        </div>
-        <button style={s.infoClose} onClick={onClose}>✕</button>
-      </div>
-      
-      <div style={s.infoScroll}>
-        <div style={s.infoProfile}>
-          <Avatar name={contact.name || contact.phone} src={contact.avatarUrl} size={80} />
-          <h4 style={s.infoName}>{contact.name || contact.phone}</h4>
-          
-          {linkedCrm ? (
-            <div style={{ 
-              color: '#D4AF37', 
-              fontSize: '0.9rem', 
-              fontWeight: 800, 
-              marginBottom: 12,
-              padding: '6px 16px',
-              background: 'rgba(212,175,55,0.1)',
-              borderRadius: '12px',
-              border: '1px solid rgba(212,175,55,0.2)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              🏢 {linkedCrm.fantasyName || linkedCrm.name}
-            </div>
-          ) : (
-            contact.fantasyName && (
-              <div style={{ 
-                color: 'var(--accent)', 
-                fontSize: '0.9rem', 
-                fontWeight: 700, 
-                marginBottom: 8,
-                padding: '4px 12px',
-                background: 'rgba(212,175,55,0.1)',
-                borderRadius: '8px',
-                display: 'inline-block'
-              }}>
-                🏢 {contact.fantasyName}
-              </div>
-            )
-          )}
-          
-          <div style={s.infoPhone}>{contact.phone}</div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <div style={s.infoBadge}>WhatsApp</div>
-            <button 
-              onClick={onLinkCRM}
-              style={{ ...s.infoBadge, background: 'var(--accent)', color: '#000', cursor: 'pointer', border: 'none' }}
-            >
-              🔗 Vincular CRM
-            </button>
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>🏷️ ETIQUETAS</h5>
-          <div style={s.tagContainer}>
-            {tags.map(t => (
-              <span key={t} style={s.tagItem}>
-                {t} <button onClick={() => removeTag(t)} style={s.tagDel}>✕</button>
-              </span>
-            ))}
-            <select 
-              style={s.tagSelect} 
-              value="" 
-              onChange={e => addTag(e.target.value)}
-            >
-              <option value="">+ Tag</option>
-              {availableTags.filter(t => !tags.includes(t.name)).map(t => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>📍 LOCALIZAÇÃO</h5>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input 
-              style={{ ...s.modalInput, flex: 2, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} 
-              placeholder="Cidade" 
-              value={city} 
-              onChange={e => setCity(e.target.value)} 
-              onBlur={saveContact}
-            />
-            <input 
-              style={{ ...s.modalInput, flex: 1, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} 
-              placeholder="UF" 
-              value={state} 
-              maxLength={2}
-              onChange={e => setState(e.target.value.toUpperCase())} 
-              onBlur={saveContact}
-            />
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>⚡ PRIORIDADE DO TICKET</h5>
-          <div style={s.priorityGrid}>
-            {[
-              { id: 'urgent', label: 'Urgente', color: '#e53e3e' },
-              { id: 'high', label: 'Alta', color: '#dd6b20' },
-              { id: 'medium', label: 'Normal', color: '#d4af37' },
-              { id: 'low', label: 'Baixa', color: '#3182ce' }
-            ].map(p => (
-              <button 
-                key={p.id}
-                onClick={() => handlePriorityChange(p.id)}
-                style={{
-                  ...s.priorityBtn,
-                  background: priority === p.id ? p.color : 'rgba(255,255,255,0.03)',
-                  color: priority === p.id ? '#000' : '#717171',
-                  borderColor: priority === p.id ? p.color : '#333'
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>📝 NOTAS INTERNAS</h5>
-          <textarea 
-            style={s.notesArea} 
-            value={notes} 
-            onChange={e => setNotes(e.target.value)} 
-            onBlur={saveContact}
-            placeholder="Adicione observações sobre este cliente..."
-          />
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>🛠️ EQUIPAMENTOS</h5>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {equipments.map(e => (
-              <div key={e.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                  {e.model.toLowerCase().startsWith(e.manufacturer?.toLowerCase()) 
-                    ? e.model 
-                    : (e.manufacturer ? `${e.manufacturer} ${e.model}` : e.model)}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{e.type || 'Equipamento'}</div>
-                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Série: {e.serialNumber || 'S/N'}</div>
-                {e.sector && <div style={{ fontSize: '0.75rem', color: '#888' }}>Setor: {e.sector}</div>}
-              </div>
-            ))}
-            {equipments.length === 0 && <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhum equipamento vinculado</div>}
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>🖼️ MÍDIAS COMPARTILHADAS</h5>
-          <div style={s.mediaGrid}>
-            {media.filter(m => m.mediaType === 'image').slice(0, 9).map(m => (
-              <img key={m.id} src={m.mediaUrl} style={s.mediaThumb} onClick={() => onImageClick(m.mediaUrl)} />
-            ))}
-            {media.length === 0 && <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhuma mídia enviada</div>}
-          </div>
-        </div>
-
-        <div style={s.infoSection}>
-          <h5 style={s.infoLabel}>ℹ️ DETALHES TÉCNICOS</h5>
-          <div style={s.techInfo}>
-            <div style={s.techRow}><span>ID Ticket</span> <span>#{ticket.id}</span></div>
-            <div style={s.techRow}><span>Criado em</span> <span>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
-            <div style={s.techRow}><span>Atendente</span> <span>{ticket.agent?.name || 'Aguardando'}</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransferModal({ users, teams, onClose, onTransfer }) {
-  const [target, setTarget] = useState('users');
-  return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={e => e.stopPropagation()}>
-        <div style={s.modalHeader}><h3>Transferir Chat</h3><button onClick={onClose}>X</button></div>
-        <div style={s.tabs}><button onClick={() => setTarget('users')} style={{ ...s.tab, ...(target === 'users' ? s.tabActive : {}) }}>Agentes</button><button onClick={() => setTarget('teams')} style={{ ...s.tab, ...(target === 'teams' ? s.tabActive : {}) }}>Equipes</button></div>
-        <div style={{ padding: '1rem', maxHeight: 300, overflowY: 'auto' }}>
-          {target === 'users'
-            ? users.map(u => <div key={u.id} style={s.transferRow} onClick={() => onTransfer(u.id, null)}><Avatar name={u.name} size={30} />{u.name}</div>)
-            : teams.map(t => <div key={t.id} style={s.transferRow} onClick={() => onTransfer(null, t.id)}>Equipe: {t.name}</div>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ForwardModal({ onClose, onForward }) {
-  const [contacts, setContacts] = useState([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(true);
-      getContacts(search).then(r => {
-        setContacts(r.data.contacts || r.data || []);
-        setLoading(false);
-      });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={{ ...s.modal, maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-        <div style={s.modalHeader}>
-          <h3 style={{ margin: 0 }}>🚀 Encaminhar Mensagem</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
-        </div>
-        <div style={{ padding: '1rem' }}>
-          <input 
-            style={{ ...s.modalInput, marginBottom: '1rem' }} 
-            placeholder="🔍 Buscar contato..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-          />
-          <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-            {loading ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Carregando...</div> : (
-              contacts.map(c => (
-                <div key={c.id} onClick={() => onForward(c)} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '12px', 
-                  padding: '12px', 
-                  borderRadius: '12px', 
-                  cursor: 'pointer',
-                  borderBottom: '1px solid var(--border-color)',
-                  transition: 'background 0.2s'
-                }} className="hover-item">
-                  <Avatar name={c.name} src={c.avatarUrl} size={36} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</div>
-                  </div>
-                  <div style={{ color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 800 }}>SELECIONAR</div>
-                </div>
-              ))
-            )}
-            {!loading && contacts.length === 0 && <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Nenhum contato encontrado</div>}
-          </div>
-        </div>
-        <style>{`
-          .hover-item:hover { background: rgba(212,175,55,0.08) !important; }
-        `}</style>
-      </div>
-    </div>
-  );
-}
-
-function Empty({ children }) { return <div style={{ textAlign: 'center', padding: '3rem', color: '#717171' }}>{children}</div>; }
-function fmt(d) { const date = new Date(d); return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-function mergeMessagePages(current, incoming, prepend = false) {
-  const items = prepend ? [...incoming, ...current] : [...current, ...incoming];
-  const seen = new Set();
-  const merged = [];
-
-  for (const item of items) {
-    const key = item._separator
-      ? `sep:${item.ticketId}:${new Date(item.date).toISOString()}`
-      : `${item._type || 'message'}:${item.id}`;
-
-    if (seen.has(key)) continue;
-
-    const previous = merged[merged.length - 1];
-    if (item._separator && previous?._separator && previous.ticketId === item.ticketId) {
-      continue;
-    }
-
-    seen.add(key);
-    merged.push(item);
-  }
-
-  return merged;
-}
-
-function waitingSince(d) {
-  const diff = Date.now() - new Date(d).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'agora';
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  return `${Math.floor(hr / 24)}d`;
-}
-function statusLabel(s) { return { pending: 'Aguardando', open: 'Atendimento', resolved: 'Resolvido' }[s] || s; }
-function statusColor(s) { return { pending: '#D4AF37', open: '#48bb78', resolved: '#717171' }[s] || '#717171'; }
 
 const s = {
   layout: { display: 'flex', height: '100%', width: '100%', background: 'var(--bg-base)', color: 'var(--text-main)', overflow: 'hidden', fontFamily: "'Inter', sans-serif" },

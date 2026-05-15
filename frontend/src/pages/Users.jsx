@@ -1,26 +1,26 @@
 import React, { useEffect, useState } from 'react';
+import { BadgeCheck, Pencil, Plus, Search, Shield, Trash2, UserRound, UserX } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
-  const [teams, setTeams] = useState([]);
+  const [, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [modal, setModal] = useState(null); // user object | 'new'
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'agent', active: true });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   async function load() {
     setLoading(true);
     try {
-      const [{ data: uData }, { data: tData }] = await Promise.all([
-        getUsers(),
-        getTeams()
-      ]);
+      const [{ data: uData }, { data: tData }] = await Promise.all([getUsers(), getTeams()]);
       setUsers(uData);
       setTeams(tData);
     } catch (err) {
@@ -34,10 +34,11 @@ export default function Users() {
     if (user) {
       setModal(user);
       setForm({ name: user.name, email: user.email, password: '', role: user.role, active: user.active });
-    } else {
-      setModal('new');
-      setForm({ name: '', email: '', password: '', role: 'agent', active: true });
+      return;
     }
+
+    setModal('new');
+    setForm({ name: '', email: '', password: '', role: 'agent', active: true });
   }
 
   async function handleSave(e) {
@@ -62,16 +63,18 @@ export default function Users() {
     try {
       await updateUser(user.id, { active: !user.active });
       load();
-    } catch { toast.info('Erro ao mudar status'); }
+    } catch {
+      toast.info('Erro ao mudar status');
+    }
   }
 
   async function handleDelete(user) {
     toast.confirm(
-      `Excluir o atendente ${user.name}? Essa ação remove o acesso dele e desvincula atendimentos anteriores.`,
+      `Excluir o atendente ${user.name}? Essa acao remove o acesso dele e desvincula atendimentos anteriores.`,
       async () => {
         try {
           await deleteUser(user.id);
-          toast.success('Atendente excluído com sucesso');
+          toast.success('Atendente excluido com sucesso');
           load();
         } catch (err) {
           toast.error(err.response?.data?.error || 'Erro ao excluir atendente');
@@ -80,9 +83,11 @@ export default function Users() {
     );
   }
 
-  const filtered = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? u.active : !u.active);
+  const filtered = users.filter((user) => {
+    const term = search.toLowerCase();
+    const matchesSearch =
+      user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? user.active : !user.active);
     return matchesSearch && matchesStatus;
   });
 
@@ -90,34 +95,39 @@ export default function Users() {
     <div style={s.container}>
       <header style={s.header}>
         <div>
-          <h1 style={s.title}>👤 Gestão de Usuários</h1>
-          <p style={s.subtitle}>Controle os acessos e permissões da sua equipe</p>
+          <p style={s.kicker}>Administracao</p>
+          <h1 style={s.title}>Gestao de usuarios</h1>
+          <p style={s.subtitle}>Controle acessos, cargos e status da equipe em um fluxo mais claro.</p>
         </div>
-        <button style={s.addBtn} onClick={() => openModal()}>+ Adicionar Agente</button>
+        <button style={s.addBtn} onClick={() => openModal()}>
+          <Plus size={16} />
+          Adicionar agente
+        </button>
       </header>
 
-      <div style={s.filterBar}>
+      <section style={s.filterBar}>
         <div style={s.searchWrap}>
-          <span style={s.searchIcon}>🔍</span>
-          <input 
-            style={s.searchInput} 
-            placeholder="Pesquisar por nome ou e-mail..." 
+          <Search size={16} style={s.searchIcon} />
+          <input
+            style={s.searchInput}
+            placeholder="Pesquisar por nome ou e-mail"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select style={s.select} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="all">Todos os Status</option>
-          <option value="active">Apenas Ativos</option>
+
+        <select style={s.select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">Todos os status</option>
+          <option value="active">Apenas ativos</option>
           <option value="inactive">Arquivados</option>
         </select>
-      </div>
+      </section>
 
       <div style={s.tableCard}>
         {loading ? (
           <div style={s.empty}>Carregando agentes...</div>
         ) : filtered.length === 0 ? (
-          <div style={s.empty}>Nenhum usuário encontrado.</div>
+          <div style={s.empty}>Nenhum usuario encontrado.</div>
         ) : (
           <table style={s.table}>
             <thead>
@@ -126,56 +136,67 @@ export default function Users() {
                 <th style={s.th}>E-mail</th>
                 <th style={s.th}>Cargo</th>
                 <th style={s.th}>Status</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Ações</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
-                <tr key={u.id} style={s.tr}>
-                  <td style={s.td}>
-                    <div style={s.nameCell}>
-                      <div style={s.avatar}>{u.name[0].toUpperCase()}</div>
-                      <span style={{ fontWeight: 600 }}>{u.name}</span>
-                    </div>
-                  </td>
-                  <td style={s.td}>{u.email}</td>
-                  <td style={s.td}>
-                    <span style={{ 
-                      ...s.roleBadge, 
-                      background: u.role === 'admin' ? 'rgba(212, 175, 55, 0.15)' : 'rgba(255,255,255,0.05)',
-                      color: u.role === 'admin' ? '#D4AF37' : '#A0A0A0',
-                      border: `1px solid ${u.role === 'admin' ? 'rgba(212, 175, 55, 0.3)' : '#333'}`
-                    }}>
-                      {u.role === 'admin' ? '👑 Administrador' : '🎧 Operador'}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    <div style={s.statusCell}>
-                      <span style={{ ...s.statusDot, background: u.active ? '#48bb78' : '#717171' }} />
-                      <span style={{ color: u.active ? '#fff' : '#717171' }}>{u.active ? 'Ativo' : 'Arquivado'}</span>
-                    </div>
-                  </td>
-                  <td style={{ ...s.td, textAlign: 'right' }}>
-                    <div style={s.actionGroup}>
-                      <button style={s.actionBtn} onClick={() => openModal(u)} title="Editar">✏️</button>
-                      <button 
-                        style={{ ...s.actionBtn, color: u.active ? '#e53e3e' : '#48bb78', background: u.active ? 'rgba(229, 62, 62, 0.1)' : 'rgba(72, 187, 120, 0.1)' }} 
-                        onClick={() => handleToggleStatus(u)}
-                        title={u.active ? 'Arquivar' : 'Reativar'}
+              {filtered.map((user) => {
+                const isAdmin = user.role === 'admin';
+                return (
+                  <tr key={user.id} style={s.tr}>
+                    <td style={s.td}>
+                      <div style={s.nameCell}>
+                        <div style={s.avatar}>{user.name[0].toUpperCase()}</div>
+                        <div>
+                          <div style={s.nameText}>{user.name}</div>
+                          <div style={s.metaText}>{user.active ? 'Disponivel' : 'Arquivado'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={s.td}>{user.email}</td>
+                    <td style={s.td}>
+                      <span
+                        style={{
+                          ...s.roleBadge,
+                          ...(isAdmin ? s.roleBadgeAdmin : s.roleBadgeAgent),
+                        }}
                       >
-                        {u.active ? '🚫' : '✅'}
-                      </button>
-                      <button
-                        style={{ ...s.actionBtn, color: '#ff8a8a', background: 'rgba(229, 62, 62, 0.12)' }}
-                        onClick={() => handleDelete(u)}
-                        title="Excluir atendente"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {isAdmin ? <Shield size={14} /> : <UserRound size={14} />}
+                        {isAdmin ? 'Administrador' : 'Operador'}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      <div style={s.statusCell}>
+                        <span style={{ ...s.statusDot, ...(user.active ? s.statusActive : s.statusInactive) }} />
+                        <span style={user.active ? s.statusTextActive : s.statusTextInactive}>
+                          {user.active ? 'Ativo' : 'Arquivado'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ ...s.td, textAlign: 'right' }}>
+                      <div style={s.actionGroup}>
+                        <button style={s.actionBtn} onClick={() => openModal(user)} title="Editar">
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          style={{ ...s.actionBtn, ...(user.active ? s.actionWarn : s.actionSuccess) }}
+                          onClick={() => handleToggleStatus(user)}
+                          title={user.active ? 'Arquivar' : 'Reativar'}
+                        >
+                          {user.active ? <UserX size={16} /> : <BadgeCheck size={16} />}
+                        </button>
+                        <button
+                          style={{ ...s.actionBtn, ...s.actionDanger }}
+                          onClick={() => handleDelete(user)}
+                          title="Excluir atendente"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -185,36 +206,67 @@ export default function Users() {
         <div style={s.overlay}>
           <div style={s.modal}>
             <div style={s.modalHeader}>
-              <h3 style={s.modalTitle}>{modal === 'new' ? '✨ Novo Agente' : '✏️ Editar Agente'}</h3>
-              <button style={s.closeBtn} onClick={() => setModal(null)}>✕</button>
+              <div>
+                <p style={s.modalKicker}>{modal === 'new' ? 'Novo cadastro' : 'Editar acesso'}</p>
+                <h3 style={s.modalTitle}>{modal === 'new' ? 'Adicionar agente' : 'Atualizar agente'}</h3>
+              </div>
+              <button style={s.closeBtn} onClick={() => setModal(null)}>
+                x
+              </button>
             </div>
+
             <form onSubmit={handleSave} style={s.form}>
               <div style={s.formGrid}>
                 <div style={s.field}>
-                  <label style={s.label}>Nome Completo</label>
-                  <input style={s.input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Ex: João Silva" />
+                  <label style={s.label}>Nome completo</label>
+                  <input
+                    style={s.input}
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                    placeholder="Ex: Joao Silva"
+                  />
                 </div>
+
                 <div style={s.field}>
-                  <label style={s.label}>E-mail de Acesso</label>
-                  <input style={s.input} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required placeholder="email@empresa.com" />
+                  <label style={s.label}>E-mail de acesso</label>
+                  <input
+                    style={s.input}
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                    placeholder="email@empresa.com"
+                  />
                 </div>
+
                 <div style={s.field}>
                   <label style={s.label}>Senha {modal !== 'new' && '(deixe em branco para manter)'}</label>
-                  <input style={s.input} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required={modal === 'new'} placeholder="••••••••" />
+                  <input
+                    style={s.input}
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required={modal === 'new'}
+                    placeholder="********"
+                  />
                 </div>
+
                 <div style={s.field}>
-                  <label style={s.label}>Cargo (Permissões)</label>
-                  <select style={s.input} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                    <option value="agent">Operador (Acesso aos Chats)</option>
-                    <option value="admin">Administrador (Acesso Total)</option>
+                  <label style={s.label}>Cargo</label>
+                  <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                    <option value="agent">Operador (acesso aos chats)</option>
+                    <option value="admin">Administrador (acesso total)</option>
                   </select>
                 </div>
               </div>
 
               <div style={s.modalFooter}>
-                <button type="button" style={s.cancelBtn} onClick={() => setModal(null)}>Cancelar</button>
+                <button type="button" style={s.cancelBtn} onClick={() => setModal(null)}>
+                  Cancelar
+                </button>
                 <button type="submit" style={s.saveBtn} disabled={saving}>
-                  {saving ? 'Processando...' : 'Salvar Alterações'}
+                  {saving ? 'Processando...' : 'Salvar alteracoes'}
                 </button>
               </div>
             </form>
@@ -226,45 +278,333 @@ export default function Users() {
 }
 
 const s = {
-  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: '#0F0F0F', color: '#fff' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' },
-  title: { fontSize: '1.8rem', fontWeight: 800, color: '#fff', marginBottom: '0.4rem', letterSpacing: '-0.02em' },
-  subtitle: { fontSize: '0.95rem', color: '#717171' },
-  addBtn: { background: '#D4AF37', color: '#000', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', transition: 'transform 0.2s' },
-  
-  filterBar: { display: 'flex', gap: '1rem', marginBottom: '1.5rem' },
-  searchWrap: { position: 'relative', flex: 1 },
-  searchIcon: { position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#717171' },
-  searchInput: { width: '100%', background: '#1A1A1B', border: '1px solid #333', borderRadius: '12px', padding: '0.75rem 1rem 0.75rem 2.8rem', color: '#fff', outline: 'none', transition: 'border-color 0.2s' },
-  select: { background: '#1A1A1B', border: '1px solid #333', borderRadius: '12px', padding: '0.75rem 1rem', color: '#fff', outline: 'none', cursor: 'pointer' },
-
-  tableCard: { background: '#131314', borderRadius: '16px', border: '1px solid #2A2A2A', overflow: 'hidden' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  thead: { background: '#1A1A1B', borderBottom: '1px solid #2A2A2A' },
-  th: { padding: '1.25rem 1.5rem', fontSize: '0.85rem', fontWeight: 700, color: '#717171', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  tr: { borderBottom: '1px solid #2A2A2A', transition: 'background 0.2s' },
-  td: { padding: '1.25rem 1.5rem', fontSize: '0.95rem', color: '#fff' },
-  
-  nameCell: { display: 'flex', alignItems: 'center', gap: '1rem' },
-  avatar: { width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(212, 175, 55, 0.1)', color: '#D4AF37', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem' },
-  roleBadge: { padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700 },
-  statusCell: { display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' },
-  statusDot: { width: '8px', height: '8px', borderRadius: '50%', boxShadow: '0 0 8px currentColor' },
-  actionGroup: { display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' },
-  actionBtn: { background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer', fontSize: '1rem', padding: '0.6rem', borderRadius: '10px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  empty: { padding: '4rem', textAlign: 'center', color: '#717171' },
-
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' },
-  modal: { background: '#1A1A1B', borderRadius: '24px', width: '100%', maxWidth: '500px', border: '1px solid #333', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' },
-  modalHeader: { padding: '1.5rem 2rem', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#fff' },
-  closeBtn: { background: 'none', border: 'none', color: '#717171', fontSize: '1.2rem', cursor: 'pointer' },
-  form: { padding: '2rem' },
-  formGrid: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  label: { fontSize: '0.85rem', fontWeight: 700, color: '#717171', textTransform: 'uppercase', letterSpacing: '0.02em' },
-  input: { background: '#0F0F0F', border: '1px solid #333', borderRadius: '12px', padding: '0.85rem 1rem', color: '#fff', fontSize: '0.95rem', outline: 'none' },
-  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2.5rem' },
-  cancelBtn: { padding: '0.85rem 1.5rem', borderRadius: '12px', border: '1px solid #333', background: 'transparent', color: '#717171', cursor: 'pointer', fontWeight: 600 },
-  saveBtn: { padding: '0.85rem 1.5rem', borderRadius: '12px', border: 'none', background: '#D4AF37', color: '#000', cursor: 'pointer', fontWeight: 800 },
+  container: {
+    padding: '2.5rem',
+    flex: 1,
+    overflowY: 'auto',
+    background: 'var(--bg-base)',
+    color: 'var(--text-main)',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+    flexWrap: 'wrap',
+  },
+  kicker: {
+    margin: '0 0 0.4rem',
+    color: 'var(--accent)',
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+  },
+  title: {
+    fontSize: '1.9rem',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    margin: '0 0 0.55rem',
+    letterSpacing: '-0.03em',
+    fontFamily: 'var(--font-display)',
+  },
+  subtitle: {
+    margin: 0,
+    fontSize: '0.95rem',
+    color: 'var(--text-muted)',
+    maxWidth: '40rem',
+    lineHeight: 1.6,
+  },
+  addBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.55rem',
+    background: 'var(--accent)',
+    color: 'var(--text-inverse)',
+    border: '1px solid var(--accent)',
+    padding: '0.85rem 1.2rem',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: '0.92rem',
+  },
+  filterBar: {
+    display: 'flex',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+    flexWrap: 'wrap',
+  },
+  searchWrap: {
+    position: 'relative',
+    flex: '1 1 18rem',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: '1rem',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: 'var(--text-dim)',
+  },
+  searchInput: {
+    width: '100%',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    padding: '0.85rem 1rem 0.85rem 2.7rem',
+    color: 'var(--text-main)',
+    outline: 'none',
+    fontSize: '0.95rem',
+  },
+  select: {
+    minWidth: '13rem',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    padding: '0.85rem 1rem',
+    color: 'var(--text-main)',
+    outline: 'none',
+    cursor: 'pointer',
+    fontSize: '0.95rem',
+  },
+  tableCard: {
+    background: 'var(--bg-surface)',
+    borderRadius: '20px',
+    border: '1px solid var(--border-color)',
+    overflow: 'hidden',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    textAlign: 'left',
+  },
+  thead: {
+    background: 'var(--bg-panel)',
+    borderBottom: '1px solid var(--border-color)',
+  },
+  th: {
+    padding: '1.15rem 1.4rem',
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+  tr: {
+    borderBottom: '1px solid var(--border-color)',
+  },
+  td: {
+    padding: '1.2rem 1.4rem',
+    fontSize: '0.95rem',
+    color: 'var(--text-main)',
+    verticalAlign: 'middle',
+  },
+  nameCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.9rem',
+  },
+  avatar: {
+    width: '38px',
+    height: '38px',
+    borderRadius: '12px',
+    background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+    color: 'var(--accent)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 800,
+    fontSize: '0.95rem',
+    flexShrink: 0,
+  },
+  nameText: {
+    fontWeight: 700,
+    color: 'var(--text-main)',
+    marginBottom: '0.2rem',
+  },
+  metaText: {
+    fontSize: '0.8rem',
+    color: 'var(--text-dim)',
+  },
+  roleBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    padding: '0.42rem 0.8rem',
+    borderRadius: '999px',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    border: '1px solid transparent',
+  },
+  roleBadgeAdmin: {
+    background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+    color: 'var(--accent)',
+    borderColor: 'color-mix(in srgb, var(--accent) 28%, transparent)',
+  },
+  roleBadgeAgent: {
+    background: 'var(--bg-panel)',
+    color: 'var(--text-muted)',
+    borderColor: 'var(--border-color)',
+  },
+  statusCell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.55rem',
+    fontSize: '0.86rem',
+    fontWeight: 700,
+  },
+  statusDot: {
+    width: '9px',
+    height: '9px',
+    borderRadius: '50%',
+  },
+  statusActive: {
+    background: '#2fb171',
+    boxShadow: '0 0 10px rgba(47, 177, 113, 0.45)',
+  },
+  statusInactive: {
+    background: 'var(--text-dim)',
+  },
+  statusTextActive: {
+    color: 'var(--text-main)',
+  },
+  statusTextInactive: {
+    color: 'var(--text-muted)',
+  },
+  actionGroup: {
+    display: 'flex',
+    gap: '0.55rem',
+    justifyContent: 'flex-end',
+  },
+  actionBtn: {
+    width: '38px',
+    height: '38px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--bg-panel)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    borderRadius: '12px',
+  },
+  actionWarn: {
+    color: '#d16f55',
+  },
+  actionSuccess: {
+    color: '#2fb171',
+  },
+  actionDanger: {
+    color: '#d85f5f',
+    background: 'color-mix(in srgb, #d85f5f 10%, var(--bg-panel))',
+  },
+  empty: {
+    padding: '4rem 1.5rem',
+    textAlign: 'center',
+    color: 'var(--text-muted)',
+    fontSize: '0.95rem',
+  },
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: '1.5rem',
+    backdropFilter: 'blur(6px)',
+  },
+  modal: {
+    background: 'var(--bg-surface)',
+    borderRadius: '24px',
+    width: '100%',
+    maxWidth: '34rem',
+    border: '1px solid var(--border-color)',
+    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+  },
+  modalHeader: {
+    padding: '1.5rem 1.8rem',
+    borderBottom: '1px solid var(--border-color)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '1rem',
+  },
+  modalKicker: {
+    margin: '0 0 0.35rem',
+    color: 'var(--accent)',
+    fontSize: '0.74rem',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: '1.2rem',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+  },
+  closeBtn: {
+    background: 'transparent',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-dim)',
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  form: {
+    padding: '1.8rem',
+  },
+  formGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.2rem',
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.45rem',
+  },
+  label: {
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  input: {
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    padding: '0.9rem 1rem',
+    color: 'var(--text-main)',
+    fontSize: '0.95rem',
+    outline: 'none',
+  },
+  modalFooter: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '0.85rem',
+    marginTop: '1.8rem',
+  },
+  cancelBtn: {
+    padding: '0.9rem 1.3rem',
+    borderRadius: '14px',
+    border: '1px solid var(--border-color)',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    fontWeight: 700,
+  },
+  saveBtn: {
+    padding: '0.9rem 1.3rem',
+    borderRadius: '14px',
+    border: '1px solid var(--accent)',
+    background: 'var(--accent)',
+    color: 'var(--text-inverse)',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
 };
