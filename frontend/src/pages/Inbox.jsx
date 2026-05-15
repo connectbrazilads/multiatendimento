@@ -27,6 +27,44 @@ import { ChatHeader, ContactPanel, ForwardModal, MessageComposer, MessageList, T
 import { Empty } from './inbox/helpers.jsx';
 import { useInboxMessages, useInboxRealtime, useInboxTickets } from './inbox/hooks';
 
+class InboxSectionErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error(`[inbox] erro no bloco ${this.props.label}:`, error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            margin: '1rem 2rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '18px',
+            background: 'rgba(230, 126, 34, 0.08)',
+            border: '1px solid rgba(230, 126, 34, 0.2)',
+            color: '#e67e22',
+            fontWeight: 700,
+            lineHeight: 1.5,
+          }}
+        >
+          Nao foi possivel exibir a secao "{this.props.label}" desta conversa, mas o restante da tela continua disponivel.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function Inbox() {
   const MESSAGE_PAGE_SIZE = 60;
   const [selectedId, setSelectedId] = useState(null);
@@ -438,67 +476,75 @@ export default function Inbox() {
       >
         {selectedTicket ? (
           <>
-            <ChatHeader
-              botName={botName}
-              handleReopen={handleReopen}
-              handleResolve={handleResolve}
-              handleSummarize={handleSummarize}
-              isMobile={isMobile}
-              selectedTicket={selectedTicket}
-              setShowInfo={setShowInfo}
-              setShowOsModal={setShowOsModal}
-              setTransferModal={setTransferModal}
-              setView={setView}
-              showInfo={showInfo}
-              styles={s}
-              summarizing={summarizing}
-            />
+            <InboxSectionErrorBoundary key={`header-${selectedTicket.id}`} label="cabecalho da conversa">
+              <ChatHeader
+                botName={botName}
+                handleReopen={handleReopen}
+                handleResolve={handleResolve}
+                handleSummarize={handleSummarize}
+                isMobile={isMobile}
+                selectedTicket={selectedTicket}
+                setShowInfo={setShowInfo}
+                setShowOsModal={setShowOsModal}
+                setTransferModal={setTransferModal}
+                setView={setView}
+                showInfo={showInfo}
+                styles={s}
+                summarizing={summarizing}
+              />
+            </InboxSectionErrorBoundary>
 
             {summary && (
-              <div style={s.summaryCard}>
-                <div style={s.summaryHeader}><span>RESUMO DA CONVERSA (IA)</span><button onClick={() => setSummary(null)}>X</button></div>
-                <div style={s.summaryBody}>{summary}</div>
-              </div>
+              <InboxSectionErrorBoundary key={`summary-${selectedTicket.id}`} label="resumo da conversa">
+                <div style={s.summaryCard}>
+                  <div style={s.summaryHeader}><span>RESUMO DA CONVERSA (IA)</span><button onClick={() => setSummary(null)}>X</button></div>
+                  <div style={s.summaryBody}>{normalizeText(summary)}</div>
+                </div>
+              </InboxSectionErrorBoundary>
             )}
 
-            <MessageList
-              botName={botName}
-              handleCopyMessage={handleCopyMessage}
-              handleDeleteMessage={handleDeleteMessage}
-              handleLoadMoreMessages={handleLoadMoreMessages}
-              hasMoreMessages={hasMoreMessages}
-              loading={loading}
-              loadingMoreMessages={loadingMoreMessages}
-              messages={messages}
-              onImageClick={setPreviewImg}
-              scrollRef={scrollRef}
-              selectedTicket={selectedTicket}
-              setForwardingMessage={setForwardingMessage}
-              setReplyingTo={setReplyingTo}
-              styles={s}
-            />
+            <InboxSectionErrorBoundary key={`messages-${selectedTicket.id}`} label="historico da conversa">
+              <MessageList
+                botName={botName}
+                handleCopyMessage={handleCopyMessage}
+                handleDeleteMessage={handleDeleteMessage}
+                handleLoadMoreMessages={handleLoadMoreMessages}
+                hasMoreMessages={hasMoreMessages}
+                loading={loading}
+                loadingMoreMessages={loadingMoreMessages}
+                messages={messages}
+                onImageClick={setPreviewImg}
+                scrollRef={scrollRef}
+                selectedTicket={selectedTicket}
+                setForwardingMessage={setForwardingMessage}
+                setReplyingTo={setReplyingTo}
+                styles={s}
+              />
+            </InboxSectionErrorBoundary>
 
-            <MessageComposer
-              files={files}
-              filteredQuick={filteredQuick}
-              fmtTime={fmtTime}
-              handleInput={handleInput}
-              handleSend={handleSend}
-              isMobile={isMobile}
-              isRecording={isRecording}
-              recordingTime={recordingTime}
-              replyingTo={replyingTo}
-              selectedTicket={selectedTicket}
-              setFiles={setFiles}
-              setFilteredQuick={setFilteredQuick}
-              setReplyingTo={setReplyingTo}
-              setShowScheduling={setShowScheduling}
-              startRecording={startRecording}
-              stopRecording={stopRecording}
-              styles={s}
-              setText={setText}
-              text={text}
-            />
+            <InboxSectionErrorBoundary key={`composer-${selectedTicket.id}`} label="campo de envio">
+              <MessageComposer
+                files={files}
+                filteredQuick={filteredQuick}
+                fmtTime={fmtTime}
+                handleInput={handleInput}
+                handleSend={handleSend}
+                isMobile={isMobile}
+                isRecording={isRecording}
+                recordingTime={recordingTime}
+                replyingTo={replyingTo}
+                selectedTicket={selectedTicket}
+                setFiles={setFiles}
+                setFilteredQuick={setFilteredQuick}
+                setReplyingTo={setReplyingTo}
+                setShowScheduling={setShowScheduling}
+                startRecording={startRecording}
+                stopRecording={stopRecording}
+                styles={s}
+                setText={setText}
+                text={text}
+              />
+            </InboxSectionErrorBoundary>
           </>
         ) : (
             <div style={s.emptyChat}>
@@ -510,16 +556,18 @@ export default function Inbox() {
       </main>
 
       {showInfo && selectedTicket && (
-        <ContactPanel 
-          key={(selectedTicket.contact?.id || 'new') + '_' + updateTrigger}
-          ticket={selectedTicket} 
-          onClose={() => setShowInfo(false)} 
-          onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}
-          onImageClick={setPreviewImg}
-          isMobile={isMobile}
-          onLinkCRM={() => setLinkModal(true)}
-          styles={s}
-        />
+        <InboxSectionErrorBoundary key={`info-${selectedTicket.id}-${updateTrigger}`} label="painel do cliente">
+          <ContactPanel 
+            key={(selectedTicket.contact?.id || 'new') + '_' + updateTrigger}
+            ticket={selectedTicket} 
+            onClose={() => setShowInfo(false)} 
+            onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}
+            onImageClick={setPreviewImg}
+            isMobile={isMobile}
+            onLinkCRM={() => setLinkModal(true)}
+            styles={s}
+          />
+        </InboxSectionErrorBoundary>
       )}
 
       {/* Modais */}
