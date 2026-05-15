@@ -711,6 +711,7 @@ export function MessageList({
   styles,
 }) {
   const selectedContactName = getContactDisplayName(selectedTicket.contact, 'Cliente');
+  const messageItems = Array.isArray(messages) ? messages : [];
 
   return (
     <div style={styles.messages} ref={scrollRef}>
@@ -727,163 +728,202 @@ export function MessageList({
               </button>
             </div>
           )}
-          {messages.map((message, index) => {
-            const quotedText = getSafeText(message.quotedMsgBody);
-            const bodyText = getSafeText(message.body);
-            const messageAgentName = getSafeText(message.agent?.name, 'Voce');
-            const messageUserName = getSafeText(message.user?.name, 'Sistema');
+          {messageItems.map((message, index) => {
+            const messageKey = getSafeText(message?.id, `msg-${index}`);
 
-            if (message._separator) {
+            if (!message || typeof message !== 'object') {
+              console.error('[inbox] item de historico invalido:', message);
               return (
-                <MessageRenderErrorBoundary key={`sep-${index}`} messageId={message.id || `sep-${index}`}>
-                  <div style={styles.separator}>
-                    <div style={styles.sepLine} />
-                    <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
-                      {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                <MessageRenderErrorBoundary key={`invalid-${index}`} messageId={`invalid-${index}`}>
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+                    <div style={{ background: 'rgba(230, 126, 34, 0.08)', color: '#e67e22', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(230, 126, 34, 0.2)', fontWeight: 700 }}>
+                      Uma entrada invalida do historico foi ignorada.
                     </div>
-                    <div style={styles.sepLine} />
                   </div>
                 </MessageRenderErrorBoundary>
               );
             }
 
-            if (message._type === 'event') {
-              let payload = {};
-              try {
-                if (typeof message.payload === 'string') {
-                  payload = JSON.parse(message.payload || '{}');
-                } else if (typeof message.payload === 'object' && message.payload !== null) {
-                  payload = message.payload;
-                }
-              } catch (error) {
-                console.error('Erro ao processar payload do evento:', error);
-              }
+            try {
+              const quotedText = getSafeText(message.quotedMsgBody);
+              const bodyText = getSafeText(message.body);
+              const messageAgentName = getSafeText(message.agent?.name, 'Voce');
+              const messageUserName = getSafeText(message.user?.name, 'Sistema');
 
-              const summaryText = getSafeText(payload?.summary);
-
-              if (message.type === 'ia_summary' && summaryText) {
+              if (message._separator) {
                 return (
-                  <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
-                    <div style={styles.summaryCard}>
-                      <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
-                      <div style={styles.summaryBody}>{summaryText}</div>
+                  <MessageRenderErrorBoundary key={`sep-${index}`} messageId={message.id || `sep-${index}`}>
+                    <div style={styles.separator}>
+                      <div style={styles.sepLine} />
+                      <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
+                        {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                      </div>
+                      <div style={styles.sepLine} />
                     </div>
                   </MessageRenderErrorBoundary>
                 );
               }
 
-              const eventLabel = {
-                assigned: 'Assumiu o atendimento',
-                transferred: `Transferiu para ${getSafeText(payload?.teamName, 'outra equipe')}`,
-                resolved: 'Encerrou o atendimento',
-                reopened: 'Reabriu o atendimento',
-                ooo_message: 'Aviso de Fora de Horario Enviado',
-              }[message.type] || message.type;
+              if (message._type === 'event') {
+                let payload = {};
+                try {
+                  if (typeof message.payload === 'string') {
+                    payload = JSON.parse(message.payload || '{}');
+                  } else if (typeof message.payload === 'object' && message.payload !== null) {
+                    payload = message.payload;
+                  }
+                } catch (error) {
+                  console.error('Erro ao processar payload do evento:', error);
+                }
+
+                const summaryText = getSafeText(payload?.summary);
+
+                if (message.type === 'ia_summary' && summaryText) {
+                  return (
+                    <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
+                      <div style={styles.summaryCard}>
+                        <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
+                        <div style={styles.summaryBody}>{summaryText}</div>
+                      </div>
+                    </MessageRenderErrorBoundary>
+                  );
+                }
+
+                const eventLabel = {
+                  assigned: 'Assumiu o atendimento',
+                  transferred: `Transferiu para ${getSafeText(payload?.teamName, 'outra equipe')}`,
+                  resolved: 'Encerrou o atendimento',
+                  reopened: 'Reabriu o atendimento',
+                  ooo_message: 'Aviso de Fora de Horario Enviado',
+                }[message.type] || message.type;
+
+                return (
+                  <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
+                    <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+                      <div
+                        style={{
+                          background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
+                          color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
+                          fontSize: '0.9rem',
+                          padding: '12px 18px',
+                          borderRadius: '16px',
+                          border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
+                          letterSpacing: '0.01em',
+                          fontWeight: 800,
+                          lineHeight: 1.45,
+                          textAlign: 'center',
+                          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                          maxWidth: 'min(92%, 760px)',
+                        }}
+                      >
+                        {messageUserName} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      </div>
+                    </div>
+                  </MessageRenderErrorBoundary>
+                );
+              }
 
               return (
-                <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
+                <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
+                  <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
+                    <div
+                      style={{
+                        ...styles.bubble,
+                        background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
+                        color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
+                        opacity: message.isDeleted ? 0.6 : 1,
+                        textDecoration: message.isDeleted ? 'line-through' : 'none',
+                        border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
+                        alignItems: message.fromMe ? 'flex-end' : 'flex-start',
+                        borderBottomRightRadius: message.fromMe ? '4px' : '20px',
+                        borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
+                      }}
+                    >
+                      {message.fromMe && !message.isDeleted && (
+                        <button
+                          onClick={() => handleDeleteMessage(message.id)}
+                          style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Apagar para o cliente"
+                        >
+                          X
+                        </button>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <div
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            opacity: message.fromBot ? 0.8 : 1,
+                          }}
+                        >
+                          {message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName}
+                        </div>
+                        {!message.isDeleted && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
+                            <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
+                            <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {quotedText && (
+                        <div
+                          style={{
+                            background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
+                            borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            marginBottom: '8px',
+                            fontSize: '0.8rem',
+                            color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+                            fontStyle: 'italic',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {quotedText}
+                        </div>
+                      )}
+
+                      <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
+                      {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
+                      <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
+                    </div>
+                  </div>
+                </MessageRenderErrorBoundary>
+              );
+            } catch (error) {
+              console.error('[inbox] erro ao montar item do historico:', messageKey, error, message);
+              return (
+                <MessageRenderErrorBoundary key={`failed-${messageKey}`} messageId={messageKey}>
                   <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
                     <div
                       style={{
-                        background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
-                        color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
-                        fontSize: '0.9rem',
-                        padding: '12px 18px',
-                        borderRadius: '16px',
-                        border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
-                        letterSpacing: '0.01em',
-                        fontWeight: 800,
-                        lineHeight: 1.45,
+                        background: 'rgba(230, 126, 34, 0.08)',
+                        color: '#e67e22',
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(230, 126, 34, 0.2)',
+                        fontWeight: 700,
+                        maxWidth: 'min(92%, 640px)',
                         textAlign: 'center',
-                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                        maxWidth: 'min(92%, 760px)',
                       }}
                     >
-                      {messageUserName} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      Esta mensagem nao pode ser exibida, mas o restante do historico continua disponivel.
                     </div>
                   </div>
                 </MessageRenderErrorBoundary>
               );
             }
-
-            return (
-              <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
-                <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
-                  <div
-                    style={{
-                      ...styles.bubble,
-                      background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
-                      color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
-                      opacity: message.isDeleted ? 0.6 : 1,
-                      textDecoration: message.isDeleted ? 'line-through' : 'none',
-                      border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
-                      alignItems: message.fromMe ? 'flex-end' : 'flex-start',
-                      borderBottomRightRadius: message.fromMe ? '4px' : '20px',
-                      borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
-                    }}
-                  >
-                    {message.fromMe && !message.isDeleted && (
-                      <button
-                        onClick={() => handleDeleteMessage(message.id)}
-                        style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="Apagar para o cliente"
-                      >
-                        X
-                      </button>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <div
-                        style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          opacity: message.fromBot ? 0.8 : 1,
-                        }}
-                      >
-                        {message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName}
-                      </div>
-                      {!message.isDeleted && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
-                          <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
-                          <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {quotedText && (
-                      <div
-                        style={{
-                          background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
-                          borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
-                          padding: '6px 10px',
-                          borderRadius: '8px',
-                          marginBottom: '8px',
-                          fontSize: '0.8rem',
-                          color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
-                          fontStyle: 'italic',
-                          maxWidth: '100%',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {quotedText}
-                      </div>
-                    )}
-
-                    <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
-                    {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
-                    <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
-                  </div>
-                </div>
-              </MessageRenderErrorBoundary>
-            );
           })}
-          {!messages.length && <Empty>Nenhuma mensagem encontrada</Empty>}
+          {!messageItems.length && <Empty>Nenhuma mensagem encontrada</Empty>}
         </>
       )}
     </div>

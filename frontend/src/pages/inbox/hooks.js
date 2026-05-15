@@ -4,6 +4,21 @@ import io from 'socket.io-client';
 import { SOCKET_URL } from '../../services/socket';
 import { mergeMessagePages } from './helpers.jsx';
 
+function normalizeMessageItems(items) {
+  if (!Array.isArray(items)) {
+    console.error('[inbox] payload de mensagens invalido:', items);
+    return [];
+  }
+
+  return items.filter((item) => {
+    const valid = item && typeof item === 'object';
+    if (!valid) {
+      console.error('[inbox] item de mensagem invalido descartado:', item);
+    }
+    return valid;
+  });
+}
+
 export function useInboxTickets({ me }) {
   const [tickets, setTickets] = useState([]);
   const [tab, setTab] = useState('mine');
@@ -178,7 +193,7 @@ export function useInboxMessages({
         limit: messagePageSize,
         ...(before ? { before } : {}),
       });
-      const incomingItems = data?.items || [];
+      const incomingItems = normalizeMessageItems(data?.items);
 
       if (replace) {
         shouldScrollToBottomRef.current = true;
@@ -244,6 +259,11 @@ export function useInboxRealtime({
     }, 30000);
 
     socket.on('new_message', ({ message, ticket }) => {
+      if (!message || typeof message !== 'object') {
+        console.error('[inbox] new_message invalida ignorada:', message);
+        return;
+      }
+
       if (ticket?.id === selectedIdRef.current) {
         shouldScrollToBottomRef.current = true;
         setMessages((previous) => {
@@ -277,6 +297,11 @@ export function useInboxRealtime({
     });
 
     socket.on('message_updated', ({ message }) => {
+      if (!message || typeof message !== 'object') {
+        console.error('[inbox] message_updated invalida ignorada:', message);
+        return;
+      }
+
       setMessages((previous) => previous.map((item) => (item.id === message.id ? message : item)));
     });
 
