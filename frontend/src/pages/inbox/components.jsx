@@ -22,7 +22,7 @@ function getSafeTags(rawTags) {
 }
 
 function getInstanceLabel(ticket) {
-  const rawName = ticket?.instance?.instanceName;
+  const rawName = getSafeText(ticket?.instance?.instanceName);
   if (!rawName) return 'Sem instancia';
 
   const parts = rawName.split('_');
@@ -42,10 +42,65 @@ function getSafeText(value, fallback = '') {
   }
 }
 
+function getSafeLowerText(value) {
+  return getSafeText(value).toLowerCase();
+}
+
+function getContactDisplayName(contact, fallback = 'Desconhecido') {
+  return getSafeText(contact?.name) || getSafeText(contact?.phone) || fallback;
+}
+
+function getContactPhone(contact, fallback = '') {
+  return getSafeText(contact?.phone, fallback);
+}
+
+class MessageRenderErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('[inbox] erro ao renderizar mensagem:', this.props.messageId, error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+          <div
+            style={{
+              background: 'rgba(230, 126, 34, 0.08)',
+              color: '#e67e22',
+              fontSize: '0.85rem',
+              padding: '10px 14px',
+              borderRadius: '14px',
+              border: '1px solid rgba(230, 126, 34, 0.2)',
+              fontWeight: 700,
+              lineHeight: 1.4,
+              textAlign: 'center',
+              maxWidth: 'min(92%, 640px)',
+            }}
+          >
+            Uma mensagem deste historico nao pode ser exibida, mas a conversa continua disponivel.
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export function Avatar({ name, src, size = 40 }) {
+  const safeName = getSafeText(name, '?');
   const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
-  if (src) return <img src={src} alt={name} style={base} />;
-  const initials = name?.split(' ').map((item) => item[0]).join('').slice(0, 2).toUpperCase() || '?';
+  if (src) return <img src={src} alt={safeName} style={base} />;
+  const initials = safeName.split(' ').map((item) => item[0]).join('').slice(0, 2).toUpperCase() || '?';
   return (
     <div
       style={{
@@ -153,6 +208,8 @@ export function MediaContent({ message, onImageClick, styles }) {
 
 export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM, styles }) {
   const contact = ticket.contact;
+  const contactName = getContactDisplayName(contact);
+  const contactPhone = getContactPhone(contact);
   const [notes, setNotes] = useState(contact.notes || '');
   const [city, setCity] = useState(contact.city || '');
   const [state, setState] = useState(contact.state || '');
@@ -174,14 +231,14 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
     getTags().then((response) => setAvailableTags(response.data));
     getEquipments(contact.id).then((response) => setEquipments(response.data));
     api
-      .get(`/contacts?search=${contact.phone}`)
+      .get(`/contacts?search=${encodeURIComponent(contactPhone)}`)
       .then((response) => {
         const list = response.data.contacts || response.data || [];
-        const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contact.phone);
+        const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contactPhone);
         setLinkedCrm(crm);
       })
       .catch(() => {});
-  }, [contact.id, contact.phone]);
+  }, [contact.id, contactPhone]);
 
   async function saveContact() {
     await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state });
@@ -228,8 +285,8 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       </div>
       <div style={styles.infoScroll}>
         <div style={styles.infoProfile}>
-          <Avatar name={contact.name || contact.phone} src={contact.avatarUrl} size={80} />
-          <h4 style={styles.infoName}>{contact.name || contact.phone}</h4>
+          <Avatar name={contactName} src={contact.avatarUrl} size={80} />
+          <h4 style={styles.infoName}>{contactName}</h4>
           {linkedCrm ? (
             <div style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
               CRM {linkedCrm.fantasyName || linkedCrm.name}
@@ -239,7 +296,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               CRM {contact.fantasyName}
             </div>
           ) : null}
-          <div style={styles.infoPhone}>{contact.phone}</div>
+          <div style={styles.infoPhone}>{contactPhone}</div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
             <div style={styles.infoBadge}>WhatsApp</div>
             <button onClick={onLinkCRM} style={{ ...styles.infoBadge, background: 'var(--accent)', color: '#000', cursor: 'pointer', border: 'none' }}>
@@ -290,7 +347,11 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
             {equipments.map((equipment) => (
               <div key={equipment.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                  {equipment.model.toLowerCase().startsWith(equipment.manufacturer?.toLowerCase()) ? equipment.model : (equipment.manufacturer ? `${equipment.manufacturer} ${equipment.model}` : equipment.model)}
+                  {(() => {
+                    const manufacturer = getSafeText(equipment.manufacturer);
+                    const model = getSafeText(equipment.model, 'Equipamento');
+                    return model.toLowerCase().startsWith(manufacturer.toLowerCase()) ? model : (manufacturer ? `${manufacturer} ${model}` : model);
+                  })()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{equipment.type || 'Equipamento'}</div>
                 <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Serie: {equipment.serialNumber || 'S/N'}</div>
@@ -480,9 +541,9 @@ export function TicketSidebar({
 
       <div style={styles.list}>
         {tickets.filter((ticket) => {
-          const query = (search || '').toLowerCase();
-          const name = (ticket.contact?.name || '').toLowerCase();
-          const phone = ticket.contact?.phone || '';
+          const query = getSafeLowerText(search);
+          const name = getSafeLowerText(ticket.contact?.name);
+          const phone = getSafeText(ticket.contact?.phone);
           return name.includes(query) || phone.includes(query);
         }).map((ticket) => (
           <div
@@ -491,13 +552,13 @@ export function TicketSidebar({
             style={{ ...styles.row, ...(selectedId === ticket.id ? styles.rowActive : {}) }}
           >
             <Avatar
-              name={ticket.contact?.name || ticket.contact?.phone || 'Desconhecido'}
+              name={getContactDisplayName(ticket.contact)}
               src={ticket.contact?.avatarUrl}
               size={36}
             />
             <div style={styles.rowInfo}>
               <div style={styles.rowTop}>
-                <span style={styles.rowName}>{ticket.contact?.name || ticket.contact?.phone || 'Desconhecido'}</span>
+                <span style={styles.rowName}>{getContactDisplayName(ticket.contact)}</span>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   <span style={styles.rowTime}>{fmt(ticket.updatedAt)}</span>
                 </div>
@@ -512,9 +573,11 @@ export function TicketSidebar({
 
               {getSafeTags(ticket.contact?.tags).length > 0 && (
                 <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
-                  {getSafeTags(ticket.contact?.tags).slice(0, 2).map((tag) => (
+                  {getSafeTags(ticket.contact?.tags).slice(0, 2).map((tag, tagIndex) => {
+                    const safeTag = getSafeText(tag, 'Tag');
+                    return (
                     <span
-                      key={tag}
+                      key={`${safeTag}-${tagIndex}`}
                       style={{
                         fontSize: '0.5rem',
                         background: 'rgba(212,175,55,0.05)',
@@ -525,9 +588,10 @@ export function TicketSidebar({
                         border: '1px solid rgba(212,175,55,0.1)',
                       }}
                     >
-                      {tag}
+                      {safeTag}
                     </span>
-                  ))}
+                  );
+                  })}
                 </div>
               )}
             </div>
@@ -554,11 +618,14 @@ export function ChatHeader({
   styles,
   summarizing,
 }) {
+  const contactName = getContactDisplayName(selectedTicket.contact);
+  const contactPhone = getContactPhone(selectedTicket.contact);
+
   return (
     <header style={{ ...styles.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
       {isMobile && <button style={styles.backBtn} onClick={() => setView('list')}>{'<'}</button>}
       <Avatar
-        name={selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
+        name={contactName}
         src={selectedTicket.contact?.avatarUrl}
         size={isMobile ? 32 : 40}
       />
@@ -572,12 +639,12 @@ export function ChatHeader({
             textOverflow: 'ellipsis',
           }}
         >
-          {selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Desconhecido'}
+          {contactName}
         </div>
         {!isMobile && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ ...styles.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
-              {selectedTicket.contact?.phone}
+              {contactPhone}
             </div>
           </div>
         )}
@@ -643,6 +710,8 @@ export function MessageList({
   setReplyingTo,
   styles,
 }) {
+  const selectedContactName = getContactDisplayName(selectedTicket.contact, 'Cliente');
+
   return (
     <div style={styles.messages} ref={scrollRef}>
       {loading ? <Empty>Carregando historico...</Empty> : (
@@ -661,16 +730,20 @@ export function MessageList({
           {messages.map((message, index) => {
             const quotedText = getSafeText(message.quotedMsgBody);
             const bodyText = getSafeText(message.body);
+            const messageAgentName = getSafeText(message.agent?.name, 'Voce');
+            const messageUserName = getSafeText(message.user?.name, 'Sistema');
 
             if (message._separator) {
               return (
-                <div key={`sep-${index}`} style={styles.separator}>
-                  <div style={styles.sepLine} />
-                  <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
-                    {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                <MessageRenderErrorBoundary key={`sep-${index}`} messageId={message.id || `sep-${index}`}>
+                  <div style={styles.separator}>
+                    <div style={styles.sepLine} />
+                    <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
+                      {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                    </div>
+                    <div style={styles.sepLine} />
                   </div>
-                  <div style={styles.sepLine} />
-                </div>
+                </MessageRenderErrorBoundary>
               );
             }
 
@@ -686,120 +759,128 @@ export function MessageList({
                 console.error('Erro ao processar payload do evento:', error);
               }
 
-              if (message.type === 'ia_summary' && payload?.summary) {
+              const summaryText = getSafeText(payload?.summary);
+
+              if (message.type === 'ia_summary' && summaryText) {
                 return (
-                  <div key={message.id} style={styles.summaryCard}>
-                    <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
-                    <div style={styles.summaryBody}>{payload.summary}</div>
-                  </div>
+                  <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
+                    <div style={styles.summaryCard}>
+                      <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
+                      <div style={styles.summaryBody}>{summaryText}</div>
+                    </div>
+                  </MessageRenderErrorBoundary>
                 );
               }
 
               const eventLabel = {
                 assigned: 'Assumiu o atendimento',
-                transferred: `Transferiu para ${payload?.teamName || 'outra equipe'}`,
+                transferred: `Transferiu para ${getSafeText(payload?.teamName, 'outra equipe')}`,
                 resolved: 'Encerrou o atendimento',
                 reopened: 'Reabriu o atendimento',
                 ooo_message: 'Aviso de Fora de Horario Enviado',
               }[message.type] || message.type;
 
               return (
-                <div key={message.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                  <div
-                    style={{
-                      background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
-                      color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
-                      fontSize: '0.9rem',
-                      padding: '12px 18px',
-                      borderRadius: '16px',
-                      border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
-                      letterSpacing: '0.01em',
-                      fontWeight: 800,
-                      lineHeight: 1.45,
-                      textAlign: 'center',
-                      boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                      maxWidth: 'min(92%, 760px)',
-                    }}
-                  >
-                    {message.user?.name || 'Sistema'} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+                    <div
+                      style={{
+                        background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
+                        color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
+                        fontSize: '0.9rem',
+                        padding: '12px 18px',
+                        borderRadius: '16px',
+                        border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
+                        letterSpacing: '0.01em',
+                        fontWeight: 800,
+                        lineHeight: 1.45,
+                        textAlign: 'center',
+                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                        maxWidth: 'min(92%, 760px)',
+                      }}
+                    >
+                      {messageUserName} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </div>
                   </div>
-                </div>
+                </MessageRenderErrorBoundary>
               );
             }
 
             return (
-              <div key={message.id} style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
-                <div
-                  style={{
-                    ...styles.bubble,
-                    background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
-                    color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
-                    opacity: message.isDeleted ? 0.6 : 1,
-                    textDecoration: message.isDeleted ? 'line-through' : 'none',
-                    border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
-                    alignItems: message.fromMe ? 'flex-end' : 'flex-start',
-                    borderBottomRightRadius: message.fromMe ? '4px' : '20px',
-                    borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
-                  }}
-                >
-                  {message.fromMe && !message.isDeleted && (
-                    <button
-                      onClick={() => handleDeleteMessage(message.id)}
-                      style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Apagar para o cliente"
-                    >
-                      X
-                    </button>
-                  )}
+              <MessageRenderErrorBoundary key={message.id} messageId={message.id}>
+                <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
+                  <div
+                    style={{
+                      ...styles.bubble,
+                      background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
+                      color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
+                      opacity: message.isDeleted ? 0.6 : 1,
+                      textDecoration: message.isDeleted ? 'line-through' : 'none',
+                      border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
+                      alignItems: message.fromMe ? 'flex-end' : 'flex-start',
+                      borderBottomRightRadius: message.fromMe ? '4px' : '20px',
+                      borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
+                    }}
+                  >
+                    {message.fromMe && !message.isDeleted && (
+                      <button
+                        onClick={() => handleDeleteMessage(message.id)}
+                        style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Apagar para o cliente"
+                      >
+                        X
+                      </button>
+                    )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        opacity: message.fromBot ? 0.8 : 1,
-                      }}
-                    >
-                      {message.fromMe ? (message.fromBot ? `BOT ${botName}` : (message.agent?.name || 'Voce')) : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'Cliente')}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          opacity: message.fromBot ? 0.8 : 1,
+                        }}
+                      >
+                        {message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName}
+                      </div>
+                      {!message.isDeleted && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
+                          <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
+                          <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
+                        </div>
+                      )}
                     </div>
-                    {!message.isDeleted && (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
-                        <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
-                        <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
+
+                    {quotedText && (
+                      <div
+                        style={{
+                          background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
+                          borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          marginBottom: '8px',
+                          fontSize: '0.8rem',
+                          color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+                          fontStyle: 'italic',
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {quotedText}
                       </div>
                     )}
+
+                    <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
+                    {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
+                    <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
                   </div>
-
-                  {quotedText && (
-                    <div
-                      style={{
-                        background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
-                        borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
-                        padding: '6px 10px',
-                        borderRadius: '8px',
-                        marginBottom: '8px',
-                        fontSize: '0.8rem',
-                        color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
-                        fontStyle: 'italic',
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {quotedText}
-                    </div>
-                  )}
-
-                  <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
-                  {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
-                  <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
                 </div>
-              </div>
+              </MessageRenderErrorBoundary>
             );
           })}
           {!messages.length && <Empty>Nenhuma mensagem encontrada</Empty>}
@@ -858,7 +939,7 @@ export function MessageComposer({
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
-                Respondendo a {replyingTo.fromMe ? 'voce' : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'cliente')}
+                Respondendo a {replyingTo.fromMe ? 'voce' : getContactDisplayName(selectedTicket.contact, 'cliente')}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {getSafeText(replyingTo.body) || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
@@ -891,7 +972,10 @@ export function MessageComposer({
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {files.map((file, index) => (
                       <div key={index} style={styles.filePreview}>
-                        Anexo {file.name.length > 15 ? `${file.name.substring(0, 12)}...` : file.name}
+                        {(() => {
+                          const fileName = getSafeText(file?.name, 'Arquivo');
+                          return `Anexo ${fileName.length > 15 ? `${fileName.substring(0, 12)}...` : fileName}`;
+                        })()}
                         <button onClick={() => setFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))}>X</button>
                       </div>
                     ))}
