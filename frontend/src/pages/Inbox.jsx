@@ -804,9 +804,9 @@ export default function Inbox() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{
-                          fontSize: '0.7rem',
+                          fontSize: '0.78rem',
                           fontWeight: 800,
-                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.5)') : 'var(--accent)',
+                          color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
                           textTransform: 'uppercase',
                           letterSpacing: '0.05em',
                           opacity: m.fromBot ? 0.8 : 1
@@ -817,21 +817,21 @@ export default function Inbox() {
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                               onClick={() => setReplyingTo(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
                               title="Responder"
                             >
                               Resp.
                             </button>
                             <button
                               onClick={() => handleCopyMessage(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
                               title="Copiar texto"
                             >
                               Cop.
                             </button>
                             <button
                               onClick={() => setForwardingMessage(m)}
-                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(0,0,0,0.4)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                              style={{ background: 'none', border: 'none', color: m.fromMe ? (m.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }}
                               title="Encaminhar"
                             >
                               Enc.
@@ -861,7 +861,7 @@ export default function Inbox() {
 
                       <MediaContent message={m} onImageClick={setPreviewImg} />
                       {m.body && <div style={{ ...s.messageText, fontWeight: m.fromMe ? 500 : 400, marginTop: m.mediaUrl ? '8px' : 0 }}>{m.body}</div>}
-                      <div style={{ ...s.time, color: m.fromMe ? 'rgba(0,0,0,0.4)' : '#717171' }}>{fmt(m.createdAt)}</div>
+                      <div style={{ ...s.time, color: m.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(m.createdAt)}</div>
                     </div>
                   </div>
                 );
@@ -1615,7 +1615,7 @@ const s = {
     userSelect: 'text',
     WebkitUserSelect: 'text'
   },
-  time: { fontSize: '0.6rem', marginTop: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.5 },
+  time: { fontSize: '0.74rem', marginTop: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.92 },
   imgMedia: { maxWidth: '320px', maxHeight: '400px', borderRadius: '16px', cursor: 'pointer', objectFit: 'cover', border: '1px solid var(--border-color)' },
   pdfCard: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: 'var(--bg-panel)', borderRadius: '14px', textDecoration: 'none', color: 'var(--text-main)', border: '1px solid var(--border-color)', maxWidth: '300px' },
   pdfIcon: { fontSize: '2rem' },

@@ -60,7 +60,7 @@ body.light-theme {
 
   /* Message Bubbles - Light */
   --bg-msg-me: var(--accent);
-  --text-msg-me: var(--text-inverse);
+  --text-msg-me: #4A3800;
   --bg-msg-ai: rgba(147, 51, 234, 0.1);
   --text-msg-ai: #7e22ce;
   --border-msg-ai: rgba(147, 51, 234, 0.2);
