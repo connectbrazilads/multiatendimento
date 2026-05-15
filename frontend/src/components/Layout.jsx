@@ -32,6 +32,21 @@ export default function Layout() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const isMobile = useIsMobile();
 
+  function getNotificationBody(message) {
+    const text = message?.body?.trim();
+    if (text) return text;
+
+    const mediaLabels = {
+      image: 'Imagem recebida',
+      video: 'Video recebido',
+      audio: 'Audio recebido',
+      document: 'Documento recebido',
+      sticker: 'Sticker recebido',
+    };
+
+    return mediaLabels[message?.mediaType] || 'Nova mensagem recebida';
+  }
+
   function logout() {
     localStorage.clear();
     navigate('/login');
@@ -63,13 +78,14 @@ export default function Layout() {
     socket.on('new_message', ({ message, contact, fromMe }) => {
       if (fromMe) return;
 
+      const notificationBody = getNotificationBody(message);
       audioRef.current.play().catch(() => {});
-      setNotification({ name: contact.name || contact.phone, body: message.body });
+      setNotification({ name: contact?.name || contact?.phone || 'Contato', body: notificationBody });
       setTimeout(() => setNotification(null), 5000);
 
       if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
-        new Notification(`Nova mensagem de ${contact.name || contact.phone}`, {
-          body: message.body,
+        new Notification(`Nova mensagem de ${contact?.name || contact?.phone || 'Contato'}`, {
+          body: notificationBody,
           icon: '/logo192.png',
         });
       }
@@ -193,7 +209,9 @@ export default function Layout() {
           </div>
           <div style={styles.toastBody}>
             <div style={styles.toastName}>{notification.name}</div>
-            <div style={styles.toastMsg}>{notification.body.slice(0, 64)}...</div>
+            <div style={styles.toastMsg}>
+              {notification.body.length > 64 ? `${notification.body.slice(0, 64)}...` : notification.body}
+            </div>
           </div>
         </div>
       ) : null}

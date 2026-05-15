@@ -820,7 +820,7 @@ export function MessageComposer({
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
-                Respondendo a {replyingTo.fromMe ? 'voce' : (selectedTicket.contact.name || selectedTicket.contact.phone)}
+                Respondendo a {replyingTo.fromMe ? 'voce' : (selectedTicket.contact?.name || selectedTicket.contact?.phone || 'cliente')}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {replyingTo.body || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}

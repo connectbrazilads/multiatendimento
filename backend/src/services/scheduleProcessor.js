@@ -101,11 +101,16 @@ async function retryPendingMedia() {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
     // 1. Marca como 'failed' mensagens com mídia pendente há mais de 15 min (token expirado)
+    const mediaPendingWhere = {
+      mediaType: { not: 'text' },
+      NOT: { mediaType: null },
+      mediaUrl: null,
+      mediaStatus: 'pending'
+    };
+
     const expired = await prisma.message.updateMany({
       where: {
-        mediaType: { notIn: [null, 'text'] },
-        mediaUrl: null,
-        mediaStatus: 'pending',
+        ...mediaPendingWhere,
         createdAt: { lt: fifteenMinutesAgo }
       },
       data: { mediaStatus: 'failed' }
@@ -117,9 +122,7 @@ async function retryPendingMedia() {
     // 2. Tenta rebaixar mídias recentes (menos de 15 min) ainda pendentes
     const pending = await prisma.message.findMany({
       where: {
-        mediaType: { notIn: [null, 'text'] },
-        mediaUrl: null,
-        mediaStatus: 'pending',
+        ...mediaPendingWhere,
         createdAt: { gte: fifteenMinutesAgo }
       },
       include: {
