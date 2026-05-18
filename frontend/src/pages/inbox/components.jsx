@@ -8,7 +8,7 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
-import { Copy, Forward, Image, Mic, Paperclip, Reply, SendHorizontal, Trash2, X } from 'lucide-react';
+import { Download, FileText, Image, Mic, MoreVertical, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
@@ -264,8 +264,14 @@ function DraftAttachmentPreview({ file, onRemove, styles }) {
   );
 }
 
+function triggerMediaDownload(url) {
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 export function MediaContent({ message, onImageClick, styles }) {
   const url = getMediaUrl(message.mediaUrl);
+  const fileName = getSafeText(message.fileName, 'Arquivo');
 
   if (!url && message.mediaStatus === 'failed' && message.mediaType && message.mediaType !== 'text') {
     return (
@@ -307,22 +313,43 @@ export function MediaContent({ message, onImageClick, styles }) {
     );
   }
 
-  if (url && message.mediaType === 'image') return <img src={url} alt="" style={styles.imgMedia} onClick={() => onImageClick(url)} />;
+  if (url && message.mediaType === 'image') {
+    return (
+      <div style={styles.attachmentCard}>
+        <div style={styles.attachmentPreviewWrap}>
+          <img src={url} alt={fileName} style={styles.attachmentPreviewImage} onClick={() => onImageClick(url)} />
+        </div>
+        {message.fileName && (
+          <button type="button" style={styles.attachmentFooterBtn} onClick={() => triggerMediaDownload(url)} title="Abrir imagem">
+            <Download size={14} strokeWidth={2.2} />
+            <span style={styles.attachmentFooterText}>{fileName}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
   if (url && message.mediaType === 'video') return <video src={url} controls style={styles.imgMedia} />;
   if (url && message.mediaType === 'audio') return <AudioPlayer src={url} fromMe={message.fromMe} transcription={message.transcription} styles={styles} />;
   if (url && message.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
   if (url && message.mediaType === 'document') {
-    const fileName = getSafeText(message.fileName, 'Arquivo');
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
-    const extensionLabel = isPdf ? 'PDF' : (fileName.split('.').pop() || 'DOC').slice(0, 3).toUpperCase();
+    const extensionLabel = isPdf ? 'PDF' : (fileName.split('.').pop() || 'DOC').slice(0, 4).toUpperCase();
     return (
-      <a href={url} target="_blank" rel="noreferrer" style={styles.pdfCard}>
-        <div style={styles.pdfIcon}>{extensionLabel}</div>
-        <div style={styles.pdfInfo}>
-          <div style={styles.pdfName}>{fileName}</div>
-          <div style={styles.pdfSize}>{isPdf ? 'Documento PDF' : 'Abrir documento'}</div>
+      <div style={styles.attachmentCard}>
+        <div style={styles.documentPreview}>
+          <div style={styles.documentPreviewBadge}>
+            <FileText size={22} strokeWidth={2.1} />
+            <span>{extensionLabel}</span>
+          </div>
+          <div style={styles.documentPreviewLabel}>
+            {isPdf ? 'Documento PDF' : 'Documento anexado'}
+          </div>
         </div>
-      </a>
+        <button type="button" style={styles.attachmentFooterBtn} onClick={() => triggerMediaDownload(url)} title="Baixar anexo">
+          <Download size={14} strokeWidth={2.2} />
+          <span style={styles.attachmentFooterText}>{fileName}</span>
+        </button>
+      </div>
     );
   }
   return null;
@@ -897,11 +924,27 @@ export function MessageList({
   const selectedContactName = getContactDisplayName(selectedTicket.contact, 'Cliente');
   const messageItems = Array.isArray(messages) ? messages : [];
   const [draftSearch, setDraftSearch] = useState(historySearch || '');
+  const [openMenuId, setOpenMenuId] = useState(null);
   const trimmedHistorySearch = getSafeText(historySearch).trim();
 
   useEffect(() => {
     setDraftSearch(historySearch || '');
   }, [historySearch, selectedTicket.id]);
+
+  useEffect(() => {
+    setOpenMenuId(null);
+  }, [selectedTicket.id, messages.length]);
+
+  useEffect(() => {
+    function handleWindowClick(event) {
+      if (!event.target.closest?.('[data-message-menu-root="true"]')) {
+        setOpenMenuId(null);
+      }
+    }
+
+    window.addEventListener('click', handleWindowClick);
+    return () => window.removeEventListener('click', handleWindowClick);
+  }, []);
 
   return (
     <div style={styles.messages} ref={scrollRef}>
@@ -1050,18 +1093,13 @@ export function MessageList({
               }
 
               const senderName = message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName;
+              const hasCardMedia = Boolean(message.mediaUrl) && ['image', 'document', 'video'].includes(message.mediaType);
               const senderColor = message.fromMe
-                ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)')
-                : 'var(--accent)';
-              const actionTextColor = message.fromMe
-                ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.82)')
-                : 'var(--text-main)';
-              const actionBackground = message.fromMe
-                ? (message.fromBot ? 'rgba(255,255,255,0.06)' : 'rgba(74,56,0,0.08)')
-                : 'rgba(255,255,255,0.05)';
-              const actionBorder = message.fromMe
-                ? (message.fromBot ? 'rgba(255,255,255,0.12)' : 'rgba(74,56,0,0.14)')
-                : 'rgba(212,175,55,0.18)';
+                ? (hasCardMedia ? '#1b2b49' : (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.92)'))
+                : (hasCardMedia ? '#1b2b49' : 'var(--text-main)');
+              const messageTime = fmt(message.createdAt);
+              const canDownload = Boolean(message.mediaUrl);
+              const isMenuOpen = openMenuId === messageKey;
 
               return (
                 <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
@@ -1069,12 +1107,12 @@ export function MessageList({
                     <div
                       style={{
                         ...styles.bubble,
-                        background: message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)',
-                        color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)',
+                        background: hasCardMedia ? 'rgba(255,255,255,0.98)' : (message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)'),
+                        color: hasCardMedia ? '#1b2b49' : (message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)'),
                         opacity: message.isDeleted ? 0.6 : 1,
                         textDecoration: message.isDeleted ? 'line-through' : 'none',
-                        border: message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)',
-                        alignItems: message.fromMe ? 'flex-end' : 'flex-start',
+                        border: hasCardMedia ? '1px solid rgba(27,43,73,0.16)' : (message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)'),
+                        alignItems: 'flex-start',
                         borderBottomRightRadius: message.fromMe ? '4px' : '20px',
                         borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
                       }}
@@ -1089,50 +1127,49 @@ export function MessageList({
                         >
                           {senderName}
                         </div>
-                      </div>
+                        <div style={styles.messageHeaderSide}>
+                          <div style={styles.messageHeaderTime}>{messageTime}</div>
+                          {!message.isDeleted && (
+                            <div style={styles.messageMenuRoot} data-message-menu-root="true">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId((current) => current === messageKey ? null : messageKey);
+                                }}
+                                style={styles.messageMenuTrigger}
+                                title="Mais acoes"
+                              >
+                                <MoreVertical size={15} strokeWidth={2.3} />
+                              </button>
 
-                      {!message.isDeleted && (
-                        <div style={styles.messageActionRow}>
-                          <button
-                            type="button"
-                            onClick={() => setReplyingTo(message)}
-                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
-                            title="Responder"
-                          >
-                            <Reply size={13} strokeWidth={2.3} />
-                            <span>Resp.</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMessage(message)}
-                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
-                            title="Copiar texto"
-                          >
-                            <Copy size={13} strokeWidth={2.3} />
-                            <span>Cop.</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setForwardingMessage(message)}
-                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
-                            title="Encaminhar"
-                          >
-                            <Forward size={13} strokeWidth={2.3} />
-                            <span>Enc.</span>
-                          </button>
-                          {message.fromMe && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMessage(message.id)}
-                              style={styles.messageActionBtnDanger}
-                              title="Apagar para o cliente"
-                            >
-                              <Trash2 size={13} strokeWidth={2.3} />
-                              <span>Apagar</span>
-                            </button>
+                              {isMenuOpen && (
+                                <div style={styles.messageMenuPanel}>
+                                  <button type="button" style={styles.messageMenuItem} onClick={() => { setReplyingTo(message); setOpenMenuId(null); }}>
+                                    Responder
+                                  </button>
+                                  <button type="button" style={styles.messageMenuItem} onClick={() => { setForwardingMessage(message); setOpenMenuId(null); }}>
+                                    Encaminhar mensagem
+                                  </button>
+                                  <button type="button" style={styles.messageMenuItem} onClick={() => { handleCopyMessage(message); setOpenMenuId(null); }}>
+                                    Copiar texto
+                                  </button>
+                                  {canDownload && (
+                                    <button type="button" style={styles.messageMenuItem} onClick={() => { triggerMediaDownload(getMediaUrl(message.mediaUrl)); setOpenMenuId(null); }}>
+                                      Baixar
+                                    </button>
+                                  )}
+                                  {message.fromMe && (
+                                    <button type="button" style={{ ...styles.messageMenuItem, ...styles.messageMenuItemDanger }} onClick={() => { handleDeleteMessage(message.id); setOpenMenuId(null); }}>
+                                      Apagar para o cliente
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
 
                       {quotedText && (
                         <div
@@ -1157,7 +1194,6 @@ export function MessageList({
 
                       <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
                       {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
-                      <div style={{ ...styles.time, color: message.fromMe ? 'rgba(74,56,0,0.72)' : '#717171' }}>{fmt(message.createdAt)}</div>
                     </div>
                   </div>
                 </MessageRenderErrorBoundary>
