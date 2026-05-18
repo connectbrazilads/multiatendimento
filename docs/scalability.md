@@ -38,6 +38,7 @@ Scaling pressure points:
 - stateless HTTP APIs behind a load balancer
 - PostgreSQL-backed state reads and writes
 - external provider connectivity because transport is delegated to Evolution
+- route-level code splitting in the frontend, which reduces the initial operator-console bundle and keeps inbox-specific code off non-inbox routes
 
 ### What Does Not Scale Cleanly Yet
 
@@ -45,6 +46,20 @@ Scaling pressure points:
 - local media storage across replicas
 - Socket.IO fan-out without shared adapter
 - webhook deduplication beyond current message ID checks
+
+### Console Delivery and Maintainability
+
+A non-infrastructure but still important scaling improvement landed on May 15, 2026:
+
+- the inbox was split into `components.jsx`, `hooks.js`, and `helpers.jsx`
+- shared UI primitives were introduced under `frontend/src/components/ui/`
+- the frontend now relies on route-level lazy loading
+
+This does not create horizontal scale by itself, but it does improve engineering scale:
+
+- smaller inbox surfaces reduce regression risk on future product changes
+- shared UI primitives reduce divergence across admin, CRM, campaign, and inbox flows
+- lazy loading keeps the operational console responsive as the route set grows
 
 ## Distributed Orchestration Possibilities
 
@@ -147,4 +162,3 @@ Long-term:
 - formalize connector runtime contracts
 - support non-WhatsApp channels through a shared capability layer
 - evolve into a broader AI-assisted operations fabric rather than a single-channel inbox
-

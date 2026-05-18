@@ -101,6 +101,34 @@ The system would benefit from explicit capability metadata for future provider s
 - explicit state checks through Evolution API
 - asynchronous connection updates through webhook events
 
+## Recent Operational Updates - May 15, 2026
+
+Two connector behaviors changed materially on May 15, 2026:
+
+### AI Summary Windowing
+
+Summary generation is now intentionally scoped to recent conversation history for both:
+
+- manual inbox summaries
+- transfer-time summary generation
+
+Observed behavior in the current code:
+
+- empty recent windows return a direct "no recent messages in the last 24 hours" response
+- transfer summaries are generated from a bounded recent slice rather than the entire ticket history
+
+This reduces summary drift on long-lived tickets and aligns the connector with day-of-operation handoff workflows.
+
+### Media Retry Normalization
+
+The media recovery connector path in `backend/src/services/scheduleProcessor.js` now:
+
+- excludes `null` and `text` media types without using an invalid Prisma `notIn` filter
+- marks stale pending media as failed after timeout
+- retries unresolved provider media fetches and backfills `mediaUrl` plus `mediaStatus`
+
+This change was introduced after a production failure caused by an invalid Prisma filter shape during media retry processing.
+
 ## Examples
 
 ### Current API-Based Connector Example
@@ -170,4 +198,3 @@ flowchart TD
     Runtime --> Storage
     Runtime --> DB
 ```
-

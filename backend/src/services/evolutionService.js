@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const FormData = require('form-data');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -15,34 +16,106 @@ function getClient(url, key) {
   });
 }
 
+function buildQuotedPayload(quoted) {
+  if (!quoted) return undefined;
+  return { key: { id: quoted } };
+}
+
+function getMessageKeyId(data) {
+  return data?.key?.id || data?.message?.key?.id || null;
+}
+
+function ensureAccepted(data, context) {
+  const messageId = getMessageKeyId(data);
+  if (messageId) return data;
+
+  const status = typeof data?.status === 'string' ? data.status : 'sem-status';
+  const preview = JSON.stringify(data || {}).slice(0, 500);
+  throw new Error(`${context} sem confirmação da Evolution (status=${status}). Resposta: ${preview}`);
+}
+
 async function sendText(url, key, instanceName, phone, text, quoted = null) {
   const client = getClient(url, key);
   try {
     const payload = { number: phone, text };
-    if (quoted) payload.quoted = { key: { id: quoted } };
+    if (quoted) payload.quoted = buildQuotedPayload(quoted);
     const { data } = await client.post(`/message/sendText/${instanceName}`, payload);
     console.log(`[evolutionService] sendText OK:`, data?.key?.id || 'id-não-retornado');
-    return data;
+    return ensureAccepted(data, 'sendText');
   } catch (err) {
     console.error(`[evolutionService] sendText ERROR:`, err.response?.data || err.message);
     throw err;
   }
 }
 
-async function sendMedia(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted }) {
+async function sendMediaMultipart(url, key, instanceName, phone, { mediatype, mimetype, filename, caption, quoted, filePath }) {
+  const endpointBase = url.replace(/\/+$/, '');
+  const form = new FormData();
+  form.append('number', phone);
+  form.append('mediatype', mediatype);
+  form.append('mimetype', mimetype);
+  form.append('caption', caption || '');
+  form.append('fileName', filename || path.basename(filePath) || 'arquivo');
+  form.append('media', fs.createReadStream(filePath));
+
+  if (quoted) {
+    form.append('quoted', JSON.stringify(buildQuotedPayload(quoted)));
+  }
+
+  const { data } = await axios.post(`${endpointBase}/message/sendMedia/${instanceName}`, form, {
+    headers: {
+      apikey: key,
+      ...form.getHeaders()
+    },
+    maxContentLength: 100 * 1024 * 1024,
+    maxBodyLength: 100 * 1024 * 1024,
+    timeout: 60000
+  });
+
+  console.log(`[evolutionService] sendMedia multipart OK:`, getMessageKeyId(data) || 'id-nÃ£o-retornado');
+  return ensureAccepted(data, 'sendMedia multipart');
+}
+
+async function sendMediaJson(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted }) {
   const client = getClient(url, key);
   const payload = {
     number: phone,
-    mediatype,    // image | video | document
-    mimetype,     // image/jpeg, application/pdf, etc.
-    media,        // base64
+    mediatype,
+    mimetype,
+    media,
     fileName: filename || 'arquivo',
-    caption: caption || '',
-    quoted: quoted || null
+    caption: caption || ''
   };
-  if (quoted) payload.quoted = { key: { id: quoted } };
+  if (quoted) payload.quoted = buildQuotedPayload(quoted);
   const { data } = await client.post(`/message/sendMedia/${instanceName}`, payload);
-  return data;
+  console.log(`[evolutionService] sendMedia json OK:`, getMessageKeyId(data) || 'id-nÃ£o-retornado');
+  return ensureAccepted(data, 'sendMedia json');
+}
+
+async function sendMedia(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted, filePath }) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      return await sendMediaMultipart(url, key, instanceName, phone, {
+        mediatype,
+        mimetype,
+        filename,
+        caption,
+        quoted,
+        filePath
+      });
+    } catch (err) {
+      console.warn('[evolutionService] sendMedia multipart falhou, tentando JSON/base64...', err.response?.data || err.message);
+    }
+  }
+
+  return sendMediaJson(url, key, instanceName, phone, {
+    mediatype,
+    media,
+    mimetype,
+    filename,
+    caption,
+    quoted
+  });
 }
 
 async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
@@ -52,9 +125,10 @@ async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
     audio,        // base64
     encoding: true,
   };
-  if (quoted) payload.quoted = { key: { id: quoted } };
+  if (quoted) payload.quoted = buildQuotedPayload(quoted);
   const { data } = await client.post(`/message/sendWhatsAppAudio/${instanceName}`, payload);
-  return data;
+  console.log(`[evolutionService] sendAudio OK:`, getMessageKeyId(data) || 'id-nÃ£o-retornado');
+  return ensureAccepted(data, 'sendAudio');
 }
 
 // Função de compatibilidade para evitar erros de "not a function" em códigos legados

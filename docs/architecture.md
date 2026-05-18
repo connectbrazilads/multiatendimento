@@ -25,6 +25,24 @@ Assumption notes:
 - Meta/Facebook/Instagram browser-backed runtime is not implemented in active controllers, but the schema already reserves `MetaInstance` and `metaBrowserSession` for future hybrid connectors.
 - The system is currently server-centric rather than edge-agent-centric.
 
+## Recent Platform Evolution - May 15, 2026
+
+The platform changed materially on May 15, 2026 across both product workflow and runtime structure.
+
+Highlights:
+
+- the operator console was reworked around shared UI primitives under `frontend/src/components/ui/`
+- the inbox was decomposed into `frontend/src/pages/inbox/components.jsx`, `hooks.js`, and `helpers.jsx`
+- the frontend moved to route-level lazy loading and an application-level render fallback in `frontend/src/main.jsx`
+- inbox rendering was hardened against malformed provider payloads, missing media metadata, and inconsistent history records
+- business-hours evaluation now defaults to `America/Sao_Paulo` and treats inactive days as closed
+- AI summaries were narrowed to recent conversation windows for transfer and manual summary workflows
+- frontend deployment was hardened through explicit build/start configuration in `frontend/nixpacks.toml` and `frontend/package.json`
+
+Detailed release notes:
+
+- see [docs/updates/2026-05-15.md](./updates/2026-05-15.md)
+
 ## High-Level Architecture
 
 ```mermaid
@@ -148,8 +166,13 @@ Responsibilities:
 Primary files:
 
 - `frontend/src/pages/Inbox.jsx`
+- `frontend/src/pages/inbox/components.jsx`
+- `frontend/src/pages/inbox/hooks.js`
+- `frontend/src/pages/inbox/helpers.jsx`
+- `frontend/src/components/ui/`
 - `frontend/src/services/api.js`
 - `frontend/src/services/socket.js`
+- `frontend/src/main.jsx`
 
 Responsibilities:
 
@@ -158,6 +181,8 @@ Responsibilities:
 - queue management
 - AI summary access
 - settings and admin workflows
+- route-level code splitting and loading fallbacks
+- render isolation for unstable conversation sections
 
 ## Runtime Responsibilities
 
@@ -316,4 +341,3 @@ Reasonable next architectural steps, based on current code shape:
 - externalize media processing and long-running AI enrichment jobs
 - introduce event logs or outbox patterns for stronger delivery guarantees
 - split tenant control plane from conversation execution plane
-

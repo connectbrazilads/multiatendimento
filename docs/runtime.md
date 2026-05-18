@@ -13,6 +13,23 @@ The runtime has four active execution modes:
 - Socket.IO real-time fan-out
 - interval and cron-based background processing
 
+## Operator Console Runtime
+
+The frontend runtime changed substantially on May 15, 2026.
+
+Current console behavior:
+
+- route modules are lazy-loaded through `React.lazy` in `frontend/src/main.jsx`
+- a `Suspense` fallback now covers route loading
+- an application-level error boundary prevents a full blank screen during render failures
+- the inbox is no longer a single monolithic page and now delegates work to `frontend/src/pages/inbox/components.jsx`, `hooks.js`, and `helpers.jsx`
+
+Operational implications:
+
+- the initial bundle is smaller because page routes are loaded on demand
+- inbox maintenance risk is reduced because ticket state, message state, and realtime handling are separated
+- UI failures now degrade to bounded fallbacks rather than a global black screen
+
 ## Agent Lifecycle
 
 The product does not currently implement a standalone local agent process. The closest equivalent is the application runtime plus provider-backed messaging sessions.
@@ -131,6 +148,15 @@ The runtime uses database state as the source of truth and Socket.IO as a projec
 - media retrieval tries multiple provider endpoints
 - provider connection events are pushed to admins
 
+### Console-Level Failures
+
+Recent console hardening introduced layered recovery behavior:
+
+- app-level render failures fall back to a recovery screen in `frontend/src/main.jsx`
+- inbox sections can fail independently instead of collapsing the entire conversation view
+- malformed history entries, missing media fields, and inconsistent payload shapes are guarded before render
+- surfaced render errors were used operationally to isolate the final inbox issue during production rollout on May 15, 2026
+
 ### Media Recovery
 
 `scheduleProcessor.retryPendingMedia` provides compensating behavior for failed or delayed media fetches.
@@ -153,6 +179,12 @@ This means the repository currently behaves best as:
 - one active application runtime per deployment unit
 - or multiple replicas with external coordination added later
 
+Deployment notes from May 15, 2026:
+
+- the frontend now defines explicit build/start behavior through `frontend/nixpacks.toml`
+- `frontend/package.json` includes a production `start` script using `serve dist -l 3000 -s`
+- this was added after a production incident where the frontend container served an outdated `dist` build
+
 ## Runtime Sequence
 
 ```mermaid
@@ -170,4 +202,3 @@ sequenceDiagram
     API->>DB: Serve command and query traffic
     RT-->>API: Connection lifecycle and tenant room joins
 ```
-

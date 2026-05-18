@@ -102,6 +102,12 @@ Recommended controls:
 - structured audit logs for external calls
 - explicit tenant opt-in for AI processing of sensitive content
 
+Recent hardening:
+
+- the frontend now guards malformed message payloads before render
+- inbox sections can fail independently instead of taking down the full route
+- this reduces blast radius when provider-originated payloads arrive with unexpected shapes
+
 ## Threat Model
 
 ### Threat: Cross-Tenant Data Access
@@ -140,6 +146,24 @@ Risk:
 Recommendation:
 
 - add provider signature validation or shared-secret verification
+
+### Threat: Provider Payload Variance and UI Crash Propagation
+
+Observed state:
+
+- provider-originated content can arrive with inconsistent or partial media and message fields
+- this caused a production inbox rendering incident on May 15, 2026
+
+Mitigation now present:
+
+- route-level error boundary in `frontend/src/main.jsx`
+- conversation-section isolation in the inbox
+- defensive guards around media fields, history payloads, names, tags, and contact snapshot rendering
+
+Residual risk:
+
+- malformed payloads can still degrade individual message rendering
+- data normalization closer to webhook ingestion would reduce downstream UI complexity further
 
 ### Threat: Media Retention and Leakage
 
@@ -181,4 +205,3 @@ flowchart TD
     API --> Providers
     API --> Media
 ```
-

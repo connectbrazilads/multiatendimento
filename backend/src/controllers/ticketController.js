@@ -582,7 +582,7 @@ async function sendMediaMessage(req, res) {
     if (mime.startsWith('image/')) {
       mediaType = 'image';
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
-        mediatype: 'image', media: base64, mimetype: mime, caption: finalCaption, quoted: quotedMsgId
+        mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else if (mime.startsWith('audio/')) {
       mediaType = 'audio';
@@ -601,19 +601,20 @@ async function sendMediaMessage(req, res) {
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
       result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
-        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId
+        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else {
       mediaType = 'document';
       // Para documentos, se não houver legenda extra, mandamos sem legenda para evitar erros na API
       const docCaption = caption ? finalCaption : undefined;
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
         mediatype: 'document', 
         media: base64, 
         mimetype: mime,
         filename: file.originalname, 
         caption: docCaption, 
-        quoted: quotedMsgId
+        quoted: quotedMsgId,
+        filePath: file.path
       });
     }
 
@@ -896,8 +897,9 @@ async function forwardMessage(req, res) {
              media: base64,
              mimetype,
              filename: originalMsg.fileName || `${mediaType || 'arquivo'}${path.extname(filePath) || ''}`,
-             caption: finalCaption
-           });
+             caption: finalCaption,
+             filePath
+            });
         }
       } else {
         return res.status(400).json({ error: 'Arquivo de mídia não encontrado no servidor' });
