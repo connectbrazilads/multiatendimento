@@ -19,6 +19,44 @@ function normalizeMessageItems(items) {
   });
 }
 
+function getTicketStatusWeight(status) {
+  return { open: 3, pending: 2, bot: 2, resolved: 1 }[status] || 0;
+}
+
+function isTicketPreferred(candidate, current) {
+  const candidateWeight = getTicketStatusWeight(candidate?.status);
+  const currentWeight = getTicketStatusWeight(current?.status);
+
+  if (candidateWeight !== currentWeight) {
+    return candidateWeight > currentWeight;
+  }
+
+  return new Date(candidate?.updatedAt || 0).getTime() > new Date(current?.updatedAt || 0).getTime();
+}
+
+function normalizeTicketsForTab(items, currentTab) {
+  if (currentTab !== 'all' || !Array.isArray(items)) {
+    return Array.isArray(items) ? items : [];
+  }
+
+  const grouped = new Map();
+
+  for (const ticket of items) {
+    if (!ticket?.id) continue;
+
+    const key = ticket.contactId || ticket.contact?.id || ticket.id;
+    const current = grouped.get(key);
+
+    if (!current || isTicketPreferred(ticket, current)) {
+      grouped.set(key, ticket);
+    }
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => (
+    new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+  ));
+}
+
 export function useInboxTickets({ me }) {
   const [tickets, setTickets] = useState([]);
   const [tab, setTab] = useState('mine');
@@ -66,7 +104,7 @@ export function useInboxTickets({ me }) {
         { ...currentFilters, search: currentSearch }
       );
 
-      setTickets(data.tickets || []);
+      setTickets(normalizeTicketsForTab(data.tickets || [], currentTab));
       setCounts(data.counts || { mine: 0, pending: 0, all: 0 });
     } catch (error) {
       console.error(error);
@@ -140,7 +178,7 @@ export function useInboxTickets({ me }) {
       };
 
       const withoutCurrent = previous.filter((ticket) => ticket.id !== incomingTicket.id);
-      return [merged, ...withoutCurrent];
+      return normalizeTicketsForTab([merged, ...withoutCurrent], tabRef.current);
     });
   }, [ticketMatchesCurrentView]);
 
@@ -161,6 +199,7 @@ export function useInboxTickets({ me }) {
 }
 
 export function useInboxMessages({
+  historySearch,
   messagePageSize,
   scrollRef,
   selectedId,
@@ -191,6 +230,8 @@ export function useInboxMessages({
     try {
       const { data } = await getMessages(ticketId, {
         limit: messagePageSize,
+        includeHistory: true,
+        ...(historySearch?.trim() ? { search: historySearch.trim() } : {}),
         ...(before ? { before } : {}),
       });
       const incomingItems = normalizeMessageItems(data?.items);
@@ -216,7 +257,7 @@ export function useInboxMessages({
       if (replace) setLoading(false);
       else setLoadingMoreMessages(false);
     }
-  }, [messagePageSize, scrollRef, selectedIdRef, setSummary, shouldScrollToBottomRef]);
+  }, [historySearch, messagePageSize, scrollRef, selectedIdRef, setSummary, shouldScrollToBottomRef]);
 
   const handleLoadMoreMessages = useCallback(async () => {
     if (!selectedId || !hasMoreMessages || !nextMessagesCursor || loadingMoreMessages) return;
@@ -236,6 +277,7 @@ export function useInboxMessages({
 }
 
 export function useInboxRealtime({
+  historySearchRef,
   loadInitial,
   loadMessages,
   loadTickets,
@@ -265,6 +307,11 @@ export function useInboxRealtime({
       }
 
       if (ticket?.id === selectedIdRef.current) {
+        if (historySearchRef?.current?.trim()) {
+          loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch((error) => console.error(error));
+          return;
+        }
+
         shouldScrollToBottomRef.current = true;
         setMessages((previous) => {
           const exists = previous.find((item) => item.id === message.id);
@@ -299,6 +346,11 @@ export function useInboxRealtime({
     socket.on('message_updated', ({ message }) => {
       if (!message || typeof message !== 'object') {
         console.error('[inbox] message_updated invalida ignorada:', message);
+        return;
+      }
+
+      if (historySearchRef?.current?.trim()) {
+        loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch((error) => console.error(error));
         return;
       }
 
@@ -338,6 +390,7 @@ export function useInboxRealtime({
     };
   }, [
     debouncedLoadTickets,
+    historySearchRef,
     loadInitial,
     loadMessages,
     loadTickets,

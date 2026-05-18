@@ -121,8 +121,18 @@ class MessageRenderErrorBoundary extends React.Component {
 
 export function Avatar({ name, src, size = 40 }) {
   const safeName = getSafeText(name, '?');
+  const [hasError, setHasError] = useState(false);
+  const resolvedSrc = !hasError ? getMediaUrl(src) : '';
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
   const base = { width: size, height: size, borderRadius: '12px', flexShrink: 0, objectFit: 'cover' };
-  if (src) return <img src={src} alt={safeName} style={base} />;
+  if (resolvedSrc) {
+    return <img src={resolvedSrc} alt={safeName} style={base} onError={() => setHasError(true)} />;
+  }
+
   const initials = safeName.split(' ').map((item) => item[0]).join('').slice(0, 2).toUpperCase() || '?';
   return (
     <div
@@ -327,9 +337,22 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           x
         </button>
       </div>
-      <div style={styles.infoScroll}>
+        <div style={styles.infoScroll}>
         <div style={styles.infoProfile}>
-          <Avatar name={contactName} src={contact.avatarUrl} size={80} />
+          <button
+            type="button"
+            onClick={() => contact.avatarUrl && onImageClick(getMediaUrl(contact.avatarUrl))}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: contact.avatarUrl ? 'zoom-in' : 'default',
+              borderRadius: '20px',
+            }}
+            title={contact.avatarUrl ? 'Ampliar foto do cliente' : contactName}
+          >
+            <Avatar name={contactName} src={contact.avatarUrl} size={80} />
+          </button>
           <h4 style={styles.infoName}>{contactName}</h4>
           {linkedCrm ? (
             <div style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -665,6 +688,7 @@ export function ChatHeader({
   handleResolve,
   handleSummarize,
   isMobile,
+  onImageClick,
   selectedTicket,
   setShowInfo,
   setShowOsModal,
@@ -680,11 +704,24 @@ export function ChatHeader({
   return (
     <header style={{ ...styles.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
       {isMobile && <button style={styles.backBtn} onClick={() => setView('list')}>{'<'}</button>}
-      <Avatar
-        name={contactName}
-        src={selectedTicket.contact?.avatarUrl}
-        size={isMobile ? 32 : 40}
-      />
+      <button
+        type="button"
+        onClick={() => selectedTicket.contact?.avatarUrl && onImageClick(getMediaUrl(selectedTicket.contact.avatarUrl))}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: selectedTicket.contact?.avatarUrl ? 'zoom-in' : 'default',
+          borderRadius: '12px',
+        }}
+        title={selectedTicket.contact?.avatarUrl ? 'Ampliar foto do cliente' : contactName}
+      >
+        <Avatar
+          name={contactName}
+          src={selectedTicket.contact?.avatarUrl}
+          size={isMobile ? 32 : 40}
+        />
+      </button>
       <div style={{ ...styles.rowInfo, overflow: 'hidden' }}>
         <div
           style={{
@@ -756,10 +793,12 @@ export function MessageList({
   handleDeleteMessage,
   handleLoadMoreMessages,
   hasMoreMessages,
+  historySearch,
   loading,
   loadingMoreMessages,
   messages,
   onImageClick,
+  onHistorySearch,
   scrollRef,
   selectedTicket,
   setForwardingMessage,
@@ -768,9 +807,51 @@ export function MessageList({
 }) {
   const selectedContactName = getContactDisplayName(selectedTicket.contact, 'Cliente');
   const messageItems = Array.isArray(messages) ? messages : [];
+  const [draftSearch, setDraftSearch] = useState(historySearch || '');
+  const trimmedHistorySearch = getSafeText(historySearch).trim();
+
+  useEffect(() => {
+    setDraftSearch(historySearch || '');
+  }, [historySearch, selectedTicket.id]);
 
   return (
     <div style={styles.messages} ref={scrollRef}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onHistorySearch(draftSearch.trim());
+        }}
+        style={styles.historySearchWrap}
+      >
+        <input
+          style={styles.historySearchInput}
+          placeholder="Buscar no historico desta conversa..."
+          value={draftSearch}
+          onChange={(event) => setDraftSearch(event.target.value)}
+        />
+        <button type="submit" style={styles.historySearchBtn}>
+          Buscar
+        </button>
+        {trimmedHistorySearch ? (
+          <button
+            type="button"
+            style={styles.historySearchClearBtn}
+            onClick={() => {
+              setDraftSearch('');
+              onHistorySearch('');
+            }}
+          >
+            Limpar
+          </button>
+        ) : null}
+      </form>
+
+      {trimmedHistorySearch ? (
+        <div style={styles.historySearchMeta}>
+          Resultados para "{trimmedHistorySearch}"
+        </div>
+      ) : null}
+
       {loading ? <Empty>Carregando historico...</Empty> : (
         <>
           {hasMoreMessages && (
@@ -780,7 +861,7 @@ export function MessageList({
                 disabled={loadingMoreMessages}
                 style={{ ...styles.loadMoreBtn, opacity: loadingMoreMessages ? 0.7 : 1 }}
               >
-                {loadingMoreMessages ? 'Carregando...' : 'Carregar mais'}
+                {loadingMoreMessages ? 'Carregando...' : trimmedHistorySearch ? 'Carregar mais resultados' : 'Carregar mais'}
               </button>
             </div>
           )}
@@ -979,7 +1060,7 @@ export function MessageList({
               );
             }
           })}
-          {!messageItems.length && <Empty>Nenhuma mensagem encontrada</Empty>}
+          {!messageItems.length && <Empty>{trimmedHistorySearch ? 'Nenhum resultado encontrado nesta conversa' : 'Nenhuma mensagem encontrada'}</Empty>}
         </>
       )}
     </div>

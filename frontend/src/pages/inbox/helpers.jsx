@@ -6,7 +6,11 @@ export function Empty({ children }) {
 
 export function fmt(value) {
   const date = new Date(value);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (Number.isNaN(date.getTime())) return '--';
+
+  const datePart = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const timePart = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
 }
 
 export function mergeMessagePages(current, incoming, prepend = false) {

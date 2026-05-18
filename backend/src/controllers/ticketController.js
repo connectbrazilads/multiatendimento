@@ -53,6 +53,38 @@ function buildWhere(conditions) {
   return { AND: filtered };
 }
 
+function getTicketStatusWeight(status) {
+  return { open: 3, pending: 2, bot: 2, resolved: 1 }[status] || 0;
+}
+
+function isTicketPreferred(candidate, current) {
+  const candidateWeight = getTicketStatusWeight(candidate?.status);
+  const currentWeight = getTicketStatusWeight(current?.status);
+
+  if (candidateWeight !== currentWeight) {
+    return candidateWeight > currentWeight;
+  }
+
+  return new Date(candidate?.updatedAt || 0).getTime() > new Date(current?.updatedAt || 0).getTime();
+}
+
+function dedupeTicketsByContact(tickets = []) {
+  const grouped = new Map();
+
+  for (const ticket of tickets) {
+    const key = ticket.contactId || ticket.contact?.id || ticket.id;
+    const current = grouped.get(key);
+
+    if (!current || isTicketPreferred(ticket, current)) {
+      grouped.set(key, ticket);
+    }
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => (
+    new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+  ));
+}
+
 async function list(req, res) {
   const { status, mine, priority, agentId, teamId, search } = req.query;
   const visibilityFilter = await getUserVisibilityFilter(req.user);
@@ -119,8 +151,12 @@ async function list(req, res) {
     take: 200,
   });
 
+  if (status === 'all') {
+    tickets = dedupeTicketsByContact(tickets);
+  }
+
   // Busca as contagens globais para os badges
-  const [countMine, countPending, countResolved, countAll] = await Promise.all([
+  const [countMine, countPending, countResolved, countAllGroups] = await Promise.all([
     prisma.ticket.count({ where: { tenantId: req.user.tenantId, agentId: req.user.userId, status: 'open' } }),
     prisma.ticket.count({
       where: buildWhere([
@@ -136,7 +172,8 @@ async function list(req, res) {
         { status: 'resolved' }
       ])
     }),
-    prisma.ticket.count({
+    prisma.ticket.groupBy({
+      by: ['contactId'],
       where: buildWhere([
         { tenantId: req.user.tenantId },
         visibilityFilter,
@@ -151,7 +188,7 @@ async function list(req, res) {
       mine: countMine,
       pending: countPending,
       resolved: countResolved,
-      all: countAll
+      all: countAllGroups.length
     }
   });
 }
@@ -161,6 +198,7 @@ async function getMessages(req, res) {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 20), 100);
   const before = req.query.before ? new Date(req.query.before) : null;
   const includeHistory = req.query.includeHistory === 'true';
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
   const ticket = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!ticket) return res.status(404).json({ error: 'Ticket nao encontrado' });
 
@@ -182,26 +220,39 @@ async function getMessages(req, res) {
 
   const ticketIds = allTickets.map(t => t.id);
   const createdAtFilter = before && !Number.isNaN(before.getTime()) ? { lt: before } : undefined;
+  const messageSearchFilter = search
+    ? {
+        OR: [
+          { body: { contains: search, mode: 'insensitive' } },
+          { transcription: { contains: search, mode: 'insensitive' } },
+          { quotedMsgBody: { contains: search, mode: 'insensitive' } },
+          { fileName: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    : undefined;
 
   const messages = await prisma.message.findMany({
     where: {
       ticketId: { in: ticketIds },
       ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+      ...(messageSearchFilter || {}),
     },
     orderBy: { createdAt: 'desc' },
-    take: limit * 2,
+    take: search ? limit + 1 : limit * 2,
     include: { agent: { select: { name: true } } },
   });
 
-  const events = await prisma.ticketEvent.findMany({
-    where: {
-      ticketId: { in: ticketIds },
-      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    include: { user: { select: { name: true } } }
-  });
+  const events = search
+    ? []
+    : await prisma.ticketEvent.findMany({
+        where: {
+          ticketId: { in: ticketIds },
+          ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: { user: { select: { name: true } } }
+      });
 
   const combinedDesc = [
     ...messages.map(m => ({ ...m, _type: 'message' })),

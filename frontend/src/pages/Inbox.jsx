@@ -98,6 +98,7 @@ export default function Inbox() {
   const [updateTrigger, setUpdateTrigger] = useState(0); // Forca atualizacao de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [historySearch, setHistorySearch] = useState('');
   const isMobile = useIsMobile();
 
   // Volta para a lista quando a janela retorna ao desktop
@@ -110,6 +111,7 @@ export default function Inbox() {
   const timerRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const selectedIdRef = React.useRef(selectedId);
+  const historySearchRef = React.useRef(historySearch);
   const previewDragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
   const {
@@ -136,9 +138,10 @@ export default function Inbox() {
     messages,
     setMessages,
   } = useInboxMessages({
-    messagePageSize: MESSAGE_PAGE_SIZE,
-    scrollRef,
-    selectedId,
+      messagePageSize: MESSAGE_PAGE_SIZE,
+      historySearch,
+      scrollRef,
+      selectedId,
     selectedIdRef,
     setSummary,
     shouldScrollToBottomRef,
@@ -196,6 +199,7 @@ export default function Inbox() {
   const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { historySearchRef.current = historySearch; }, [historySearch]);
   useEffect(() => {
     loadTickets();
     const params = new URLSearchParams(window.location.search);
@@ -205,7 +209,7 @@ export default function Inbox() {
 
   useEffect(() => {
     if (selectedId) loadMessages();
-  }, [selectedId]);
+  }, [selectedId, historySearch]);
 
   useEffect(() => {
     if (shouldScrollToBottomRef.current) {
@@ -297,6 +301,7 @@ export default function Inbox() {
 
   useInboxRealtime({
     debouncedLoadTickets,
+    historySearchRef,
     loadInitial,
     loadMessages,
     loadTickets,
@@ -453,6 +458,9 @@ export default function Inbox() {
   const selectedTicket = tickets.find(t => t.id === selectedId);
 
   const selectTicket = async (id) => {
+    if (selectedId !== id && historySearch) {
+      setHistorySearch('');
+    }
     setSelectedId(id);
     if (isMobile) setView('chat');
     
@@ -542,6 +550,7 @@ export default function Inbox() {
                 handleResolve={handleResolve}
                 handleSummarize={handleSummarize}
                 isMobile={isMobile}
+                onImageClick={openPreviewImage}
                 selectedTicket={selectedTicket}
                 setShowInfo={setShowInfo}
                 setShowOsModal={setShowOsModal}
@@ -569,10 +578,12 @@ export default function Inbox() {
                 handleDeleteMessage={handleDeleteMessage}
                 handleLoadMoreMessages={handleLoadMoreMessages}
                 hasMoreMessages={hasMoreMessages}
+                historySearch={historySearch}
                 loading={loading}
               loadingMoreMessages={loadingMoreMessages}
               messages={messages}
               onImageClick={openPreviewImage}
+              onHistorySearch={setHistorySearch}
               scrollRef={scrollRef}
               selectedTicket={selectedTicket}
               setForwardingMessage={setForwardingMessage}
@@ -831,6 +842,11 @@ const s = {
   messages: { flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', boxSizing: 'border-box' },
   loadMoreWrap: { display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' },
   loadMoreBtn: { background: 'rgba(255,255,255,0.9)', color: '#4a5568', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '999px', padding: '0.55rem 1.15rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem', boxShadow: '0 6px 18px rgba(0,0,0,0.08)' },
+  historySearchWrap: { display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.25rem' },
+  historySearchInput: { flex: '1 1 260px', minWidth: '220px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0.8rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' },
+  historySearchBtn: { background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: '12px', padding: '0.8rem 1rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem' },
+  historySearchClearBtn: { background: 'var(--bg-panel)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.8rem 1rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem' },
+  historySearchMeta: { fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 800, marginBottom: '0.35rem' },
   bubbleWrap: { display: 'flex', width: '100%' },
   bubble: { 
     padding: '0.85rem 1.1rem', 
