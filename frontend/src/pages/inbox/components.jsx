@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api, {
   updateContact,
   getContactMedia,
@@ -8,7 +8,7 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
-import { Mic, SendHorizontal } from 'lucide-react';
+import { Copy, Forward, Image, Mic, Paperclip, Reply, SendHorizontal, Trash2, X } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
@@ -176,6 +176,94 @@ function AudioPlayer({ src, fromMe, transcription, styles }) {
   );
 }
 
+function getFileExtensionFromMime(type) {
+  const fallback = 'bin';
+  if (!type) return fallback;
+
+  const mapped = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/bmp': 'bmp',
+    'image/svg+xml': 'svg',
+  };
+
+  return mapped[type] || type.split('/')[1] || fallback;
+}
+
+function ensureDraftFile(file, prefix = 'anexo') {
+  if (!(file instanceof File)) return null;
+  if (file.name) return file;
+
+  const extension = getFileExtensionFromMime(file.type);
+  return new File([file], `${prefix}-${Date.now()}.${extension}`, {
+    type: file.type || 'application/octet-stream',
+    lastModified: Date.now(),
+  });
+}
+
+function formatFileSize(size) {
+  if (!Number.isFinite(size) || size <= 0) return 'sem tamanho';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getDraftFileMeta(file) {
+  const name = getSafeText(file?.name, 'Arquivo');
+  const extension = name.includes('.') ? name.split('.').pop().toUpperCase() : 'ARQ';
+
+  if (file?.type?.startsWith('image/')) {
+    return { badge: 'IMG', label: 'Imagem' };
+  }
+
+  if (extension === 'PDF') {
+    return { badge: 'PDF', label: 'Documento PDF' };
+  }
+
+  return { badge: extension.slice(0, 3) || 'ARQ', label: 'Documento' };
+}
+
+function DraftAttachmentPreview({ file, onRemove, styles }) {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    if (!file?.type?.startsWith('image/')) {
+      setPreviewUrl('');
+      return undefined;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    setPreviewUrl(nextUrl);
+
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [file]);
+
+  const meta = getDraftFileMeta(file);
+
+  return (
+    <div style={styles.draftAttachmentCard}>
+      {previewUrl ? (
+        <img src={previewUrl} alt={getSafeText(file?.name, 'Imagem')} style={styles.draftAttachmentThumb} />
+      ) : (
+        <div style={styles.draftAttachmentBadge}>{meta.badge}</div>
+      )}
+
+      <div style={styles.draftAttachmentInfo}>
+        <div style={styles.draftAttachmentName}>{getSafeText(file?.name, 'Arquivo')}</div>
+        <div style={styles.draftAttachmentMeta}>
+          {meta.label} - {formatFileSize(file?.size)}
+        </div>
+      </div>
+
+      <button type="button" onClick={onRemove} style={styles.draftAttachmentRemove} title="Remover anexo">
+        <X size={14} strokeWidth={2.4} />
+      </button>
+    </div>
+  );
+}
+
 export function MediaContent({ message, onImageClick, styles }) {
   const url = getMediaUrl(message.mediaUrl);
 
@@ -226,12 +314,13 @@ export function MediaContent({ message, onImageClick, styles }) {
   if (url && message.mediaType === 'document') {
     const fileName = getSafeText(message.fileName, 'Arquivo');
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
+    const extensionLabel = isPdf ? 'PDF' : (fileName.split('.').pop() || 'DOC').slice(0, 3).toUpperCase();
     return (
       <a href={url} target="_blank" rel="noreferrer" style={styles.pdfCard}>
-        <div style={styles.pdfIcon}>{isPdf ? 'PDF' : 'DOC'}</div>
+        <div style={styles.pdfIcon}>{extensionLabel}</div>
         <div style={styles.pdfInfo}>
           <div style={styles.pdfName}>{fileName}</div>
-          <div style={styles.pdfSize}>{isPdf ? 'Documento PDF' : 'Documento'}</div>
+          <div style={styles.pdfSize}>{isPdf ? 'Documento PDF' : 'Abrir documento'}</div>
         </div>
       </a>
     );
@@ -960,6 +1049,20 @@ export function MessageList({
                 );
               }
 
+              const senderName = message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName;
+              const senderColor = message.fromMe
+                ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)')
+                : 'var(--accent)';
+              const actionTextColor = message.fromMe
+                ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.82)')
+                : 'var(--text-main)';
+              const actionBackground = message.fromMe
+                ? (message.fromBot ? 'rgba(255,255,255,0.06)' : 'rgba(74,56,0,0.08)')
+                : 'rgba(255,255,255,0.05)';
+              const actionBorder = message.fromMe
+                ? (message.fromBot ? 'rgba(255,255,255,0.12)' : 'rgba(74,56,0,0.14)')
+                : 'rgba(212,175,55,0.18)';
+
               return (
                 <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
                   <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
@@ -976,37 +1079,60 @@ export function MessageList({
                         borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
                       }}
                     >
-                      {message.fromMe && !message.isDeleted && (
-                        <button
-                          onClick={() => handleDeleteMessage(message.id)}
-                          style={{ position: 'absolute', top: -10, right: -10, background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Apagar para o cliente"
-                        >
-                          X
-                        </button>
-                      )}
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={styles.messageHeader}>
                         <div
                           style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 800,
-                            color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.85)') : 'var(--accent)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
+                            ...styles.messageSender,
+                            color: senderColor,
                             opacity: message.fromBot ? 0.8 : 1,
                           }}
                         >
-                          {message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName}
+                          {senderName}
                         </div>
-                        {!message.isDeleted && (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => setReplyingTo(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Responder">Resp.</button>
-                            <button onClick={() => handleCopyMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Copiar texto">Cop.</button>
-                            <button onClick={() => setForwardingMessage(message)} style={{ background: 'none', border: 'none', color: message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.78)') : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', fontWeight: 600 }} title="Encaminhar">Enc.</button>
-                          </div>
-                        )}
                       </div>
+
+                      {!message.isDeleted && (
+                        <div style={styles.messageActionRow}>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo(message)}
+                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
+                            title="Responder"
+                          >
+                            <Reply size={13} strokeWidth={2.3} />
+                            <span>Resp.</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyMessage(message)}
+                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
+                            title="Copiar texto"
+                          >
+                            <Copy size={13} strokeWidth={2.3} />
+                            <span>Cop.</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForwardingMessage(message)}
+                            style={{ ...styles.messageActionBtn, color: actionTextColor, background: actionBackground, border: `1px solid ${actionBorder}` }}
+                            title="Encaminhar"
+                          >
+                            <Forward size={13} strokeWidth={2.3} />
+                            <span>Enc.</span>
+                          </button>
+                          {message.fromMe && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              style={styles.messageActionBtnDanger}
+                              title="Apagar para o cliente"
+                            >
+                              <Trash2 size={13} strokeWidth={2.3} />
+                              <span>Apagar</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {quotedText && (
                         <div
@@ -1088,6 +1214,38 @@ export function MessageComposer({
   text,
   recordingTime,
 }) {
+  const fileInputRef = useRef(null);
+
+  function appendFiles(incomingFiles, sourceLabel = 'anexos') {
+    const normalizedFiles = incomingFiles
+      .map((file, index) => ensureDraftFile(file, sourceLabel === 'colagem' ? `imagem-colada-${index + 1}` : 'anexo'))
+      .filter(Boolean);
+
+    if (!normalizedFiles.length) return;
+
+    setFiles((previous) => [...previous, ...normalizedFiles]);
+  }
+
+  function handleFileSelection(event) {
+    const selectedFiles = Array.from(event.target.files || []);
+    appendFiles(selectedFiles, 'arquivo');
+    event.target.value = '';
+  }
+
+  function handlePaste(event) {
+    const clipboardItems = Array.from(event.clipboardData?.items || []);
+    const imageFiles = clipboardItems
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+
+    if (!imageFiles.length) return;
+
+    event.preventDefault();
+    appendFiles(imageFiles, 'colagem');
+    toast.success(imageFiles.length === 1 ? 'Imagem colada no envio' : `${imageFiles.length} imagens coladas no envio`);
+  }
+
   return (
     <>
       {filteredQuick.length > 0 && (
@@ -1136,23 +1294,27 @@ export function MessageComposer({
           ) : (
             <div style={styles.composerShell}>
               <div style={styles.composerToolbar}>
-                <button type="button" style={styles.composerActionBtn} onClick={() => document.getElementById('fileInput').click()}>
-                  Anexo
+                <button type="button" style={styles.composerActionBtn} onClick={() => fileInputRef.current?.click()}>
+                  <Paperclip size={15} strokeWidth={2.4} />
+                  <span>Anexo</span>
                 </button>
-                <input type="file" id="fileInput" hidden multiple onChange={(event) => setFiles((previous) => [...previous, ...Array.from(event.target.files)])} />
+                <div style={styles.composerHint}>
+                  <Image size={14} strokeWidth={2.2} />
+                  <span>Ctrl+V cola imagem</span>
+                </div>
+                <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />
               </div>
 
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {files.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={styles.draftAttachmentList}>
                     {files.map((file, index) => (
-                      <div key={index} style={styles.filePreview}>
-                        {(() => {
-                          const fileName = getSafeText(file?.name, 'Arquivo');
-                          return `Anexo ${fileName.length > 15 ? `${fileName.substring(0, 12)}...` : fileName}`;
-                        })()}
-                        <button onClick={() => setFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))}>X</button>
-                      </div>
+                      <DraftAttachmentPreview
+                        key={`${getSafeText(file?.name, 'arquivo')}-${index}`}
+                        file={file}
+                        onRemove={() => setFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))}
+                        styles={styles}
+                      />
                     ))}
                   </div>
                 )}
@@ -1174,6 +1336,7 @@ export function MessageComposer({
                         event.target.style.height = '48px';
                       }
                     }}
+                    onPaste={handlePaste}
                     placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
                     spellCheck={false}
                   />
