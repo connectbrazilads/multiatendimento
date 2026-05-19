@@ -1,10 +1,14 @@
 const prisma = require('../lib/prisma');
 const historyService = require('../services/historyService');
 const geminiService = require('../services/geminiService');
+const evolutionService = require('../services/evolutionService');
 const path = require('path');
 const fs = require('fs');
 let io;
 function setIo(socketIo) { io = socketIo; }
+const avatarRefreshCache = new Map();
+const AVATAR_REFRESH_TTL_MS = 6 * 60 * 60 * 1000;
+const AVATAR_REFRESH_LIMIT = 10;
 
 function getMimeTypeFromFileName(fileName = '', mediaType = 'document') {
   const ext = path.extname(fileName).toLowerCase();
@@ -85,6 +89,92 @@ function dedupeTicketsByContact(tickets = []) {
   ));
 }
 
+function shouldAttemptAvatarRefresh(ticket) {
+  const phone = ticket?.contact?.phone;
+  const instanceName = ticket?.instance?.instanceName;
+  if (!phone || !instanceName) return false;
+
+  const avatarUrl = ticket?.contact?.avatarUrl || '';
+  if (!avatarUrl) return true;
+
+  return /^https?:\/\//i.test(avatarUrl);
+}
+
+function getAvatarRefreshKey(ticket) {
+  return `${ticket?.instanceId || 'no-instance'}:${ticket?.contactId || 'no-contact'}`;
+}
+
+async function refreshTicketAvatarInBackground(ticket) {
+  const refreshKey = getAvatarRefreshKey(ticket);
+  const now = Date.now();
+  const lastAttemptAt = avatarRefreshCache.get(refreshKey) || 0;
+  if (now - lastAttemptAt < AVATAR_REFRESH_TTL_MS) return;
+
+  avatarRefreshCache.set(refreshKey, now);
+
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ticket.tenantId },
+      include: { settings: true },
+    });
+
+    if (!tenant?.settings?.evolutionUrl || !tenant.settings?.evolutionKey) return;
+
+    const nextAvatarUrl = await evolutionService.fetchProfilePicture(
+      tenant.settings.evolutionUrl,
+      tenant.settings.evolutionKey,
+      ticket.instance.instanceName,
+      ticket.contact.phone,
+    );
+
+    if (!nextAvatarUrl || nextAvatarUrl === ticket.contact.avatarUrl) return;
+
+    await prisma.contact.update({
+      where: { id: ticket.contact.id },
+      data: { avatarUrl: nextAvatarUrl },
+    });
+
+    if (!io) return;
+
+    const freshTicket = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      include: {
+        contact: true,
+        agent: { select: { id: true, name: true } },
+        team: true,
+        instance: { select: { instanceName: true } },
+      },
+    });
+
+    if (freshTicket) {
+      io.to(ticket.tenantId).emit('ticket_updated', { ticket: freshTicket });
+    }
+  } catch (error) {
+    console.error('[ticket avatars] falha ao renovar avatar:', error.message);
+  }
+}
+
+function refreshVisibleTicketAvatars(tickets = []) {
+  const uniqueCandidates = [];
+  const seenKeys = new Set();
+
+  for (const ticket of tickets) {
+    if (!shouldAttemptAvatarRefresh(ticket)) continue;
+
+    const refreshKey = getAvatarRefreshKey(ticket);
+    if (seenKeys.has(refreshKey)) continue;
+
+    seenKeys.add(refreshKey);
+    uniqueCandidates.push(ticket);
+
+    if (uniqueCandidates.length >= AVATAR_REFRESH_LIMIT) break;
+  }
+
+  uniqueCandidates.forEach((ticket) => {
+    refreshTicketAvatarInBackground(ticket).catch(() => {});
+  });
+}
+
 async function list(req, res) {
   const { status, mine, priority, agentId, teamId, search } = req.query;
   const visibilityFilter = await getUserVisibilityFilter(req.user);
@@ -154,6 +244,8 @@ async function list(req, res) {
   if (status === 'all') {
     tickets = dedupeTicketsByContact(tickets);
   }
+
+  refreshVisibleTicketAvatars(tickets);
 
   // Busca as contagens globais para os badges
   const [countMine, countPending, countResolved, countAllGroups] = await Promise.all([

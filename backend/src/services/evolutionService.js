@@ -260,14 +260,55 @@ async function createInstance(url, key, instanceName) {
   return data;
 }
 
+function normalizePhoneNumber(phone) {
+  if (typeof phone !== 'string' && typeof phone !== 'number') return '';
+  return String(phone).replace(/\D/g, '');
+}
+
+function extractProfilePictureUrl(payload) {
+  if (!payload) return null;
+  if (typeof payload === 'string' && payload.startsWith('http')) return payload;
+
+  const candidates = [
+    payload.profilePictureUrl,
+    payload.picture,
+    payload.pictureUrl,
+    payload.profilePicUrl,
+    payload.profile_pic_url,
+    payload.data?.profilePictureUrl,
+    payload.data?.picture,
+    payload.response?.profilePictureUrl,
+    payload.response?.picture,
+  ];
+
+  return candidates.find((value) => typeof value === 'string' && value.startsWith('http')) || null;
+}
+
 async function fetchProfilePicture(url, key, instanceName, phone) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) return null;
+
   try {
     const client = getClient(url, key);
-    const { data } = await client.post(`/chat/fetchProfile/${instanceName}`, { number: phone });
-    return data?.picture || data?.profilePictureUrl || null;
+    const endpoints = [
+      `/chat/fetchProfilePictureUrl/${instanceName}`,
+      `/chat/fetchProfile/${instanceName}`,
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const { data } = await client.post(endpoint, { number: normalizedPhone });
+        const picture = extractProfilePictureUrl(data);
+        if (picture) return picture;
+      } catch {
+        // Tenta o proximo endpoint compativel.
+      }
+    }
   } catch {
     return null;
   }
+
+  return null;
 }
 
 async function fetchInstanceInfo(url, key, instanceName) {

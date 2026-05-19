@@ -14,10 +14,8 @@ import {
   Bot,
   CheckCheck,
   ClipboardList,
-  Clock3,
   Download,
   FileText,
-  Image,
   Mic,
   MoreVertical,
   PanelRightClose,
@@ -1614,19 +1612,6 @@ export function MessageComposer({
           </div>
         ) : (
           <>
-            <div style={styles.composerMetaRow}>
-              {isMobile ? <span /> : (
-                <div style={styles.composerHint}>
-                  <Image size={14} strokeWidth={2.2} />
-                  <span>Ctrl+V cola imagem</span>
-                </div>
-              )}
-              <button type="button" style={styles.composerActionBtnMuted} onClick={() => setShowScheduling(true)}>
-                <Clock3 size={14} strokeWidth={2.2} />
-                {isMobile ? 'Agenda' : 'Agendar'}
-              </button>
-            </div>
-
             <div style={{ ...styles.composerShell, gap: isMobile ? '0.55rem' : styles.composerShell.gap, padding: isMobile ? '0.55rem' : styles.composerShell.padding }}>
               <button type="button" style={{ ...styles.attachBtn, width: isMobile ? '42px' : styles.attachBtn.width, height: isMobile ? '42px' : styles.attachBtn.height }} onClick={() => fileInputRef.current?.click()} title="Adicionar anexo">
                 <Paperclip size={18} strokeWidth={2.4} />
