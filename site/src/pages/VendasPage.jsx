@@ -31,16 +31,16 @@ const navItems = [
 ];
 
 const metrics = [
-  { value: '1 tela', label: 'para fila, CRM, O.S. e historico' },
-  { value: '24/7', label: 'atendimento com bot, equipe e transferencias' },
-  { value: '100%', label: 'visao do cliente, SLA e contexto do contato' },
-  { value: '-ruido', label: 'mais clareza para operar o time comercial' },
+  { value: '1 tela', label: 'para fila, CRM, O.S. e histórico' },
+  { value: '24/7', label: 'atendimento com bot, equipe e transferências' },
+  { value: '100%', label: 'visão do cliente, SLA e contexto do contato' },
+  { value: '-ruído', label: 'mais clareza para operar o time comercial' },
 ];
 
 const pains = [
   'WhatsApp espalhado entre pessoas e aparelhos',
   'Cliente repetindo contexto a cada troca de atendente',
-  'Sem visao clara de responsaveis, SLA e pendencias',
+  'Sem visão clara de responsáveis, SLA e pendências',
   'O.S., CRM e conversa vivendo em sistemas separados',
 ];
 
@@ -48,7 +48,7 @@ const features = [
   {
     icon: MessageSquareMore,
     title: 'Inbox unificada',
-    text: 'Centralize WhatsApp, filas, responsaveis, prioridades e historico em uma operacao mais simples de gerenciar.',
+    text: 'Centralize WhatsApp, filas, responsáveis, prioridades e histórico em uma operação mais simples de gerenciar.',
   },
   {
     icon: Bot,
@@ -57,23 +57,23 @@ const features = [
   },
   {
     icon: Users2,
-    title: 'Equipe com governanca',
-    text: 'Acompanhe atendente, equipe, transferencias, reaberturas e encerramentos sem perder rastreabilidade.',
+    title: 'Equipe com governança',
+    text: 'Acompanhe atendente, equipe, transferências, reaberturas e encerramentos sem perder rastreabilidade.',
   },
   {
     icon: ScanSearch,
     title: 'Ficha viva do cliente',
-    text: 'Veja notas, tags, midias, equipamentos, CRM vinculado e historico do contato no mesmo fluxo.',
+    text: 'Veja notas, tags, mídias, equipamentos, CRM vinculado e histórico do contato no mesmo fluxo.',
   },
   {
     icon: Workflow,
     title: 'O.S. no contexto',
-    text: 'Gere ordens de servico direto da conversa para acelerar diagnostico, despacho e continuidade do atendimento.',
+    text: 'Gere ordens de serviço direto da conversa para acelerar diagnóstico, despacho e continuidade do atendimento.',
   },
   {
     icon: BarChart3,
-    title: 'Visao operacional',
-    text: 'Monitore o que esta em atendimento, aguardando, encerrado e quais contas realmente exigem atencao.',
+    title: 'Visão operacional',
+    text: 'Monitore o que está em atendimento, aguardando, encerrado e quais contas realmente exigem atenção.',
   },
 ];
 
@@ -81,32 +81,32 @@ const workflow = [
   {
     step: '01',
     title: 'Cliente chama no WhatsApp',
-    text: 'A conversa entra na fila certa com identificacao do contato e contexto inicial.',
+    text: 'A conversa entra na fila certa com identificação do contato e contexto inicial.',
   },
   {
     step: '02',
     title: 'Bot ou triagem assume',
-    text: 'Voce responde automaticamente, coleta dados essenciais e envia para a equipe certa.',
+    text: 'Você responde automaticamente, coleta dados essenciais e envia para a equipe certa.',
   },
   {
     step: '03',
     title: 'Operador atende com contexto',
-    text: 'O atendente ja entra vendo historico, CRM, prioridade, midias e tudo que o cliente ja informou.',
+    text: 'O atendente já entra vendo histórico, CRM, prioridade, mídias e tudo que o cliente já informou.',
   },
   {
     step: '04',
-    title: 'Conversa vira operacao',
+    title: 'Conversa vira operação',
     text: 'Se precisar, a equipe gera O.S., registra andamento e fecha o ciclo sem sair da plataforma.',
   },
 ];
 
 const planHighlights = [
   'Inbox por equipes',
-  'Multiplas conexoes',
+  'Múltiplas conexões',
   'Bot inicial',
   'CRM e ficha do cliente',
-  'Geracao de O.S.',
-  'Historico completo',
+  'Geração de O.S.',
+  'Histórico completo',
 ];
 
 const defaultLeadForm = {
@@ -120,14 +120,14 @@ const defaultLeadForm = {
 
 function buildWhatsAppLeadUrl(form) {
   const lines = [
-    'Ola, quero conhecer o sistema de multiatendimento.',
+    'Olá, quero conhecer o sistema de multiatendimento.',
     '',
     `Nome: ${form.name}`,
     `Empresa: ${form.company}`,
     `WhatsApp: ${form.phone}`,
     `E-mail: ${form.email}`,
-    `Tamanho da equipe: ${form.teamSize || 'Nao informado'}`,
-    `Principal desafio: ${form.challenge || 'Nao informado'}`,
+    `Tamanho da equipe: ${form.teamSize || 'Não informado'}`,
+    `Principal desafio: ${form.challenge || 'Não informado'}`,
   ];
 
   return `https://wa.me/555194412679?text=${encodeURIComponent(lines.join('\n'))}`;
@@ -147,7 +147,7 @@ function ProductPreview() {
             <span />
             <span />
           </div>
-          <div className="sales-preview-breadcrumb">Operacao comercial em tempo real</div>
+          <div className="sales-preview-breadcrumb">Operação comercial em tempo real</div>
         </div>
 
         <div className="sales-preview-body">
@@ -158,7 +158,7 @@ function ProductPreview() {
             <div className="sales-preview-pill">Contatos 277</div>
 
             <div className="sales-preview-list">
-              {['Comercial Rede Vip 24h', 'Grafica Santos', 'Carol Almeida'].map((item, index) => (
+              {['Comercial Rede Vip 24h', 'Gráfica Santos', 'Carol Almeida'].map((item, index) => (
                 <div key={item} className="sales-preview-ticket">
                   <div className="sales-preview-avatar">{item.slice(0, 2).toUpperCase()}</div>
                   <div className="sales-preview-ticket-copy">
@@ -178,7 +178,7 @@ function ProductPreview() {
               </div>
               <div className="sales-preview-actions">
                 <button>Gerar O.S.</button>
-                <button>Acoes</button>
+                <button>Ações</button>
                 <button className="sales-preview-primary">Encerrar</button>
               </div>
             </div>
@@ -188,10 +188,10 @@ function ProductPreview() {
                 <span>Boa tarde, preciso de suporte com a impressora da loja.</span>
               </div>
               <div className="sales-bubble sales-bubble-right">
-                <span>Ja localizei seu cadastro e vou te ajudar agora.</span>
+                <span>Já localizei seu cadastro e vou te ajudar agora.</span>
               </div>
               <div className="sales-bubble sales-bubble-right sales-bubble-accent">
-                <span>Se necessario, ja gero a O.S. com o historico dessa conversa.</span>
+                <span>Se necessário, já gero a O.S. com o histórico dessa conversa.</span>
               </div>
             </div>
 
@@ -207,7 +207,7 @@ function ProductPreview() {
         <Sparkles size={18} />
         <div>
           <strong>Resumo IA</strong>
-          <span>Contexto pronto para transferencia</span>
+          <span>Contexto pronto para transferência</span>
         </div>
       </div>
 
@@ -215,7 +215,7 @@ function ProductPreview() {
         <ShieldCheck size={18} />
         <div>
           <strong>Controle operacional</strong>
-          <span>Fila, historico, SLA e responsavel</span>
+          <span>Fila, histórico, SLA e responsável</span>
         </div>
       </div>
     </div>
@@ -300,7 +300,7 @@ export default function VendasPage() {
             >
               <SectionTag>
                 <BadgeCheck size={14} />
-                Plataforma para atendimento, CRM e operacao em uma so tela
+                Plataforma para atendimento, CRM e operação em uma só tela
               </SectionTag>
 
               <h1>
@@ -309,12 +309,12 @@ export default function VendasPage() {
               </h1>
 
               <p>
-                O sistema multiatendimento da LCD organiza filas, atendentes, bot, historico, CRM e ordem de servico em um fluxo operacional claro, rapido e comercialmente forte.
+                O sistema multiatendimento da LCD organiza filas, atendentes, bot, histórico, CRM e ordem de serviço em um fluxo operacional claro, rápido e comercialmente forte.
               </p>
 
               <div className="sales-hero-actions">
                 <a className="sales-cta-btn sales-cta-btn-large" href="https://wa.me/555194412679?text=Quero%20agendar%20uma%20demo%20do%20sistema" target="_blank" rel="noreferrer">
-                  Agendar demonstracao
+                  Agendar demonstração
                   <ChevronRight size={18} />
                 </a>
                 <a className="sales-outline-btn" href="#produto">
@@ -323,8 +323,8 @@ export default function VendasPage() {
               </div>
 
               <div className="sales-trust-row">
-                <div><CheckCircle2 size={16} /> Multiplos atendentes na mesma operacao</div>
-                <div><CheckCircle2 size={16} /> Historico, midias e CRM no contexto</div>
+                <div><CheckCircle2 size={16} /> Múltiplos atendentes na mesma operação</div>
+                <div><CheckCircle2 size={16} /> Histórico, mídias e CRM no contexto</div>
                 <div><CheckCircle2 size={16} /> Bot, equipe e O.S. sem troca de tela</div>
               </div>
             </motion.div>
@@ -358,14 +358,14 @@ export default function VendasPage() {
                 <LayoutDashboard size={14} />
                 O produto
               </SectionTag>
-              <h2>Uma operacao comercial inteira concentrada em um unico cockpit.</h2>
+              <h2>Uma operação comercial inteira concentrada em um único cockpit.</h2>
               <p>
-                Em vez de alternar entre WhatsApp, CRM, planilhas e mensagens internas, sua equipe trabalha com uma visao unica do atendimento. Isso reduz ruido, acelera resposta e melhora a passagem de contexto.
+                Em vez de alternar entre WhatsApp, CRM, planilhas e mensagens internas, sua equipe trabalha com uma visão única do atendimento. Isso reduz ruído, acelera resposta e melhora a passagem de contexto.
               </p>
             </div>
 
             <div className="sales-pain-board">
-              <div className="sales-pain-title">O que a pagina resolve no dia a dia</div>
+              <div className="sales-pain-title">O que a página resolve no dia a dia</div>
               {pains.map((pain) => (
                 <div key={pain} className="sales-pain-item">
                   <X size={16} />
@@ -416,7 +416,7 @@ export default function VendasPage() {
                 <Workflow size={14} />
                 Fluxo operacional
               </SectionTag>
-              <h2>Do primeiro "ola" ate a ordem de servico, tudo evolui no mesmo trilho.</h2>
+              <h2>Do primeiro "olá" até a ordem de serviço, tudo evolui no mesmo trilho.</h2>
             </div>
 
             <div className="sales-workflow-grid">
@@ -436,11 +436,11 @@ export default function VendasPage() {
             <div className="sales-proof-card">
               <SectionTag>
                 <Headset size={14} />
-                Para operacoes reais
+                Para operações reais
               </SectionTag>
-              <h2>Atendimento com cara de operacao seria, nao de gambiarra improvisada.</h2>
+              <h2>Atendimento com cara de operação séria, não de gambiarra improvisada.</h2>
               <p>
-                O foco dessa landing e mostrar exatamente o que seu cliente enxerga em valor: velocidade, organizacao, contexto, controle e equipe alinhada.
+                O foco dessa landing é mostrar exatamente o que seu cliente enxerga em valor: velocidade, organização, contexto, controle e equipe alinhada.
               </p>
             </div>
 
@@ -449,21 +449,21 @@ export default function VendasPage() {
                 <Clock3 size={18} />
                 <div>
                   <strong>Menos tempo perdido</strong>
-                  <span>com trocas de tela e repasse manual de informacoes.</span>
+                  <span>com trocas de tela e repasse manual de informações.</span>
                 </div>
               </div>
               <div>
                 <PhoneCall size={18} />
                 <div>
                   <strong>Mais resposta comercial</strong>
-                  <span>com filas organizadas e visao clara do que exige acao.</span>
+                  <span>com filas organizadas e visão clara do que exige ação.</span>
                 </div>
               </div>
               <div>
                 <ShieldCheck size={18} />
                 <div>
                   <strong>Mais previsibilidade</strong>
-                  <span>com historico, responsaveis e eventos registrados na conversa.</span>
+                  <span>com histórico, responsáveis e eventos registrados na conversa.</span>
                 </div>
               </div>
             </div>
@@ -476,11 +476,11 @@ export default function VendasPage() {
               <div className="sales-pricing-copy">
                 <SectionTag>
                   <BadgeCheck size={14} />
-                  Pagina de vendas inicial
+                  Página de vendas inicial
                 </SectionTag>
-                <h2>Podemos evoluir esta landing depois, mas ela ja nasce pronta para vender.</h2>
+                <h2>Podemos evoluir esta landing depois, mas ela já nasce pronta para vender.</h2>
                 <p>
-                  Por enquanto deixei a pagina como `vendas`, com foco em apresentacao comercial do sistema. O proximo passo pode ser integrar formulario, prova social, video demo e variacoes por segmento.
+                  Por enquanto deixei a página como `vendas`, com foco em apresentação comercial do sistema. O próximo passo pode ser integrar formulário, prova social, vídeo demo e variações por segmento.
                 </p>
                 <a className="sales-cta-btn sales-cta-btn-large" href="https://wa.me/555194412679?text=Quero%20usar%20essa%20landing%20de%20vendas%20do%20sistema" target="_blank" rel="noreferrer">
                   Continuar evoluindo
@@ -489,7 +489,7 @@ export default function VendasPage() {
               </div>
 
               <div className="sales-pricing-box">
-                <div className="sales-pricing-kicker">Inclui nesta versao</div>
+                <div className="sales-pricing-kicker">Inclui nesta versão</div>
                 {planHighlights.map((item) => (
                   <div key={item} className="sales-pricing-item">
                     <CheckCircle2 size={16} />
@@ -506,17 +506,17 @@ export default function VendasPage() {
             <div className="sales-lead-copy">
               <SectionTag>
                 <PhoneCall size={14} />
-                Captacao comercial
+                Captação comercial
               </SectionTag>
-              <h2>Se a pagina te convenceu, o proximo passo e transformar interesse em lead qualificado.</h2>
+              <h2>Se a página te convenceu, o próximo passo é transformar interesse em lead qualificado.</h2>
               <p>
-                Este formulario ja coleta os dados principais da oportunidade e abre o WhatsApp da LCD com a mensagem pronta, deixando o atendimento comercial mais organizado desde o primeiro contato.
+                Este formulário já coleta os dados principais da oportunidade e abre o WhatsApp da LCD com a mensagem pronta, deixando o atendimento comercial mais organizado desde o primeiro contato.
               </p>
 
               <div className="sales-lead-points">
-                <div><CheckCircle2 size={16} /> Nome, empresa, contato e tamanho da operacao</div>
+                <div><CheckCircle2 size={16} /> Nome, empresa, contato e tamanho da operação</div>
                 <div><CheckCircle2 size={16} /> Mensagem estruturada direto para o WhatsApp comercial</div>
-                <div><CheckCircle2 size={16} /> Ideal para avaliar antes de apontar um dominio final</div>
+                <div><CheckCircle2 size={16} /> Ideal para avaliar antes de apontar um domínio final</div>
               </div>
             </div>
 
