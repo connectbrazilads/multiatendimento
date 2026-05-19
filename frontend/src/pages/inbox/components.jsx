@@ -8,7 +8,26 @@ import api, {
   getEquipments,
   getContacts,
 } from '../../services/api';
-import { Download, FileText, Image, Mic, MoreVertical, Paperclip, SendHorizontal, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  Bot,
+  CheckCheck,
+  ClipboardList,
+  Clock3,
+  Download,
+  FileText,
+  Image,
+  Mic,
+  MoreVertical,
+  PanelRightClose,
+  PanelRightOpen,
+  Paperclip,
+  Search,
+  SendHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
 
@@ -54,6 +73,58 @@ function getContactDisplayName(contact, fallback = 'Desconhecido') {
 
 function getContactPhone(contact, fallback = '') {
   return getSafeText(contact?.phone, fallback);
+}
+
+function formatTicketTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+
+  const now = new Date();
+  const isSameDay = date.toDateString() === now.toDateString();
+  return isSameDay
+    ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function getPriorityMeta(priority) {
+  const priorityMap = {
+    urgent: {
+      label: 'Urgente',
+      background: 'rgba(239, 68, 68, 0.12)',
+      color: '#ef4444',
+      border: '1px solid rgba(239, 68, 68, 0.18)',
+    },
+    high: {
+      label: 'Alta',
+      background: 'rgba(249, 115, 22, 0.12)',
+      color: '#f97316',
+      border: '1px solid rgba(249, 115, 22, 0.18)',
+    },
+    medium: {
+      label: 'Normal',
+      background: 'rgba(212, 175, 55, 0.12)',
+      color: '#d4af37',
+      border: '1px solid rgba(212, 175, 55, 0.22)',
+    },
+    low: {
+      label: 'Baixa',
+      background: 'rgba(59, 130, 246, 0.12)',
+      color: '#3b82f6',
+      border: '1px solid rgba(59, 130, 246, 0.18)',
+    },
+  };
+
+  return priorityMap[priority] || null;
+}
+
+function getStatusMeta(status) {
+  const color = statusColor(status);
+  return {
+    label: statusLabel(status),
+    color,
+    background: `${color}1a`,
+    border: `1px solid ${color}30`,
+  };
 }
 
 async function copyText(text, successMessage = 'Copiado com sucesso') {
@@ -374,6 +445,9 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   const [availableTags, setAvailableTags] = useState([]);
   const [equipments, setEquipments] = useState([]);
   const [linkedCrm, setLinkedCrm] = useState(null);
+  const [panelTab, setPanelTab] = useState('overview');
+  const statusMeta = getStatusMeta(ticket.status);
+  const priorityMeta = getPriorityMeta(priority);
 
   useEffect(() => {
     getContactMedia(contact.id).then((response) => setMedia(response.data));
@@ -388,6 +462,10 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       })
       .catch(() => {});
   }, [contact.id, contactPhone]);
+
+  useEffect(() => {
+    setPanelTab('overview');
+  }, [contact.id]);
 
   async function saveContact() {
     await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state });
@@ -434,26 +512,184 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
     ].filter(Boolean).join('\n\n');
   }
 
+  const overviewTab = (
+    <>
+      <div style={{ ...styles.infoSnapshotGrid, gridTemplateColumns: isMobile ? '1fr' : styles.infoSnapshotGrid.gridTemplateColumns }}>
+        <div style={styles.infoSnapshotCard}>
+          <span style={styles.infoSnapshotLabel}>Responsavel</span>
+          <strong style={styles.infoSnapshotValue}>{ticket.agent?.name || ticket.team?.name || 'Aguardando'}</strong>
+        </div>
+        <div style={styles.infoSnapshotCard}>
+          <span style={styles.infoSnapshotLabel}>Canal</span>
+          <strong style={styles.infoSnapshotValue}>{getInstanceLabel(ticket)}</strong>
+        </div>
+        <div style={styles.infoSnapshotCard}>
+          <span style={styles.infoSnapshotLabel}>Cidade</span>
+          <strong style={styles.infoSnapshotValue}>{city || 'Nao informada'}</strong>
+        </div>
+        <div style={styles.infoSnapshotCard}>
+          <span style={styles.infoSnapshotLabel}>UF</span>
+          <strong style={styles.infoSnapshotValue}>{state || '--'}</strong>
+        </div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Etiquetas</h5>
+        <div style={styles.tagContainer}>
+          {tags.map((tag) => (
+            <span key={tag} style={styles.tagItem}>
+              {tag} <button onClick={() => removeTag(tag)} style={styles.tagDel}>x</button>
+            </span>
+          ))}
+          <select style={styles.tagSelect} value="" onChange={(e) => addTag(e.target.value)}>
+            <option value="">+ Tag</option>
+            {availableTags.filter((tag) => !tags.includes(tag.name)).map((tag) => (
+              <option key={tag.id} value={tag.name}>{tag.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Localizacao</h5>
+        <div style={{ display: 'flex', gap: '8px', flexDirection: isMobile ? 'column' : 'row' }}>
+          <input style={{ ...styles.modalInput, flex: 2, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '42px' }} placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} onBlur={saveContact} />
+          <input style={{ ...styles.modalInput, flex: 1, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '42px' }} placeholder="UF" value={state} maxLength={2} onChange={(e) => setState(e.target.value.toUpperCase())} onBlur={saveContact} />
+        </div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Prioridade do ticket</h5>
+        <div style={styles.priorityGrid}>
+          {[{ id: 'urgent', label: 'Urgente', color: '#e53e3e' }, { id: 'high', label: 'Alta', color: '#dd6b20' }, { id: 'medium', label: 'Normal', color: '#d4af37' }, { id: 'low', label: 'Baixa', color: '#3182ce' }].map((priorityOption) => (
+            <button key={priorityOption.id} onClick={() => handlePriorityChange(priorityOption.id)} style={{ ...styles.priorityBtn, background: priority === priorityOption.id ? priorityOption.color : 'var(--bg-panel)', color: priority === priorityOption.id ? '#0b1020' : 'var(--text-muted)', borderColor: priority === priorityOption.id ? priorityOption.color : 'var(--border-color)' }}>
+              {priorityOption.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Equipamentos</h5>
+        <div style={styles.infoCardList}>
+          {equipments.map((equipment) => (
+            <div key={equipment.id} style={styles.infoListCard}>
+              <div style={styles.infoListTitle}>
+                {(() => {
+                  const manufacturer = getSafeText(equipment.manufacturer);
+                  const model = getSafeText(equipment.model, 'Equipamento');
+                  return model.toLowerCase().startsWith(manufacturer.toLowerCase()) ? model : (manufacturer ? `${manufacturer} ${model}` : model);
+                })()}
+              </div>
+              <div style={styles.infoListMeta}>{equipment.type || 'Equipamento'}</div>
+              <div style={styles.infoListSubtle}>Serie: {equipment.serialNumber || 'S/N'}</div>
+              {equipment.sector ? <div style={styles.infoListSubtle}>Setor: {equipment.sector}</div> : null}
+            </div>
+          ))}
+          {equipments.length === 0 ? <div style={styles.infoEmpty}>Nenhum equipamento vinculado</div> : null}
+        </div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Detalhes tecnicos</h5>
+        <div style={styles.techInfo}>
+          <div style={styles.techRow}><span>ID Ticket</span> <span>#{ticket.id}</span></div>
+          <div style={styles.techRow}><span>Criado em</span> <span>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
+          <div style={styles.techRow}><span>Atendente</span> <span>{ticket.agent?.name || 'Aguardando'}</span></div>
+        </div>
+      </div>
+    </>
+  );
+
+  const notesTab = (
+    <>
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Notas internas</h5>
+        <textarea style={{ ...styles.notesArea, minHeight: isMobile ? '200px' : '240px' }} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveContact} placeholder="Adicione observacoes sobre este cliente..." />
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Resumo rapido</h5>
+        <div style={styles.infoCardList}>
+          <div style={styles.infoListCard}>
+            <div style={styles.infoListTitle}>Ficha resumida</div>
+            <div style={styles.infoListSubtle}>{buildContactSnapshot() || 'Nenhuma informacao adicional.'}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  const mediaTab = (
+    <>
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Midias compartilhadas</h5>
+        <div style={{ ...styles.mediaGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : styles.mediaGrid.gridTemplateColumns }}>
+          {media.filter((item) => item.mediaType === 'image').slice(0, 12).map((item) => (
+            <img key={item.id} src={item.mediaUrl} style={styles.mediaThumb} onClick={() => onImageClick(item.mediaUrl)} />
+          ))}
+        </div>
+        {media.length === 0 ? <div style={styles.infoEmpty}>Nenhuma midia enviada</div> : null}
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Arquivos e contexto</h5>
+        <div style={styles.infoCardList}>
+          <div style={styles.infoListCard}>
+            <div style={styles.infoListTitle}>Contato</div>
+            <div style={styles.infoListSubtle}>{contactName}</div>
+          </div>
+          <div style={styles.infoListCard}>
+            <div style={styles.infoListTitle}>Telefone</div>
+            <div style={styles.infoListSubtle}>{contactPhone || 'Nao informado'}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div
       style={{
         ...styles.infoPanel,
         position: isMobile ? 'fixed' : 'relative',
         inset: isMobile ? 0 : 'auto',
-        width: isMobile ? '100%' : '380px',
+        width: isMobile ? '100%' : styles.infoPanel.width,
         zIndex: isMobile ? 2000 : 1,
         height: '100%',
       }}
     >
       <div style={styles.infoPanelHeader}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Ficha do cliente</h3>
+        <div style={styles.infoPanelHeaderMain}>
+          <div style={styles.infoPanelEyebrow}>Cliente</div>
+          <h3 style={styles.infoPanelTitle}>Ficha do contato</h3>
         </div>
         <button style={styles.infoClose} onClick={onClose}>
-          x
+          <X size={16} strokeWidth={2.4} />
         </button>
       </div>
-        <div style={styles.infoScroll}>
+
+      <div style={styles.infoPanelTabs}>
+        {[
+          { id: 'overview', label: 'Resumo' },
+          { id: 'notes', label: 'Notas' },
+          { id: 'media', label: 'Midias' },
+        ].map((tabItem) => (
+          <button
+            key={tabItem.id}
+            type="button"
+            onClick={() => setPanelTab(tabItem.id)}
+            style={{
+              ...styles.infoPanelTab,
+              ...(panelTab === tabItem.id ? styles.infoPanelTabActive : {}),
+            }}
+          >
+            {tabItem.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={styles.infoScroll}>
         <div style={styles.infoProfile}>
           <button
             type="button"
@@ -487,6 +723,30 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           >
             {contactPhone}
           </button>
+          <div style={styles.infoBadgeRow}>
+            <span
+              style={{
+                ...styles.infoBadge,
+                background: statusMeta.background,
+                color: statusMeta.color,
+                border: statusMeta.border,
+              }}
+            >
+              {statusMeta.label}
+            </span>
+            {priorityMeta ? (
+              <span
+                style={{
+                  ...styles.infoBadge,
+                  background: priorityMeta.background,
+                  color: priorityMeta.color,
+                  border: priorityMeta.border,
+                }}
+              >
+                {priorityMeta.label}
+              </span>
+            ) : null}
+          </div>
           <div style={styles.infoActionRow}>
             <button type="button" onClick={() => copyText(contactName, 'Nome copiado')} style={styles.infoActionBtn}>
               Copiar nome
@@ -499,80 +759,10 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
             </button>
           </div>
         </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Etiquetas</h5>
-          <div style={styles.tagContainer}>
-            {tags.map((tag) => (
-              <span key={tag} style={styles.tagItem}>
-                {tag} <button onClick={() => removeTag(tag)} style={styles.tagDel}>x</button>
-              </span>
-            ))}
-            <select style={styles.tagSelect} value="" onChange={(e) => addTag(e.target.value)}>
-              <option value="">+ Tag</option>
-              {availableTags.filter((tag) => !tags.includes(tag.name)).map((tag) => (
-                <option key={tag.id} value={tag.name}>{tag.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Localizacao</h5>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input style={{ ...styles.modalInput, flex: 2, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} onBlur={saveContact} />
-            <input style={{ ...styles.modalInput, flex: 1, padding: '8px 12px', fontSize: '0.85rem', height: 'auto', minHeight: '38px' }} placeholder="UF" value={state} maxLength={2} onChange={(e) => setState(e.target.value.toUpperCase())} onBlur={saveContact} />
-          </div>
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Prioridade do ticket</h5>
-          <div style={styles.priorityGrid}>
-            {[{ id: 'urgent', label: 'Urgente', color: '#e53e3e' }, { id: 'high', label: 'Alta', color: '#dd6b20' }, { id: 'medium', label: 'Normal', color: '#d4af37' }, { id: 'low', label: 'Baixa', color: '#3182ce' }].map((priorityOption) => (
-              <button key={priorityOption.id} onClick={() => handlePriorityChange(priorityOption.id)} style={{ ...styles.priorityBtn, background: priority === priorityOption.id ? priorityOption.color : 'rgba(255,255,255,0.03)', color: priority === priorityOption.id ? '#000' : '#717171', borderColor: priority === priorityOption.id ? priorityOption.color : '#333' }}>
-                {priorityOption.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Notas internas</h5>
-          <textarea style={styles.notesArea} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveContact} placeholder="Adicione observacoes sobre este cliente..." />
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Equipamentos</h5>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {equipments.map((equipment) => (
-              <div key={equipment.id} style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid #333' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                  {(() => {
-                    const manufacturer = getSafeText(equipment.manufacturer);
-                    const model = getSafeText(equipment.model, 'Equipamento');
-                    return model.toLowerCase().startsWith(manufacturer.toLowerCase()) ? model : (manufacturer ? `${manufacturer} ${model}` : model);
-                  })()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{equipment.type || 'Equipamento'}</div>
-                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 4 }}>Serie: {equipment.serialNumber || 'S/N'}</div>
-                {equipment.sector ? <div style={{ fontSize: '0.75rem', color: '#888' }}>Setor: {equipment.sector}</div> : null}
-              </div>
-            ))}
-            {equipments.length === 0 ? <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhum equipamento vinculado</div> : null}
-          </div>
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Midias compartilhadas</h5>
-          <div style={styles.mediaGrid}>
-            {media.filter((item) => item.mediaType === 'image').slice(0, 9).map((item) => (
-              <img key={item.id} src={item.mediaUrl} style={styles.mediaThumb} onClick={() => onImageClick(item.mediaUrl)} />
-            ))}
-            {media.length === 0 ? <div style={{ color: '#444', fontSize: '0.8rem' }}>Nenhuma midia enviada</div> : null}
-          </div>
-        </div>
-        <div style={styles.infoSection}>
-          <h5 style={styles.infoLabel}>Detalhes tecnicos</h5>
-          <div style={styles.techInfo}>
-            <div style={styles.techRow}><span>ID Ticket</span> <span>#{ticket.id}</span></div>
-            <div style={styles.techRow}><span>Criado em</span> <span>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
-            <div style={styles.techRow}><span>Atendente</span> <span>{ticket.agent?.name || 'Aguardando'}</span></div>
-          </div>
-        </div>
+
+        {panelTab === 'overview' ? overviewTab : null}
+        {panelTab === 'notes' ? notesTab : null}
+        {panelTab === 'media' ? mediaTab : null}
       </div>
     </div>
   );
@@ -661,6 +851,19 @@ export function TicketSidebar({
   teams,
   view,
 }) {
+  const filteredTickets = tickets.filter((ticket) => {
+    const query = getSafeLowerText(search);
+    const name = getSafeLowerText(ticket.contact?.name);
+    const phone = getSafeLowerText(ticket.contact?.phone);
+    return name.includes(query) || phone.includes(query);
+  });
+
+  const activeTabLabel = {
+    mine: 'Minhas conversas',
+    pending: 'Fila de espera',
+    all: 'Todos os contatos',
+  }[tab] || 'Inbox';
+
   return (
     <aside
       style={{
@@ -668,8 +871,18 @@ export function TicketSidebar({
         display: (isMobile && view === 'chat') ? 'none' : 'flex',
         width: isMobile ? '100%' : styles.sidebar.width,
         minWidth: isMobile ? '100%' : styles.sidebar.minWidth,
+        borderRight: isMobile ? 'none' : styles.sidebar.borderRight,
       }}
     >
+      <div style={styles.sidebarHeader}>
+        <div style={{ minWidth: 0 }}>
+          <div style={styles.sidebarEyebrow}>Operacao</div>
+          <div style={styles.sidebarTitle}>Inbox</div>
+          <div style={styles.sidebarSubtitle}>{activeTabLabel}</div>
+        </div>
+        <div style={styles.sidebarCounter}>{filteredTickets.length}</div>
+      </div>
+
       <div style={styles.tabsWrap}>
         <div style={styles.tabs}>
           {['mine', 'pending', 'all'].map((tabId) => (
@@ -686,13 +899,16 @@ export function TicketSidebar({
       </div>
 
       <div style={styles.searchWrap}>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-          <input
-            style={styles.search}
-            placeholder="Pesquisar..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+        <div style={{ ...styles.searchRow, flexDirection: isMobile ? 'column' : 'row' }}>
+          <div style={styles.searchShell}>
+            <Search size={15} strokeWidth={2.2} style={styles.searchIcon} />
+            <input
+              style={styles.search}
+              placeholder="Buscar cliente ou telefone"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
           <button
             onClick={() => setFilters({ priority: '', agentId: '', teamId: '' })}
             style={styles.clearBtn}
@@ -701,9 +917,9 @@ export function TicketSidebar({
           </button>
         </div>
 
-        <div style={styles.filterBar}>
+        <div style={{ ...styles.filterBar, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <select
-            style={styles.filterSelect}
+            style={{ ...styles.filterSelect, minWidth: isMobile ? 'calc(50% - 3px)' : undefined }}
             value={filters.priority}
             onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
           >
@@ -715,7 +931,7 @@ export function TicketSidebar({
           </select>
 
           <select
-            style={styles.filterSelect}
+            style={{ ...styles.filterSelect, minWidth: isMobile ? 'calc(50% - 3px)' : undefined }}
             value={filters.agentId}
             onChange={(event) => setFilters({ ...filters, agentId: event.target.value })}
           >
@@ -724,7 +940,7 @@ export function TicketSidebar({
           </select>
 
           <select
-            style={styles.filterSelect}
+            style={{ ...styles.filterSelect, minWidth: isMobile ? '100%' : undefined }}
             value={filters.teamId}
             onChange={(event) => setFilters({ ...filters, teamId: event.target.value })}
           >
@@ -735,12 +951,14 @@ export function TicketSidebar({
       </div>
 
       <div style={styles.list}>
-        {tickets.filter((ticket) => {
-          const query = getSafeLowerText(search);
-          const name = getSafeLowerText(ticket.contact?.name);
-          const phone = getSafeText(ticket.contact?.phone);
-          return name.includes(query) || phone.includes(query);
-        }).map((ticket) => (
+        {filteredTickets.map((ticket) => {
+          const priorityMeta = getPriorityMeta(ticket.priority);
+          const statusMeta = getStatusMeta(ticket.status);
+          const phoneLabel = getContactPhone(ticket.contact, 'Sem telefone');
+          const ownerLabel = ticket.agent?.name || ticket.team?.name || 'Sem responsavel';
+          const tags = getSafeTags(ticket.contact?.tags).slice(0, 2);
+
+          return (
           <div
             key={ticket.id}
             onClick={() => selectTicket(ticket.id)}
@@ -754,45 +972,60 @@ export function TicketSidebar({
             <div style={styles.rowInfo}>
               <div style={styles.rowTop}>
                 <span style={styles.rowName}>{getContactDisplayName(ticket.contact)}</span>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <span style={styles.rowTime}>{fmt(ticket.updatedAt)}</span>
-                </div>
-              </div>
-              <div style={styles.rowSub}>
-                <span style={{ ...styles.dot, background: statusColor(ticket.status), color: statusColor(ticket.status) }} />
-                <span style={styles.rowMsg}>
-                  {getInstanceLabel(ticket)} - {statusLabel(ticket.status)}
-                </span>
-                {ticket.unreadCount > 0 && <div style={styles.unreadBadge}>{ticket.unreadCount}</div>}
+                <span style={styles.rowTime}>{formatTicketTimestamp(ticket.updatedAt)}</span>
               </div>
 
-              {getSafeTags(ticket.contact?.tags).length > 0 && (
-                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
-                  {getSafeTags(ticket.contact?.tags).slice(0, 2).map((tag, tagIndex) => {
-                    const safeTag = getSafeText(tag, 'Tag');
-                    return (
-                    <span
-                      key={`${safeTag}-${tagIndex}`}
-                      style={{
-                        fontSize: '0.5rem',
-                        background: 'rgba(212,175,55,0.05)',
-                        color: '#D4AF37',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        fontWeight: 700,
-                        border: '1px solid rgba(212,175,55,0.1)',
-                      }}
-                    >
-                      {safeTag}
-                    </span>
-                  );
-                  })}
-                </div>
-              )}
+              <div style={styles.rowPreview}>{phoneLabel}</div>
+
+              <div style={styles.rowSub}>
+                <span
+                  style={{
+                    ...styles.rowStatusPill,
+                    background: statusMeta.background,
+                    color: statusMeta.color,
+                    border: statusMeta.border,
+                  }}
+                >
+                  <span style={{ ...styles.dot, background: statusMeta.color, color: statusMeta.color, boxShadow: 'none' }} />
+                  {getInstanceLabel(ticket)} - {statusMeta.label}
+                </span>
+                {priorityMeta ? (
+                  <span
+                    style={{
+                      ...styles.priorityPill,
+                      background: priorityMeta.background,
+                      color: priorityMeta.color,
+                      border: priorityMeta.border,
+                    }}
+                  >
+                    {priorityMeta.label}
+                  </span>
+                ) : null}
+                {ticket.unreadCount > 0 ? <div style={styles.unreadBadge}>{ticket.unreadCount}</div> : null}
+              </div>
+
+              <div style={styles.rowMetaLine}>
+                <span style={styles.rowOwner}>{ownerLabel}</span>
+                {tags.length > 0 ? (
+                  <div style={styles.rowTags}>
+                    {tags.map((tag, tagIndex) => {
+                      const safeTag = getSafeText(tag, 'Tag');
+                      return (
+                        <span key={`${safeTag}-${tagIndex}`} style={styles.rowTag}>
+                          {safeTag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span style={styles.rowMetaSpacer} />
+                )}
+              </div>
             </div>
           </div>
-        ))}
-        {tickets.length === 0 && <Empty>Nenhuma conversa encontrada</Empty>}
+        );
+        })}
+        {filteredTickets.length === 0 && <Empty>Nenhuma conversa encontrada</Empty>}
       </div>
     </aside>
   );
@@ -816,10 +1049,36 @@ export function ChatHeader({
 }) {
   const contactName = getContactDisplayName(selectedTicket.contact);
   const contactPhone = getContactPhone(selectedTicket.contact);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const statusMeta = getStatusMeta(selectedTicket.status);
+  const ownerLabel = selectedTicket.agent?.name
+    ? `Com ${selectedTicket.agent.name}`
+    : selectedTicket.team?.name
+      ? `Fila ${selectedTicket.team.name}`
+      : `Bot ${botName}`;
+
+  useEffect(() => {
+    setActionsOpen(false);
+  }, [selectedTicket.id]);
+
+  useEffect(() => {
+    function handleWindowClick(event) {
+      if (!event.target.closest?.('[data-header-menu-root="true"]')) {
+        setActionsOpen(false);
+      }
+    }
+
+    window.addEventListener('click', handleWindowClick);
+    return () => window.removeEventListener('click', handleWindowClick);
+  }, []);
 
   return (
-    <header style={{ ...styles.chatHeader, padding: isMobile ? '0.5rem 1rem' : '1rem 2rem' }}>
-      {isMobile && <button style={styles.backBtn} onClick={() => setView('list')}>{'<'}</button>}
+    <header style={{ ...styles.chatHeader, padding: isMobile ? '0.85rem 1rem' : '1rem 1.5rem' }}>
+      {isMobile ? (
+        <button style={styles.backBtn} onClick={() => setView('list')} aria-label="Voltar para lista">
+          <ArrowLeft size={18} strokeWidth={2.4} />
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => selectedTicket.contact?.avatarUrl && onImageClick(getMediaUrl(selectedTicket.contact.avatarUrl))}
@@ -835,69 +1094,111 @@ export function ChatHeader({
         <Avatar
           name={contactName}
           src={selectedTicket.contact?.avatarUrl}
-          size={isMobile ? 32 : 40}
+          size={isMobile ? 38 : 46}
         />
       </button>
-      <div style={{ ...styles.rowInfo, overflow: 'hidden' }}>
-        <div
-          style={{
-            ...styles.chatName,
-            fontSize: isMobile ? '0.9rem' : '1.1rem',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {contactName}
-        </div>
-        {!isMobile && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ ...styles.chatPhone, color: 'var(--accent)', fontWeight: 700 }}>
-              {contactPhone}
-            </div>
+
+      <div style={styles.chatIdentity}>
+        <div style={styles.chatTitleRow}>
+          <div
+            style={{
+              ...styles.chatName,
+              fontSize: isMobile ? '0.95rem' : '1.05rem',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {contactName}
           </div>
-        )}
+          <span
+            style={{
+              ...styles.chatStatusPill,
+              background: statusMeta.background,
+              color: statusMeta.color,
+              border: statusMeta.border,
+            }}
+          >
+            {statusMeta.label}
+          </span>
+        </div>
+
+        <div style={styles.chatMetaRow}>
+          {contactPhone ? <span style={styles.chatMetaText}>{contactPhone}</span> : null}
+          <span style={styles.chatMetaText}>{getInstanceLabel(selectedTicket)}</span>
+          {!isMobile ? <span style={styles.chatMetaText}>{ownerLabel}</span> : null}
+        </div>
       </div>
-      <div style={{ ...styles.headerActions, gap: isMobile ? '4px' : '0.75rem' }}>
-        <button
-          style={{ ...styles.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-          onClick={() => setShowOsModal(true)}
-        >
-          {isMobile ? 'OS' : 'Gerar O.S.'}
-        </button>
-        <button
-          style={{ ...styles.aiBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-          onClick={handleSummarize}
-          disabled={summarizing}
-        >
-          {isMobile ? 'IA' : 'Resumo IA'}
-        </button>
-        {selectedTicket.status !== 'resolved' ? (
-          <>
-            <button
-              style={{ ...styles.transferBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-              onClick={() => setTransferModal(true)}
-            >
-              {isMobile ? '->' : 'Transferir'}
-            </button>
-            <button
-              style={{ ...styles.resolveBtn, padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-              onClick={handleResolve}
-            >
-              {isMobile ? 'OK' : 'Encerrar'}
-            </button>
-          </>
+
+      <div style={styles.headerActions}>
+        {!isMobile ? (
+          <button
+            type="button"
+            style={styles.headerGhostBtn}
+            onClick={() => setShowInfo(!showInfo)}
+            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
+          >
+            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
+            Cliente
+          </button>
         ) : (
           <button
-            style={{ ...styles.resolveBtn, background: 'var(--text-muted)', padding: isMobile ? '4px 8px' : '0.5rem 1rem', fontSize: isMobile ? '0.65rem' : '0.75rem' }}
-            onClick={handleReopen}
+            type="button"
+            style={styles.headerGhostIconBtn}
+            onClick={() => setShowInfo(!showInfo)}
+            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
           >
-            {isMobile ? 'Re' : 'Reabrir'}
+            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
           </button>
         )}
-        <button style={styles.infoBtn} onClick={() => setShowInfo(!showInfo)}>
-          i
-        </button>
+
+        <div style={styles.messageMenuRoot} data-header-menu-root="true">
+          <button
+            type="button"
+            style={isMobile ? styles.headerGhostIconBtn : styles.headerGhostBtn}
+            onClick={(event) => {
+              event.stopPropagation();
+              setActionsOpen((current) => !current);
+            }}
+            title="Mais acoes"
+          >
+            <MoreVertical size={16} strokeWidth={2.3} />
+            {isMobile ? null : 'Acoes'}
+          </button>
+
+          {actionsOpen ? (
+            <div style={styles.headerMenuPanel}>
+              <button type="button" style={styles.headerMenuItem} onClick={() => { setShowOsModal(true); setActionsOpen(false); }}>
+                <ClipboardList size={15} strokeWidth={2.2} />
+                Gerar O.S.
+              </button>
+              <button type="button" style={styles.headerMenuItem} onClick={() => { handleSummarize(); setActionsOpen(false); }} disabled={summarizing}>
+                <Sparkles size={15} strokeWidth={2.2} />
+                {summarizing ? 'Gerando resumo...' : 'Resumo IA'}
+              </button>
+              {selectedTicket.status !== 'resolved' ? (
+                <button type="button" style={styles.headerMenuItem} onClick={() => { setTransferModal(true); setActionsOpen(false); }}>
+                  <ArrowRightLeft size={15} strokeWidth={2.2} />
+                  Transferir conversa
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {selectedTicket.status !== 'resolved' ? (
+          <button style={styles.resolveBtn} onClick={handleResolve}>
+            <CheckCheck size={16} strokeWidth={2.2} />
+            {isMobile ? 'Fim' : 'Encerrar'}
+          </button>
+        ) : (
+          <button
+            style={{ ...styles.resolveBtn, background: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: 'none' }}
+            onClick={handleReopen}
+          >
+            {isMobile ? 'Abrir' : 'Reabrir'}
+          </button>
+        )}
       </div>
     </header>
   );
@@ -910,6 +1211,7 @@ export function MessageList({
   handleLoadMoreMessages,
   hasMoreMessages,
   historySearch,
+  isMobile,
   loading,
   loadingMoreMessages,
   messages,
@@ -947,42 +1249,47 @@ export function MessageList({
   }, []);
 
   return (
-    <div style={styles.messages} ref={scrollRef}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onHistorySearch(draftSearch.trim());
-        }}
-        style={styles.historySearchWrap}
-      >
-        <input
-          style={styles.historySearchInput}
-          placeholder="Buscar no historico desta conversa..."
-          value={draftSearch}
-          onChange={(event) => setDraftSearch(event.target.value)}
-        />
-        <button type="submit" style={styles.historySearchBtn}>
-          Buscar
-        </button>
-        {trimmedHistorySearch ? (
-          <button
-            type="button"
-            style={styles.historySearchClearBtn}
-            onClick={() => {
-              setDraftSearch('');
-              onHistorySearch('');
-            }}
-          >
-            Limpar
+    <div style={{ ...styles.messages, padding: isMobile ? '0.85rem 0.85rem 1rem' : styles.messages.padding }} ref={scrollRef}>
+      <div style={{ ...styles.historySearchSticky, top: isMobile ? '-0.85rem' : styles.historySearchSticky.top, paddingTop: isMobile ? '0.85rem' : styles.historySearchSticky.paddingTop }}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onHistorySearch(draftSearch.trim());
+          }}
+          style={{ ...styles.historySearchWrap, padding: isMobile ? '0.55rem' : styles.historySearchWrap.padding }}
+        >
+          <div style={styles.historySearchField}>
+            <Search size={15} strokeWidth={2.2} style={styles.searchIcon} />
+            <input
+              style={styles.historySearchInput}
+              placeholder="Buscar neste historico"
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
+            />
+          </div>
+          <button type="submit" style={styles.historySearchBtn}>
+            Buscar
           </button>
-        ) : null}
-      </form>
+          {trimmedHistorySearch ? (
+            <button
+              type="button"
+              style={styles.historySearchClearBtn}
+              onClick={() => {
+                setDraftSearch('');
+                onHistorySearch('');
+              }}
+            >
+              Limpar
+            </button>
+          ) : null}
+        </form>
 
-      {trimmedHistorySearch ? (
-        <div style={styles.historySearchMeta}>
-          Resultados para "{trimmedHistorySearch}"
-        </div>
-      ) : null}
+        {trimmedHistorySearch ? (
+          <div style={styles.historySearchMeta}>
+            Resultados para "{trimmedHistorySearch}"
+          </div>
+        ) : null}
+      </div>
 
       {loading ? <Empty>Carregando historico...</Empty> : (
         <>
@@ -1024,8 +1331,8 @@ export function MessageList({
                   <MessageRenderErrorBoundary key={`sep-${index}`} messageId={message.id || `sep-${index}`}>
                     <div style={styles.separator}>
                       <div style={styles.sepLine} />
-                      <div style={{ ...styles.sepLabel, background: message.isCurrent ? '#D4AF37' : '#333' }}>
-                        {message.isCurrent ? 'SESSAO ATUAL' : `SESSAO ANTERIOR (${new Date(message.date).toLocaleDateString()})`}
+                      <div style={styles.sepLabel}>
+                        {message.isCurrent ? 'Sessao atual' : `Sessao anterior - ${new Date(message.date).toLocaleDateString('pt-BR')}`}
                       </div>
                       <div style={styles.sepLine} />
                     </div>
@@ -1051,7 +1358,10 @@ export function MessageList({
                   return (
                     <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
                       <div style={styles.summaryCard}>
-                        <div style={styles.summaryHeader}>RESUMO DE CONTEXTO (IA)</div>
+                        <div style={styles.summaryHeader}>
+                          <span>Resumo de contexto</span>
+                          <Sparkles size={14} strokeWidth={2.2} />
+                        </div>
                         <div style={styles.summaryBody}>{summaryText}</div>
                       </div>
                     </MessageRenderErrorBoundary>
@@ -1063,28 +1373,13 @@ export function MessageList({
                   transferred: `Transferiu para ${getSafeText(payload?.teamName, 'outra equipe')}`,
                   resolved: 'Encerrou o atendimento',
                   reopened: 'Reabriu o atendimento',
-                  ooo_message: 'Aviso de Fora de Horario Enviado',
+                  ooo_message: 'Aviso de fora de horario enviado',
                 }[message.type] || message.type;
 
                 return (
                   <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
-                    <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                      <div
-                        style={{
-                          background: message.type === 'resolved' ? 'rgba(39, 174, 96, 0.1)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.1)' : 'rgba(212, 175, 55, 0.05)',
-                          color: message.type === 'resolved' ? '#2ecc71' : message.type === 'ooo_message' ? '#e67e22' : '#D4AF37',
-                          fontSize: '0.9rem',
-                          padding: '12px 18px',
-                          borderRadius: '16px',
-                          border: `1px solid ${message.type === 'resolved' ? 'rgba(39, 174, 96, 0.2)' : message.type === 'ooo_message' ? 'rgba(230, 126, 34, 0.2)' : 'rgba(212, 175, 55, 0.15)'}`,
-                          letterSpacing: '0.01em',
-                          fontWeight: 800,
-                          lineHeight: 1.45,
-                          textAlign: 'center',
-                          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                          maxWidth: 'min(92%, 760px)',
-                        }}
-                      >
+                    <div style={styles.eventWrap}>
+                      <div style={styles.eventBadge}>
                         {messageUserName} - {eventLabel} {message.createdAt ? `em ${new Date(message.createdAt).toLocaleDateString('pt-BR')} as ${new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                       </div>
                     </div>
@@ -1095,7 +1390,7 @@ export function MessageList({
               const senderName = message.fromMe ? (message.fromBot ? `BOT ${botName}` : messageAgentName) : selectedContactName;
               const hasCardMedia = Boolean(message.mediaUrl) && ['image', 'document', 'video'].includes(message.mediaType);
               const senderColor = message.fromMe
-                ? (hasCardMedia ? '#1b2b49' : (message.fromBot ? 'var(--text-msg-ai)' : 'rgba(74,56,0,0.92)'))
+                ? (hasCardMedia ? '#1b2b49' : (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)'))
                 : (hasCardMedia ? '#1b2b49' : 'var(--text-main)');
               const messageTime = fmt(message.createdAt);
               const canDownload = Boolean(message.mediaUrl);
@@ -1107,14 +1402,15 @@ export function MessageList({
                     <div
                       style={{
                         ...styles.bubble,
+                        maxWidth: isMobile ? '88%' : styles.bubble.maxWidth,
                         background: hasCardMedia ? 'rgba(255,255,255,0.98)' : (message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)'),
                         color: hasCardMedia ? '#1b2b49' : (message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)'),
                         opacity: message.isDeleted ? 0.6 : 1,
                         textDecoration: message.isDeleted ? 'line-through' : 'none',
-                        border: hasCardMedia ? '1px solid rgba(27,43,73,0.16)' : (message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : 'none') : '1px solid var(--border-color)'),
+                        border: hasCardMedia ? '1px solid rgba(27,43,73,0.12)' : (message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : '1px solid transparent') : '1px solid var(--border-color)'),
                         alignItems: 'flex-start',
-                        borderBottomRightRadius: message.fromMe ? '4px' : '20px',
-                        borderBottomLeftRadius: message.fromMe ? '20px' : '4px',
+                        borderBottomRightRadius: message.fromMe ? '6px' : '18px',
+                        borderBottomLeftRadius: message.fromMe ? '18px' : '6px',
                       }}
                     >
                       <div style={styles.messageHeader}>
@@ -1122,9 +1418,10 @@ export function MessageList({
                           style={{
                             ...styles.messageSender,
                             color: senderColor,
-                            opacity: message.fromBot ? 0.8 : 1,
+                            opacity: message.fromBot ? 0.88 : 1,
                           }}
                         >
+                          {message.fromBot ? <Bot size={13} strokeWidth={2.2} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} /> : null}
                           {senderName}
                         </div>
                         <div style={styles.messageHeaderSide}>
@@ -1171,29 +1468,21 @@ export function MessageList({
                         </div>
                       </div>
 
-                      {quotedText && (
+                      {quotedText ? (
                         <div
                           style={{
-                            background: message.fromMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)',
-                            borderLeft: `3px solid ${message.fromMe ? 'rgba(0,0,0,0.3)' : '#D4AF37'}`,
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            marginBottom: '8px',
-                            fontSize: '0.8rem',
-                            color: message.fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
-                            fontStyle: 'italic',
-                            maxWidth: '100%',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            ...styles.quotedBlock,
+                            background: message.fromMe ? 'rgba(255,255,255,0.18)' : 'rgba(15, 23, 42, 0.04)',
+                            borderLeft: `3px solid ${message.fromMe ? 'rgba(255,255,255,0.58)' : 'rgba(59, 130, 246, 0.38)'}`,
+                            color: message.fromMe ? 'rgba(255,255,255,0.78)' : 'var(--text-muted)',
                           }}
                         >
                           {quotedText}
                         </div>
-                      )}
+                      ) : null}
 
                       <MediaContent message={message} onImageClick={onImageClick} styles={styles} />
-                      {bodyText && <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '8px' : 0 }}>{bodyText}</div>}
+                      {bodyText ? <div style={{ ...styles.messageText, fontWeight: message.fromMe ? 500 : 400, marginTop: message.mediaUrl ? '10px' : 0 }}>{bodyText}</div> : null}
                     </div>
                   </div>
                 </MessageRenderErrorBoundary>
@@ -1294,55 +1583,51 @@ export function MessageComposer({
         </div>
       )}
 
-      <div style={{ ...styles.inputArea, padding: isMobile ? '0.75rem' : '1rem', gap: isMobile ? '0.5rem' : '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
-        {replyingTo && (
-          <div
-            style={{
-              background: 'rgba(212,175,55,0.1)',
-              borderLeft: '4px solid #D4AF37',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '4px',
-            }}
-          >
+      <div style={{ ...styles.inputArea, padding: isMobile ? '0.75rem' : '1rem 1.5rem' }}>
+        {replyingTo ? (
+          <div style={styles.replyBanner}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: '#D4AF37', fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>
+              <div style={styles.replyLabel}>
                 Respondendo a {replyingTo.fromMe ? 'voce' : getContactDisplayName(selectedTicket.contact, 'cliente')}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={styles.replyPreview}>
                 {getSafeText(replyingTo.body) || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
               </div>
             </div>
-            <button onClick={() => setReplyingTo(null)} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1rem', padding: '0 8px' }}>X</button>
+            <button onClick={() => setReplyingTo(null)} style={styles.replyDismiss} aria-label="Cancelar resposta">
+              <X size={14} strokeWidth={2.4} />
+            </button>
           </div>
-        )}
+        ) : null}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
-          {isRecording ? (
-            <div style={styles.recordingWrap}>
-              <div style={styles.recordingDot} />
-              <span style={styles.recordingTime}>{fmtTime(recordingTime)}</span>
-              <button style={styles.stopBtn} onClick={stopRecording}>Parar e Enviar</button>
-            </div>
-          ) : (
-            <div style={styles.composerShell}>
-              <div style={styles.composerToolbar}>
-                <button type="button" style={styles.composerActionBtn} onClick={() => fileInputRef.current?.click()}>
-                  <Paperclip size={15} strokeWidth={2.4} />
-                  <span>Anexo</span>
-                </button>
+        {isRecording ? (
+          <div style={styles.recordingWrap}>
+            <div style={styles.recordingDot} />
+            <span style={styles.recordingTime}>{fmtTime(recordingTime)}</span>
+            <button style={styles.stopBtn} onClick={stopRecording}>Parar e enviar</button>
+          </div>
+        ) : (
+          <>
+            <div style={styles.composerMetaRow}>
+              {isMobile ? <span /> : (
                 <div style={styles.composerHint}>
                   <Image size={14} strokeWidth={2.2} />
                   <span>Ctrl+V cola imagem</span>
                 </div>
-                <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />
-              </div>
+              )}
+              <button type="button" style={styles.composerActionBtnMuted} onClick={() => setShowScheduling(true)}>
+                <Clock3 size={14} strokeWidth={2.2} />
+                {isMobile ? 'Agenda' : 'Agendar'}
+              </button>
+            </div>
 
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {files.length > 0 && (
+            <div style={{ ...styles.composerShell, gap: isMobile ? '0.55rem' : styles.composerShell.gap, padding: isMobile ? '0.55rem' : styles.composerShell.padding }}>
+              <button type="button" style={{ ...styles.attachBtn, width: isMobile ? '42px' : styles.attachBtn.width, height: isMobile ? '42px' : styles.attachBtn.height }} onClick={() => fileInputRef.current?.click()} title="Adicionar anexo">
+                <Paperclip size={18} strokeWidth={2.4} />
+              </button>
+
+              <div style={styles.composerCenter}>
+                {files.length > 0 ? (
                   <div style={styles.draftAttachmentList}>
                     {files.map((file, index) => (
                       <DraftAttachmentPreview
@@ -1353,51 +1638,49 @@ export function MessageComposer({
                       />
                     ))}
                   </div>
-                )}
+                ) : null}
 
-                <div style={styles.composerInputRow}>
-                  <textarea
-                    style={{ ...styles.textInput, height: 'auto', minHeight: '48px', maxHeight: '120px', fontSize: isMobile ? '0.85rem' : '1rem' }}
-                    rows={1}
-                    value={text}
-                    onChange={(event) => {
-                      handleInput(event.target.value);
-                      event.target.style.height = 'auto';
-                      event.target.style.height = `${event.target.scrollHeight}px`;
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        handleSend();
-                        event.target.style.height = '48px';
-                      }
-                    }}
-                    onPaste={handlePaste}
-                    placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
-                    spellCheck={false}
-                  />
-
-                  <button
-                    style={{
-                      ...styles.sendBtn,
-                      width: isMobile ? '44px' : '48px',
-                      height: isMobile ? '44px' : '48px',
-                      background: (isRecording || (!text.trim() && files.length === 0)) ? '#1A1A1B' : '#D4AF37',
-                      border: (isRecording || (!text.trim() && files.length === 0)) ? '1px solid #333' : 'none',
-                      color: (isRecording || (!text.trim() && files.length === 0)) ? '#717171' : '#000',
-                      fontSize: isMobile ? '1rem' : '1.1rem',
-                    }}
-                    onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
-                    onMouseDown={(!text.trim() && files.length === 0) ? startRecording : null}
-                    onMouseUp={(!text.trim() && files.length === 0) ? stopRecording : null}
-                  >
-                    {(!text.trim() && files.length === 0) ? <Mic size={18} strokeWidth={2.4} /> : <SendHorizontal size={18} strokeWidth={2.4} />}
-                  </button>
-                </div>
+                <textarea
+                  style={{ ...styles.textInput, minHeight: isMobile ? '46px' : '52px', fontSize: isMobile ? '0.88rem' : '0.97rem' }}
+                  rows={1}
+                  value={text}
+                  onChange={(event) => {
+                    handleInput(event.target.value);
+                    event.target.style.height = 'auto';
+                    event.target.style.height = `${event.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSend();
+                      event.target.style.height = isMobile ? '46px' : '52px';
+                    }
+                  }}
+                  onPaste={handlePaste}
+                  placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
+                  spellCheck={false}
+                />
               </div>
+
+              <button
+                style={{
+                  ...styles.sendBtn,
+                  width: isMobile ? '44px' : '48px',
+                  height: isMobile ? '44px' : '48px',
+                  background: (!text.trim() && files.length === 0) ? 'var(--bg-panel)' : 'var(--accent)',
+                  border: (!text.trim() && files.length === 0) ? '1px solid var(--border-color)' : 'none',
+                  color: (!text.trim() && files.length === 0) ? 'var(--text-muted)' : 'var(--text-inverse)',
+                  fontSize: isMobile ? '1rem' : '1.1rem',
+                }}
+                onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
+              >
+                {(!text.trim() && files.length === 0) ? <Mic size={18} strokeWidth={2.4} /> : <SendHorizontal size={18} strokeWidth={2.4} />}
+              </button>
+
+              <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </>
   );

@@ -21,54 +21,54 @@
 }
 
 body.dark-theme {
-  --bg-base: #050505;
-  --bg-surface: #09090B;
-  --bg-panel: #131314;
-  --bg-panel-hover: #1A1A1B;
-  --border-color: #1A1A1B;
+  --bg-base: #0f1115;
+  --bg-surface: #141821;
+  --bg-panel: #1a1f2b;
+  --bg-panel-hover: #202633;
+  --border-color: #262d3b;
   --border-light: rgba(255, 255, 255, 0.03);
   --text-main: #FFFFFF;
-  --text-muted: #9CA3AF;
-  --text-dim: #4B5563;
+  --text-muted: #a3adc2;
+  --text-dim: #65738d;
   --text-inverse: #000000;
   
   /* Message Bubbles - Dark */
-  --bg-msg-me: var(--accent);
-  --text-msg-me: var(--text-inverse);
-  --bg-msg-ai: rgba(168, 85, 247, 0.2);
-  --text-msg-ai: #d8b4fe;
-  --border-msg-ai: rgba(168, 85, 247, 0.4);
-  --bg-msg-contact: #131314;
+  --bg-msg-me: #1d5f52;
+  --text-msg-me: #eefbf6;
+  --bg-msg-ai: rgba(59, 130, 246, 0.16);
+  --text-msg-ai: #cfe2ff;
+  --border-msg-ai: rgba(59, 130, 246, 0.22);
+  --bg-msg-contact: #181d27;
   --text-msg-contact: var(--text-main);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --glass-bg: rgba(9, 9, 11, 0.7);
+  --glass-bg: rgba(20, 24, 33, 0.82);
   --glass-border: rgba(255, 255, 255, 0.05);
 }
 
 body.light-theme {
-  --bg-base: #F8F9FA;
+  --bg-base: #f3f5f9;
   --bg-surface: #FFFFFF;
-  --bg-panel: #F1F3F5;
-  --bg-panel-hover: #E9ECEF;
-  --border-color: #DEE2E6;
+  --bg-panel: #eef2f7;
+  --bg-panel-hover: #e6ebf2;
+  --border-color: #d9e0ea;
   --border-light: rgba(0, 0, 0, 0.03);
   --text-main: #1A1A1B;
-  --text-muted: #6B7280;
-  --text-dim: #9CA3AF;
+  --text-muted: #5d6b82;
+  --text-dim: #8a97ac;
   --text-inverse: #FFFFFF;
 
   /* Message Bubbles - Light */
-  --bg-msg-me: var(--accent);
-  --text-msg-me: #4A3800;
-  --bg-msg-ai: rgba(147, 51, 234, 0.1);
-  --text-msg-ai: #7e22ce;
-  --border-msg-ai: rgba(147, 51, 234, 0.2);
+  --bg-msg-me: #dff4ea;
+  --text-msg-me: #17473c;
+  --bg-msg-ai: rgba(59, 130, 246, 0.08);
+  --text-msg-ai: #2156b0;
+  --border-msg-ai: rgba(59, 130, 246, 0.14);
   --bg-msg-contact: #FFFFFF;
   --text-msg-contact: var(--text-main);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
-  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.88);
   --glass-border: rgba(0, 0, 0, 0.05);
 }
 
