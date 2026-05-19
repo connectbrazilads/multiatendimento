@@ -138,6 +138,8 @@ function SectionTag({ children }) {
 }
 
 function ProductPreview() {
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'bot' | 'crm'
+
   return (
     <div className="sales-preview-shell">
       <div className="sales-preview-window">
@@ -147,56 +149,202 @@ function ProductPreview() {
             <span />
             <span />
           </div>
-          <div className="sales-preview-breadcrumb">Operação comercial em tempo real</div>
+          <div className="sales-preview-tabs">
+            <button
+              type="button"
+              className={`sales-preview-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+              onClick={() => setActiveTab('chat')}
+            >
+              Atendimento
+            </button>
+            <button
+              type="button"
+              className={`sales-preview-tab-btn ${activeTab === 'bot' ? 'active' : ''}`}
+              onClick={() => setActiveTab('bot')}
+            >
+              Triagem Bot
+            </button>
+            <button
+              type="button"
+              className={`sales-preview-tab-btn ${activeTab === 'crm' ? 'active' : ''}`}
+              onClick={() => setActiveTab('crm')}
+            >
+              CRM & O.S.
+            </button>
+          </div>
+          <div className="sales-preview-breadcrumb">Dashboard</div>
         </div>
 
         <div className="sales-preview-body">
           <aside className="sales-preview-sidebar">
-            <div className="sales-preview-sidebar-title">Filas</div>
-            <div className="sales-preview-pill sales-preview-pill-active">Meus 08</div>
-            <div className="sales-preview-pill">Espera 12</div>
-            <div className="sales-preview-pill">Contatos 277</div>
-
-            <div className="sales-preview-list">
-              {['Comercial Rede Vip 24h', 'Gráfica Santos', 'Carol Almeida'].map((item, index) => (
-                <div key={item} className="sales-preview-ticket">
-                  <div className="sales-preview-avatar">{item.slice(0, 2).toUpperCase()}</div>
-                  <div className="sales-preview-ticket-copy">
-                    <strong>{item}</strong>
-                    <span>{index === 0 ? 'Atendimento em aberto' : 'Fila LCD-ATENDIMENTO'}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="sales-preview-sidebar-title">
+              {activeTab === 'chat' && 'Filas'}
+              {activeTab === 'bot' && 'Automação'}
+              {activeTab === 'crm' && 'Integrações'}
             </div>
+            
+            {activeTab === 'chat' && (
+              <>
+                <div className="sales-preview-pill sales-preview-pill-active">Meus (08)</div>
+                <div className="sales-preview-pill">Espera (12)</div>
+                <div className="sales-preview-pill">Contatos (277)</div>
+                <div className="sales-preview-list">
+                  {['Comercial Rede Vip 24h', 'Gráfica Santos', 'Carol Almeida'].map((item, index) => (
+                    <div key={item} className="sales-preview-ticket">
+                      <div className="sales-preview-avatar">{item.slice(0, 2).toUpperCase()}</div>
+                      <div className="sales-preview-ticket-copy">
+                        <strong>{item}</strong>
+                        <span>{index === 0 ? 'Atendimento ativo' : 'Fila Comercial'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'bot' && (
+              <>
+                <div className="sales-preview-pill sales-preview-pill-active">Fila Geral Bot</div>
+                <div className="sales-preview-pill">Regras Ativas</div>
+                <div className="sales-preview-pill">SLAs por Fila</div>
+                <div className="sales-preview-list">
+                  {['Menu Principal', 'Direcionamento', 'Horário Especial'].map((item) => (
+                    <div key={item} className="sales-preview-ticket">
+                      <div className="sales-preview-avatar">🤖</div>
+                      <div className="sales-preview-ticket-copy">
+                        <strong>{item}</strong>
+                        <span>Bot Inteligente</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'crm' && (
+              <>
+                <div className="sales-preview-pill sales-preview-pill-active">Integração CRM</div>
+                <div className="sales-preview-pill">Chamados O.S.</div>
+                <div className="sales-preview-pill">Metas de SLA</div>
+                <div className="sales-preview-list">
+                  {['Rede Vip - O.S. #218', 'Santos - O.S. #214', 'Carol - O.S. #209'].map((item) => (
+                    <div key={item} className="sales-preview-ticket">
+                      <div className="sales-preview-avatar">⚙️</div>
+                      <div className="sales-preview-ticket-copy">
+                        <strong>{item.split(' - ')[0]}</strong>
+                        <span>{item.split(' - ')[1]}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </aside>
 
           <main className="sales-preview-chat">
-            <div className="sales-preview-chat-header">
-              <div>
-                <div className="sales-preview-kicker">Cliente ativo</div>
-                <strong>Comercial Rede Vip 24h</strong>
-              </div>
-              <div className="sales-preview-actions">
-                <button>Gerar O.S.</button>
-                <button>Ações</button>
-                <button className="sales-preview-primary">Encerrar</button>
-              </div>
-            </div>
+            {activeTab === 'chat' && (
+              <>
+                <div className="sales-preview-chat-header">
+                  <div>
+                    <div className="sales-preview-kicker">Cliente ativo</div>
+                    <strong>Comercial Rede Vip 24h</strong>
+                  </div>
+                  <div className="sales-preview-actions">
+                    <button type="button">Abrir O.S.</button>
+                    <button type="button">Ações</button>
+                    <button type="button" className="sales-preview-primary">Encerrar</button>
+                  </div>
+                </div>
 
-            <div className="sales-preview-conversation">
-              <div className="sales-bubble sales-bubble-left">
-                <span>Boa tarde, preciso de suporte com a impressora da loja.</span>
-              </div>
-              <div className="sales-bubble sales-bubble-right">
-                <span>Já localizei seu cadastro e vou te ajudar agora.</span>
-              </div>
-              <div className="sales-bubble sales-bubble-right sales-bubble-accent">
-                <span>Se necessário, já gero a O.S. com o histórico dessa conversa.</span>
-              </div>
-            </div>
+                <div className="sales-preview-conversation">
+                  <div className="sales-bubble sales-bubble-left">
+                    <span>Boa tarde, preciso de suporte com a impressora da loja.</span>
+                  </div>
+                  <div className="sales-bubble sales-bubble-right">
+                    <span>Já localizei seu cadastro e vou te ajudar agora.</span>
+                  </div>
+                  <div className="sales-bubble sales-bubble-right sales-bubble-accent">
+                    <span>Se necessário, já gero a O.S. com o histórico dessa conversa.</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'bot' && (
+              <>
+                <div className="sales-preview-chat-header">
+                  <div>
+                    <div className="sales-preview-kicker">Automação ativa</div>
+                    <strong>Menu Geral de Triagem</strong>
+                  </div>
+                  <div className="sales-preview-actions">
+                    <button type="button">Pausar Bot</button>
+                    <button type="button" className="sales-preview-primary">Assumir Chat</button>
+                  </div>
+                </div>
+
+                <div className="sales-preview-conversation">
+                  <div className="sales-bubble sales-bubble-left">
+                    <span>Olá, gostaria de falar com a empresa.</span>
+                  </div>
+                  <div className="sales-bubble sales-bubble-right sales-bubble-accent">
+                    <span>Olá! Sou o assistente virtual da LCD Digital. Escolha uma opção:<br /><br />1️⃣ Suporte Técnico 🛠️<br />2️⃣ Planos & Preços 💰<br />3️⃣ Falar com Financeiro 💳</span>
+                  </div>
+                  <div className="sales-bubble sales-bubble-left">
+                    <span>Opção 1 - Suporte Técnico</span>
+                  </div>
+                  <div className="sales-bubble sales-bubble-right sales-bubble-accent">
+                    <span>Perfeito! Direcionando você para a fila de Suporte Técnico. Tempo estimado: 2 minutos.</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'crm' && (
+              <>
+                <div className="sales-preview-chat-header">
+                  <div>
+                    <div className="sales-preview-kicker">CRM e Integrações</div>
+                    <strong>Ficha de: Comercial Rede Vip 24h</strong>
+                  </div>
+                  <div className="sales-preview-actions">
+                    <button type="button" className="sales-preview-primary">Ver CRM Completo</button>
+                  </div>
+                </div>
+
+                <div className="sales-preview-crm-view">
+                  <div className="sales-crm-card">
+                    <div className="sales-crm-header">
+                      <strong>Informações do Contato</strong>
+                      <span className="sales-crm-badge">Cliente VIP</span>
+                    </div>
+                    <div className="sales-crm-row">
+                      <span>Razão Social:</span>
+                      <strong>Rede Vip Comercial Ltda</strong>
+                    </div>
+                    <div className="sales-crm-row">
+                      <span>CNPJ:</span>
+                      <strong>12.345.678/0001-90</strong>
+                    </div>
+                    <div className="sales-crm-row">
+                      <span>SLA Ativo:</span>
+                      <strong className="sales-crm-sla">Prioridade Alta (Max 1h)</strong>
+                    </div>
+                    <div className="sales-crm-row">
+                      <span>Notas do CRM:</span>
+                      <span className="sales-crm-note">Cliente solicita técnico com experiência em multifuncionais xerox.</span>
+                    </div>
+                    <div className="sales-crm-btn-row">
+                      <button type="button" className="sales-crm-action-btn">Criar Nova O.S.</button>
+                      <button type="button" className="sales-crm-action-btn outline">Editar Cadastro</button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="sales-preview-compose">
-              <span>Digite uma mensagem</span>
+              <span>Digite uma mensagem...</span>
               <ArrowRight size={16} />
             </div>
           </main>
@@ -206,21 +354,215 @@ function ProductPreview() {
       <div className="sales-floating-card sales-floating-card-left">
         <Sparkles size={18} />
         <div>
-          <strong>Resumo IA</strong>
-          <span>Contexto pronto para transferência</span>
+          <strong>Resumo com IA</strong>
+          <span>Contexto pronto para atendimento</span>
         </div>
       </div>
 
       <div className="sales-floating-card sales-floating-card-right">
         <ShieldCheck size={18} />
         <div>
-          <strong>Controle operacional</strong>
-          <span>Fila, histórico, SLA e responsável</span>
+          <strong>SLA e Governança</strong>
+          <span>Tempo de resposta sob controle</span>
         </div>
       </div>
     </div>
   );
 }
+
+function ComparisonMatrix() {
+  const categories = [
+    {
+      name: 'Múltiplos Atendentes',
+      pessoal: 'Não (Apenas um)',
+      business: 'Até 4 (Limite Web)',
+      sistema: 'Ilimitado (Equipe Toda)',
+    },
+    {
+      name: 'Conexão e Estabilidade',
+      pessoal: 'Instável (Quedas do App)',
+      business: 'Instável (Depende do Celular)',
+      sistema: '100% Estável (API Cloud Oficial)',
+    },
+    {
+      name: 'Fila de Espera e Setores',
+      pessoal: 'Não (Bagunça no Chat)',
+      business: 'Mensagem de ausência básica',
+      sistema: 'Distribuição automática por setores',
+    },
+    {
+      name: 'Risco de Bloqueio por Spam',
+      pessoal: 'Altíssimo',
+      business: 'Alto',
+      sistema: 'Mínimo (Regras oficiais da Meta)',
+    },
+    {
+      name: 'Abertura de O.S. & CRM',
+      pessoal: 'Não possui',
+      business: 'Não possui',
+      sistema: 'Integrado diretamente na conversa',
+    },
+    {
+      name: 'Relatórios & SLA',
+      pessoal: 'Não possui',
+      business: 'Não possui',
+      sistema: 'Métricas completas em tempo real',
+    },
+  ];
+
+  return (
+    <section className="sales-section sales-comparison-section">
+      <div className="sales-container">
+        <div className="sales-section-head">
+          <SectionTag>Comparativo Técnico</SectionTag>
+          <h2>Por que empresas migram para a API Oficial com a LCD?</h2>
+          <p>Entenda a diferença técnica e operacional entre as opções de WhatsApp e escolha a estabilidade e a governança para sua equipe.</p>
+        </div>
+
+        <div className="sales-comparison-wrapper">
+          <table className="sales-comparison-table">
+            <thead>
+              <tr>
+                <th>Recurso / Diferencial</th>
+                <th>WhatsApp Pessoal</th>
+                <th>WhatsApp Business</th>
+                <th className="highlighted">Sistema LCD (API Oficial)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((cat, idx) => (
+                <tr key={idx}>
+                  <td><strong>{cat.name}</strong></td>
+                  <td className="danger">{cat.pessoal}</td>
+                  <td className="warning">{cat.business}</td>
+                  <td className="success">{cat.sistema}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const testimonialsData = [
+  {
+    quote: 'Reduzimos nosso tempo de primeira resposta de 45 minutos para apenas 40 segundos com a triagem inteligente. Nosso time comercial hoje atende o triplo de leads.',
+    author: 'Nuala Ouverney',
+    role: 'Gerente Comercial',
+    company: 'Click Sophia',
+    metric: 'Atendimento 3x mais ágil',
+  },
+  {
+    quote: 'Centralizar as filiais em um único WhatsApp com painéis de SLA nos permitiu auditar a qualidade em tempo real. A segurança operacional é incomparável.',
+    author: 'Alexandre Estefano',
+    role: 'Sócio e Gestor',
+    company: 'Velocità',
+    metric: 'Zero conversas perdidas',
+  },
+  {
+    quote: 'A integração direta de O.S. no chat salvou nossa operação de assistência técnica. O atendente abre o chamado em segundos sem sair da conversa.',
+    author: 'Carol Almeida',
+    role: 'Diretora Comercial',
+    company: 'Gráfica Santos',
+    metric: '+50% em eficiência',
+  },
+];
+
+function Testimonials() {
+  return (
+    <section className="sales-section sales-testimonials-section">
+      <div className="sales-container">
+        <div className="sales-section-head">
+          <SectionTag>Prova Social</SectionTag>
+          <h2>Empresas que escalaram com o Sistema LCD Digital</h2>
+          <p>Veja os resultados reais alcançados por gestores que profissionalizaram o atendimento no WhatsApp.</p>
+        </div>
+
+        <div className="sales-testimonials-grid">
+          {testimonialsData.map((item, idx) => (
+            <div key={idx} className="sales-testimonial-card">
+              <span className="sales-testimonial-metric">{item.metric}</span>
+              <p className="sales-testimonial-quote">"{item.quote}"</p>
+              <div className="sales-testimonial-author">
+                <div>
+                  <strong>{item.author}</strong>
+                  <span>{item.role}, {item.company}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const faqData = [
+  {
+    question: 'O sistema utiliza a API Oficial do WhatsApp?',
+    answer: 'Sim, o sistema utiliza a Cloud API oficial fornecida pela Meta. Isso garante que a sua operação esteja 100% regularizada, com velocidade máxima de envio e zero risco de banimento por uso de automação autorizada.',
+  },
+  {
+    question: 'Posso usar o meu número atual de WhatsApp?',
+    answer: 'Sim, você pode migrar seu número atual (fixo ou celular) para a API Oficial. Durante o processo de onboarding, nós guiamos a transição para que não ocorra perda de sinal ou interrupção na sua operação comercial.',
+  },
+  {
+    question: 'Preciso ter um CNPJ para utilizar o sistema?',
+    answer: 'Sim. A Meta exige a validação comercial da conta para liberação da API Oficial, o que requer um CNPJ ativo (pode ser MEI, ME, LTDA, etc.) e um site ou página institucional no ar para provar a existência da marca.',
+  },
+  {
+    question: 'Quantos atendentes podem trabalhar no mesmo número?',
+    answer: 'Não há limite físico. Toda a sua equipe comercial, de suporte e faturamento pode acessar o painel unificado simultaneamente. Você distribui permissões de acordo com o cargo (agente, supervisor ou admin).',
+  },
+  {
+    question: 'Como funciona a abertura de Ordens de Serviço (O.S.)?',
+    answer: 'O atendente possui um painel lateral integrado à conversa de chat. Com um clique, ele abre a ficha de O.S., descreve a solicitação, anexa o histórico do chat e envia diretamente para o setor de execução, que avança o chamado no chamado Kanban.',
+  },
+];
+
+function FAQAccordion() {
+  const [activeIndex, setActiveIndex] = useState(null);
+
+  const toggleAccordion = (idx) => {
+    setActiveIndex(activeIndex === idx ? null : idx);
+  };
+
+  return (
+    <section className="sales-section sales-faq-section">
+      <div className="sales-container">
+        <div className="sales-section-head">
+          <SectionTag>Dúvidas Frequentes</SectionTag>
+          <h2>Perguntas Frequentes sobre o Sistema</h2>
+          <p>Tire suas dúvidas técnicas e comerciais para iniciar sua migração com total segurança.</p>
+        </div>
+
+        <div className="sales-faq-wrapper">
+          {faqData.map((item, idx) => {
+            const isOpen = activeIndex === idx;
+            return (
+              <div key={idx} className={`sales-faq-item ${isOpen ? 'open' : ''}`}>
+                <button
+                  type="button"
+                  className="sales-faq-question"
+                  onClick={() => toggleAccordion(idx)}
+                >
+                  <span>{item.question}</span>
+                  <span className="sales-faq-icon">{isOpen ? '−' : '+'}</span>
+                </button>
+                <div className="sales-faq-answer">
+                  <p>{item.answer}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 export default function VendasPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -376,6 +718,8 @@ export default function VendasPage() {
           </div>
         </section>
 
+        <ComparisonMatrix />
+
         <section id="recursos" className="sales-section sales-section-muted">
           <div className="sales-container">
             <div className="sales-section-head">
@@ -430,6 +774,8 @@ export default function VendasPage() {
             </div>
           </div>
         </section>
+
+        <Testimonials />
 
         <section className="sales-section sales-proof-section">
           <div className="sales-container sales-proof-grid">
@@ -500,6 +846,8 @@ export default function VendasPage() {
             </div>
           </div>
         </section>
+
+        <FAQAccordion />
 
         <section id="captacao" className="sales-section">
           <div className="sales-container sales-lead-grid">
