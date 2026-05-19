@@ -1131,26 +1131,15 @@ export function ChatHeader({
       </div>
 
       <div style={styles.headerActions}>
-        {!isMobile ? (
-          <button
-            type="button"
-            style={styles.headerGhostBtn}
-            onClick={() => setShowInfo(!showInfo)}
-            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
-          >
-            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
-            Cliente
-          </button>
-        ) : (
-          <button
-            type="button"
-            style={styles.headerGhostIconBtn}
-            onClick={() => setShowInfo(!showInfo)}
-            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
-          >
-            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
-          </button>
-        )}
+        <button
+          type="button"
+          style={isMobile ? styles.headerGhostIconBtn : styles.headerGhostBtn}
+          onClick={() => setShowOsModal(true)}
+          title="Gerar ordem de servico"
+        >
+          <ClipboardList size={16} strokeWidth={2.2} />
+          {isMobile ? null : 'Gerar O.S.'}
+        </button>
 
         <div style={styles.messageMenuRoot} data-header-menu-root="true">
           <button
@@ -1168,10 +1157,6 @@ export function ChatHeader({
 
           {actionsOpen ? (
             <div style={styles.headerMenuPanel}>
-              <button type="button" style={styles.headerMenuItem} onClick={() => { setShowOsModal(true); setActionsOpen(false); }}>
-                <ClipboardList size={15} strokeWidth={2.2} />
-                Gerar O.S.
-              </button>
               <button type="button" style={styles.headerMenuItem} onClick={() => { handleSummarize(); setActionsOpen(false); }} disabled={summarizing}>
                 <Sparkles size={15} strokeWidth={2.2} />
                 {summarizing ? 'Gerando resumo...' : 'Resumo IA'}
@@ -1197,6 +1182,27 @@ export function ChatHeader({
             onClick={handleReopen}
           >
             {isMobile ? 'Abrir' : 'Reabrir'}
+          </button>
+        )}
+
+        {!isMobile ? (
+          <button
+            type="button"
+            style={styles.headerGhostBtn}
+            onClick={() => setShowInfo(!showInfo)}
+            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
+          >
+            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
+            Cliente
+          </button>
+        ) : (
+          <button
+            type="button"
+            style={styles.headerGhostIconBtn}
+            onClick={() => setShowInfo(!showInfo)}
+            title={showInfo ? 'Fechar ficha do cliente' : 'Abrir ficha do cliente'}
+          >
+            {showInfo ? <PanelRightClose size={16} strokeWidth={2.2} /> : <PanelRightOpen size={16} strokeWidth={2.2} />}
           </button>
         )}
       </div>

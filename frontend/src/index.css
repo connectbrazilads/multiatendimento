@@ -44,6 +44,9 @@ body.dark-theme {
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
   --glass-bg: rgba(20, 24, 33, 0.82);
   --glass-border: rgba(255, 255, 255, 0.05);
+  --chat-header-bg: rgba(20, 24, 33, 0.88);
+  --chat-meta-bg: rgba(255, 255, 255, 0.04);
+  --chat-meta-border: rgba(255, 255, 255, 0.05);
 }
 
 body.light-theme {
@@ -70,6 +73,9 @@ body.light-theme {
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
   --glass-bg: rgba(255, 255, 255, 0.88);
   --glass-border: rgba(0, 0, 0, 0.05);
+  --chat-header-bg: rgba(255, 255, 255, 0.92);
+  --chat-meta-bg: rgba(93, 107, 130, 0.08);
+  --chat-meta-border: rgba(93, 107, 130, 0.12);
 }
 
 * {
