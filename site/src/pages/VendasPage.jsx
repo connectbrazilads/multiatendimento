@@ -31,82 +31,82 @@ const navItems = [
 ];
 
 const metrics = [
-  { value: '1 tela', label: 'para fila, CRM, O.S. e histórico' },
-  { value: '24/7', label: 'atendimento com bot, equipe e transferências' },
-  { value: '100%', label: 'visão do cliente, SLA e contexto do contato' },
-  { value: '-ruído', label: 'mais clareza para operar o time comercial' },
+  { value: '1 Tela', label: 'Cockpit completo com histórico, CRM e O.S. integrados' },
+  { value: '24/7', label: 'Chatbot ativo e distribuição inteligente de contatos' },
+  { value: '100%', label: 'Visibilidade de SLAs, atendimentos ativos e pendências' },
+  { value: 'Zero', label: 'Ruído de comunicação e perda de histórico no repasse' },
 ];
 
 const pains = [
-  'WhatsApp espalhado entre pessoas e aparelhos',
-  'Cliente repetindo contexto a cada troca de atendente',
-  'Sem visão clara de responsáveis, SLA e pendências',
-  'O.S., CRM e conversa vivendo em sistemas separados',
+  'Conversas e clientes espalhados em múltiplos celulares',
+  'Cliente tendo que repetir o mesmo histórico para cada atendente',
+  'Falta de métricas de tempo de resposta, SLAs e produtividade',
+  'CRM, ordens de serviço e conversas isolados em sistemas diferentes',
 ];
 
 const features = [
   {
     icon: MessageSquareMore,
-    title: 'Inbox unificada',
-    text: 'Centralize WhatsApp, filas, responsáveis, prioridades e histórico em uma operação mais simples de gerenciar.',
+    title: 'Inbox Unificada',
+    text: 'Centralize todos os contatos do WhatsApp em um único painel. Distribua por departamentos, defina prioridades e gerencie filas de espera com total controle.',
   },
   {
     icon: Bot,
-    title: 'Bot + humano sem atrito',
-    text: 'Automatize a primeira resposta, distribua conversas e preserve o contexto quando o atendimento virar humano.',
+    title: 'Chatbot Inteligente',
+    text: 'Responda instantaneamente aos clientes, colete informações essenciais na triagem e direcione a conversa para a equipe certa de forma automática.',
   },
   {
     icon: Users2,
-    title: 'Equipe com governança',
-    text: 'Acompanhe atendente, equipe, transferências, reaberturas e encerramentos sem perder rastreabilidade.',
+    title: 'Gestão e Supervisão',
+    text: 'Acompanhe em tempo real o desempenho dos atendentes, transfira conversas entre setores e monitore o histórico completo de interações.',
   },
   {
     icon: ScanSearch,
-    title: 'Ficha viva do cliente',
-    text: 'Veja notas, tags, mídias, equipamentos, CRM vinculado e histórico do contato no mesmo fluxo.',
+    title: 'Histórico e Ficha do Cliente',
+    text: 'Acesse notas internas, tags de segmentação, arquivos de mídia e informações do CRM no painel lateral, sem interromper o fluxo da conversa.',
   },
   {
     icon: Workflow,
-    title: 'O.S. no contexto',
-    text: 'Gere ordens de serviço direto da conversa para acelerar diagnóstico, despacho e continuidade do atendimento.',
+    title: 'Ordens de Serviço Integradas',
+    text: 'Abra e gerencie O.S. diretamente da janela de chat para agilizar o suporte técnico, acompanhar prazos e manter o cliente sempre informado.',
   },
   {
     icon: BarChart3,
-    title: 'Visão operacional',
-    text: 'Monitore o que está em atendimento, aguardando, encerrado e quais contas realmente exigem atenção.',
+    title: 'Métricas e Relatórios',
+    text: 'Monitore indicadores de desempenho (KPIs), tempo médio de atendimento, volume de conversas por setor e relatórios detalhados de satisfação.',
   },
 ];
 
 const workflow = [
   {
     step: '01',
-    title: 'Cliente chama no WhatsApp',
-    text: 'A conversa entra na fila certa com identificação do contato e contexto inicial.',
+    title: 'Primeiro Contato',
+    text: 'O cliente envia uma mensagem no WhatsApp e é imediatamente recebido pela plataforma.',
   },
   {
     step: '02',
-    title: 'Bot ou triagem assume',
-    text: 'Você responde automaticamente, coleta dados essenciais e envia para a equipe certa.',
+    title: 'Triagem Automatizada',
+    text: 'O chatbot interage para coletar dados iniciais, solucionando dúvidas frequentes ou direcionando o caso.',
   },
   {
     step: '03',
-    title: 'Operador atende com contexto',
-    text: 'O atendente já entra vendo histórico, CRM, prioridade, mídias e tudo que o cliente já informou.',
+    title: 'Atendimento com Contexto',
+    text: 'O operador humano assume a conversa já visualizando todo o histórico e informações fornecidas na triagem.',
   },
   {
     step: '04',
-    title: 'Conversa vira operação',
-    text: 'Se precisar, a equipe gera O.S., registra andamento e fecha o ciclo sem sair da plataforma.',
+    title: 'Ação e Resolução',
+    text: 'A equipe atualiza o CRM, gera ordens de serviço e soluciona o chamado diretamente pelo sistema.',
   },
 ];
 
 const planHighlights = [
-  'Inbox por equipes',
-  'Múltiplas conexões',
-  'Bot inicial',
-  'CRM e ficha do cliente',
-  'Geração de O.S.',
-  'Histórico completo',
+  'Atendentes por departamentos',
+  'Múltiplas conexões de WhatsApp',
+  'Chatbot e Triagem Inteligente',
+  'CRM e Histórico Unificado',
+  'Geração de O.S. na conversa',
+  'Relatórios e Controle de SLAs',
 ];
 
 const defaultLeadForm = {
@@ -227,7 +227,7 @@ export default function VendasPage() {
   const [leadForm, setLeadForm] = useState(defaultLeadForm);
 
   useEffect(() => {
-    document.title = 'Vendas | Sistema Multiatendimento LCD';
+    document.title = 'Sistema Multiatendimento | LCD Digital';
   }, []);
 
   function handleLeadChange(event) {
@@ -300,32 +300,32 @@ export default function VendasPage() {
             >
               <SectionTag>
                 <BadgeCheck size={14} />
-                Plataforma para atendimento, CRM e operação em uma só tela
+                Cockpit Unificado para WhatsApp, CRM e Equipes
               </SectionTag>
 
               <h1>
-                Venda, atenda e acompanhe seu time no WhatsApp
-                <span> sem perder contexto.</span>
+                Venda, atenda e gerencie sua operação no WhatsApp
+                <span> em um só lugar.</span>
               </h1>
 
               <p>
-                O sistema multiatendimento da LCD organiza filas, atendentes, bot, histórico, CRM e ordem de serviço em um fluxo operacional claro, rápido e comercialmente forte.
+                Acelere suas vendas e profissionalize seu suporte técnico. Centralize contatos, crie chatbots inteligentes de triagem e integre CRM e ordens de serviço diretamente no chat.
               </p>
 
               <div className="sales-hero-actions">
-                <a className="sales-cta-btn sales-cta-btn-large" href="https://wa.me/555194412679?text=Quero%20agendar%20uma%20demo%20do%20sistema" target="_blank" rel="noreferrer">
-                  Agendar demonstração
+                <a className="sales-cta-btn sales-cta-btn-large" href="#captacao">
+                  Agendar Demonstração
                   <ChevronRight size={18} />
                 </a>
                 <a className="sales-outline-btn" href="#produto">
-                  Ver produto
+                  Conhecer Recursos
                 </a>
               </div>
 
               <div className="sales-trust-row">
-                <div><CheckCircle2 size={16} /> Múltiplos atendentes na mesma operação</div>
-                <div><CheckCircle2 size={16} /> Histórico, mídias e CRM no contexto</div>
-                <div><CheckCircle2 size={16} /> Bot, equipe e O.S. sem troca de tela</div>
+                <div><CheckCircle2 size={16} /> Múltiplos atendentes com número único</div>
+                <div><CheckCircle2 size={16} /> Histórico, tags e notas no mesmo painel</div>
+                <div><CheckCircle2 size={16} /> Chatbot integrado e transferências sem atrito</div>
               </div>
             </motion.div>
 
@@ -356,19 +356,19 @@ export default function VendasPage() {
             <div className="sales-section-copy">
               <SectionTag>
                 <LayoutDashboard size={14} />
-                O produto
+                Foco Operacional
               </SectionTag>
-              <h2>Uma operação comercial inteira concentrada em um único cockpit.</h2>
+              <h2>Tudo o que sua equipe precisa em uma única tela.</h2>
               <p>
-                Em vez de alternar entre WhatsApp, CRM, planilhas e mensagens internas, sua equipe trabalha com uma visão única do atendimento. Isso reduz ruído, acelera resposta e melhora a passagem de contexto.
+                Elimine a perda de tempo alternando entre abas do navegador, aplicativos e planilhas. Nossa plataforma unifica o chat do WhatsApp, a ficha cadastral do CRM e a abertura de chamados técnicos para manter sua operação em fluxo contínuo.
               </p>
             </div>
 
             <div className="sales-pain-board">
-              <div className="sales-pain-title">O que a página resolve no dia a dia</div>
+              <div className="sales-pain-title">O que eliminamos no seu dia a dia:</div>
               {pains.map((pain) => (
                 <div key={pain} className="sales-pain-item">
-                  <X size={16} />
+                  <X size={16} className="sales-pain-icon" />
                   <span>{pain}</span>
                 </div>
               ))}
@@ -414,9 +414,9 @@ export default function VendasPage() {
             <div className="sales-section-head sales-section-head-left">
               <SectionTag>
                 <Workflow size={14} />
-                Fluxo operacional
+                Fluxo de Atendimento
               </SectionTag>
-              <h2>Do primeiro "olá" até a ordem de serviço, tudo evolui no mesmo trilho.</h2>
+              <h2>Do primeiro "olá" à ordem de serviço no mesmo trilho.</h2>
             </div>
 
             <div className="sales-workflow-grid">
@@ -436,34 +436,34 @@ export default function VendasPage() {
             <div className="sales-proof-card">
               <SectionTag>
                 <Headset size={14} />
-                Para operações reais
+                Alta Performance
               </SectionTag>
-              <h2>Atendimento com cara de operação séria, não de gambiarra improvisada.</h2>
+              <h2>Atendimento estruturado que transmite profissionalismo e confiança.</h2>
               <p>
-                O foco dessa landing é mostrar exatamente o que seu cliente enxerga em valor: velocidade, organização, contexto, controle e equipe alinhada.
+                Sua empresa merece um canal de WhatsApp com nível de central de suporte corporativo. Entregue agilidade, rastreabilidade e um atendimento padronizado que fideliza clientes.
               </p>
             </div>
 
             <div className="sales-proof-points">
               <div>
-                <Clock3 size={18} />
+                <Clock3 size={18} className="sales-proof-icon" />
                 <div>
-                  <strong>Menos tempo perdido</strong>
-                  <span>com trocas de tela e repasse manual de informações.</span>
+                  <strong>Tempo Médio de Resposta (TMA) Reduzido</strong>
+                  <span>Triagem ágil que distribui as conversas para as pessoas certas em segundos.</span>
                 </div>
               </div>
               <div>
-                <PhoneCall size={18} />
+                <PhoneCall size={18} className="sales-proof-icon" />
                 <div>
-                  <strong>Mais resposta comercial</strong>
-                  <span>com filas organizadas e visão clara do que exige ação.</span>
+                  <strong>Maior Conversão de Vendas</strong>
+                  <span>Sua equipe comercial ganha agilidade com respostas rápidas e histórico à mão.</span>
                 </div>
               </div>
               <div>
-                <ShieldCheck size={18} />
+                <ShieldCheck size={18} className="sales-proof-icon" />
                 <div>
-                  <strong>Mais previsibilidade</strong>
-                  <span>com histórico, responsáveis e eventos registrados na conversa.</span>
+                  <strong>Rastreabilidade Operacional</strong>
+                  <span>Monitore SLAs, acompanhe metas de atendimento e audite conversas finalizadas.</span>
                 </div>
               </div>
             </div>
@@ -475,24 +475,24 @@ export default function VendasPage() {
             <div className="sales-pricing-card">
               <div className="sales-pricing-copy">
                 <SectionTag>
-                  <BadgeCheck size={14} />
-                  Página de vendas inicial
+                  <Sparkles size={14} />
+                  Nossos Planos
                 </SectionTag>
-                <h2>Podemos evoluir esta landing depois, mas ela já nasce pronta para vender.</h2>
+                <h2>Tudo o que sua equipe precisa para crescer sem barreiras.</h2>
                 <p>
-                  Por enquanto deixei a página como `vendas`, com foco em apresentação comercial do sistema. O próximo passo pode ser integrar formulário, prova social, vídeo demo e variações por segmento.
+                  Oferecemos um sistema escalável, sem taxas de adesão ou taxas ocultas de implantação. Desfrute de suporte humanizado e de uma plataforma em constante evolução tecnológica.
                 </p>
-                <a className="sales-cta-btn sales-cta-btn-large" href="https://wa.me/555194412679?text=Quero%20usar%20essa%20landing%20de%20vendas%20do%20sistema" target="_blank" rel="noreferrer">
-                  Continuar evoluindo
+                <a className="sales-cta-btn sales-cta-btn-large" href="#captacao">
+                  Solicitar Proposta Comercial
                   <ArrowRight size={18} />
                 </a>
               </div>
 
               <div className="sales-pricing-box">
-                <div className="sales-pricing-kicker">Inclui nesta versão</div>
+                <div className="sales-pricing-kicker">Recursos inclusos no sistema:</div>
                 {planHighlights.map((item) => (
                   <div key={item} className="sales-pricing-item">
-                    <CheckCircle2 size={16} />
+                    <CheckCircle2 size={16} className="sales-pricing-check" />
                     <span>{item}</span>
                   </div>
                 ))}
@@ -506,17 +506,17 @@ export default function VendasPage() {
             <div className="sales-lead-copy">
               <SectionTag>
                 <PhoneCall size={14} />
-                Captação comercial
+                Contato & Demonstração
               </SectionTag>
-              <h2>Se a página te convenceu, o próximo passo é transformar interesse em lead qualificado.</h2>
+              <h2>Fale com um consultor e veja o sistema funcionando ao vivo.</h2>
               <p>
-                Este formulário já coleta os dados principais da oportunidade e abre o WhatsApp da LCD com a mensagem pronta, deixando o atendimento comercial mais organizado desde o primeiro contato.
+                Preencha os dados no formulário ao lado. Nossa equipe comercial entrará em contato rapidamente para entender as necessidades da sua operação e agendar uma demonstração sob medida para a sua equipe.
               </p>
 
               <div className="sales-lead-points">
-                <div><CheckCircle2 size={16} /> Nome, empresa, contato e tamanho da operação</div>
-                <div><CheckCircle2 size={16} /> Mensagem estruturada direto para o WhatsApp comercial</div>
-                <div><CheckCircle2 size={16} /> Ideal para avaliar antes de apontar um domínio final</div>
+                <div><CheckCircle2 size={16} className="sales-lead-check" /> Diagnóstico inicial do seu fluxo de atendimento</div>
+                <div><CheckCircle2 size={16} className="sales-lead-check" /> Apresentação prática dos recursos e painéis</div>
+                <div><CheckCircle2 size={16} className="sales-lead-check" /> Proposta comercial customizada para a sua empresa</div>
               </div>
             </div>
 
