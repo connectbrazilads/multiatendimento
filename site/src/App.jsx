@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import VendasPage from './pages/VendasPage.jsx';
 import { 
   Printer, 
   Settings, 
@@ -522,6 +523,10 @@ const WhatsAppWidget = () => {
 };
 
 function App() {
+  if (window.location.pathname === '/vendas') {
+    return <VendasPage />;
+  }
+
   return (
     <div style={{ background: 'var(--bg-main)', minHeight: '100vh', overflowX: 'hidden' }}>
       <Navbar />
