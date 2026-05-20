@@ -222,6 +222,25 @@ const acceptanceSummary = [
   { flow: 'Segurança e Operação', status: 'Go-live', detail: 'Logs, auditoria, criptografia, performance, escalabilidade e mascaramento especificados.' },
 ];
 
+const demoCredentials = {
+  client: {
+    email: 'cliente@codenapp.com',
+    password: 'Cliente@123',
+    destination: 'Área do cliente',
+  },
+  vendor: {
+    email: 'fornecedor@codenapp.com',
+    password: 'Fornecedor@123',
+    destination: 'Painel do fornecedor',
+  },
+};
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const cpfPattern = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+const cnpjPattern = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
+const phonePattern = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
+const publicMailDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com'];
+
 export default function AuthSpecPage() {
   const [theme, setTheme] = useState(() => localStorage.getItem('auth-spec-theme') || 'dark');
   const [activeSection, setActiveSection] = useState('overview');
@@ -373,6 +392,8 @@ export default function AuthSpecPage() {
                   </button>
                 </div>
               </header>
+
+              <ExperienceLab />
 
               <section id="overview" className="scroll-mt-24 space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -693,6 +714,511 @@ export default function AuthSpecPage() {
       </div>
     </div>
   );
+}
+
+function ExperienceLab() {
+  const [activeTab, setActiveTab] = useState('login');
+  const [attempts, setAttempts] = useState(0);
+  const [errors, setErrors] = useState({});
+  const [feedback, setFeedback] = useState(null);
+  const [loginData, setLoginData] = useState({
+    email: '',
+    password: '',
+    remember: true,
+  });
+  const [clientData, setClientData] = useState({
+    fullName: '',
+    email: '',
+    cpf: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    accepted: false,
+  });
+  const [vendorData, setVendorData] = useState({
+    companyName: '',
+    tradeName: '',
+    cnpj: '',
+    email: '',
+    legalName: '',
+    password: '',
+    confirmPassword: '',
+    accepted: false,
+  });
+
+  const previewSteps = {
+    login: [
+      'Validação de formato em tempo real.',
+      'Resolução automática do perfil pelo e-mail.',
+      attempts >= 5 ? 'Bloqueio progressivo armado na simulação.' : 'Controle de tentativas inválidas ativo.',
+    ],
+    client: [
+      'CPF, e-mail e telefone obrigatórios.',
+      'Senha com política mínima de 10 caracteres.',
+      'Saída prevista: confirmação de e-mail antes do primeiro acesso.',
+    ],
+    vendor: [
+      'CNPJ e e-mail corporativo obrigatórios.',
+      'Responsável legal e aceite comercial exigidos.',
+      'Saída prevista: pendência operacional para aprovação.',
+    ],
+  };
+
+  function resetTransientState(nextTab) {
+    setActiveTab(nextTab);
+    setErrors({});
+    setFeedback(null);
+  }
+
+  function handleLoginChange(field, value) {
+    setLoginData((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleClientChange(field, value) {
+    setClientData((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleVendorChange(field, value) {
+    setVendorData((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleLoginSubmit(event) {
+    event.preventDefault();
+
+    const nextErrors = {};
+    if (!loginData.email.trim()) nextErrors.email = 'Informe o e-mail de acesso.';
+    else if (!emailPattern.test(loginData.email.trim())) nextErrors.email = 'Use um e-mail válido.';
+
+    if (!loginData.password) nextErrors.password = 'Informe a senha.';
+
+    if (attempts >= 5) {
+      setFeedback({
+        tone: 'warning',
+        title: 'Proteção temporária ativada',
+        text: 'A simulação reproduz o bloqueio progressivo após múltiplas falhas. Troque as credenciais ou aguarde uma nova tentativa.',
+      });
+      setErrors(nextErrors);
+      return;
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setFeedback({
+        tone: 'danger',
+        title: 'Campos obrigatórios',
+        text: 'Revise os dados informados antes de continuar.',
+      });
+      return;
+    }
+
+    const normalizedEmail = loginData.email.trim().toLowerCase();
+    const matchedProfile = Object.values(demoCredentials).find(
+      (credential) => credential.email === normalizedEmail && credential.password === loginData.password,
+    );
+
+    setErrors({});
+
+    if (matchedProfile) {
+      setAttempts(0);
+      setFeedback({
+        tone: 'success',
+        title: 'Acesso autorizado',
+        text: `Sessão criada com sucesso. O fluxo redireciona para ${matchedProfile.destination}.`,
+      });
+      return;
+    }
+
+    const nextAttempts = attempts + 1;
+    setAttempts(nextAttempts);
+    setFeedback({
+      tone: nextAttempts >= 5 ? 'warning' : 'danger',
+      title: nextAttempts >= 5 ? 'Conta protegida temporariamente' : 'Credenciais inválidas',
+      text: nextAttempts >= 5
+        ? 'A simulação bloqueou novas tentativas e registraria o evento em auditoria.'
+        : `Tentativa ${nextAttempts} de 5. A resposta continua genérica para não expor a existência da conta.`,
+    });
+  }
+
+  function handleClientSubmit(event) {
+    event.preventDefault();
+
+    const nextErrors = {};
+    if (clientData.fullName.trim().length < 3) nextErrors.fullName = 'Informe o nome completo.';
+    if (!emailPattern.test(clientData.email.trim())) nextErrors.email = 'Use um e-mail válido.';
+    else if ([demoCredentials.client.email, demoCredentials.vendor.email].includes(clientData.email.trim().toLowerCase())) {
+      nextErrors.email = 'Já existe conta para este e-mail.';
+    }
+    if (!cpfPattern.test(clientData.cpf.trim())) nextErrors.cpf = 'Use o formato 000.000.000-00.';
+    if (clientData.cpf.trim() === '123.456.789-00') nextErrors.cpf = 'CPF já cadastrado na base simulada.';
+    if (!phonePattern.test(clientData.phone.trim())) nextErrors.phone = 'Use o formato (00) 00000-0000.';
+    if (!isStrongPassword(clientData.password)) nextErrors.password = 'A senha deve ter 10+ caracteres, maiúscula, minúscula e número.';
+    if (clientData.confirmPassword !== clientData.password) nextErrors.confirmPassword = 'As senhas precisam coincidir.';
+    if (!clientData.accepted) nextErrors.accepted = 'É necessário aceitar os termos.';
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFeedback({
+        tone: 'danger',
+        title: 'Cadastro incompleto',
+        text: 'A simulação encontrou pendências obrigatórias no formulário do cliente.',
+      });
+      return;
+    }
+
+    setFeedback({
+      tone: 'success',
+      title: 'Conta criada',
+      text: 'O cliente seguiria para o status Aguardando confirmação de e-mail antes do primeiro login.',
+    });
+  }
+
+  function handleVendorSubmit(event) {
+    event.preventDefault();
+
+    const nextErrors = {};
+    if (vendorData.companyName.trim().length < 3) nextErrors.companyName = 'Informe a razão social.';
+    if (vendorData.tradeName.trim().length < 3) nextErrors.tradeName = 'Informe o nome fantasia.';
+    if (!cnpjPattern.test(vendorData.cnpj.trim())) nextErrors.cnpj = 'Use o formato 00.000.000/0000-00.';
+    if (vendorData.cnpj.trim() === '12.345.678/0001-90') nextErrors.cnpj = 'CNPJ já existente na base simulada.';
+
+    const normalizedVendorEmail = vendorData.email.trim().toLowerCase();
+    if (!emailPattern.test(normalizedVendorEmail)) nextErrors.email = 'Use um e-mail corporativo válido.';
+    else {
+      const domain = normalizedVendorEmail.split('@')[1];
+      if (publicMailDomains.includes(domain)) nextErrors.email = 'A simulação exige domínio corporativo para fornecedores.';
+      if ([demoCredentials.client.email, demoCredentials.vendor.email].includes(normalizedVendorEmail)) {
+        nextErrors.email = 'Já existe conta para este e-mail.';
+      }
+    }
+
+    if (vendorData.legalName.trim().length < 3) nextErrors.legalName = 'Informe o responsável legal.';
+    if (!isStrongPassword(vendorData.password)) nextErrors.password = 'A senha deve ter 10+ caracteres, maiúscula, minúscula e número.';
+    if (vendorData.confirmPassword !== vendorData.password) nextErrors.confirmPassword = 'As senhas precisam coincidir.';
+    if (!vendorData.accepted) nextErrors.accepted = 'É necessário aceitar os termos comerciais.';
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFeedback({
+        tone: 'danger',
+        title: 'Validação documental pendente',
+        text: 'A simulação reproduz o comportamento do pré-cadastro do fornecedor antes da submissão.',
+      });
+      return;
+    }
+
+    setFeedback({
+      tone: 'success',
+      title: 'Pré-cadastro recebido',
+      text: 'O fornecedor seguiria para análise documental, aprovação operacional e ativação assistida.',
+    });
+  }
+
+  const activeTone = feedback?.tone || 'info';
+
+  return (
+    <section className="rounded-[32px] border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/78 dark:shadow-[0_30px_90px_rgba(2,6,23,0.45)] sm:p-8">
+      <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(160deg,#111827_0%,#0f172a_44%,#111827_100%)] p-6 text-white dark:border-slate-700">
+          <CodeNappPreviewLogo />
+
+          <div className="mt-6 space-y-4">
+            <AuthSpecBadge variant="neutral">Simulação funcional</AuthSpecBadge>
+            <h2 className="font-[var(--font-display)] text-3xl tracking-tight text-white sm:text-4xl">
+              Login e cadastro navegáveis no mesmo link.
+            </h2>
+            <p className="max-w-xl text-sm leading-7 text-slate-300">
+              Este bloco funciona como uma prévia interativa do produto: campos reais, validações coerentes com a especificação e saídas diferentes para cliente e fornecedor.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Credenciais demo
+              </p>
+              <div className="mt-3 space-y-3 text-sm text-slate-200">
+                <p><span className="font-semibold text-white">Cliente:</span> {demoCredentials.client.email}</p>
+                <p><span className="font-semibold text-white">Senha:</span> {demoCredentials.client.password}</p>
+                <p><span className="font-semibold text-white">Fornecedor:</span> {demoCredentials.vendor.email}</p>
+                <p><span className="font-semibold text-white">Senha:</span> {demoCredentials.vendor.password}</p>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Estado observado
+              </p>
+              <div className="mt-3 space-y-3">
+                <LabStatusPill label="Tentativas inválidas" value={`${attempts}/5`} tone={attempts >= 4 ? 'warning' : 'info'} />
+                <LabStatusPill label="Fluxo ativo" value={activeTab === 'login' ? 'Login' : activeTab === 'client' ? 'Cadastro cliente' : 'Cadastro fornecedor'} tone="neutral" />
+                <LabStatusPill label="Resultado esperado" value={activeTab === 'vendor' ? 'Aprovação' : 'Acesso / confirmação'} tone="success" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[24px] border border-white/10 bg-white/5 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              O que esta prévia demonstra
+            </p>
+            <div className="mt-4 space-y-3">
+              {previewSteps[activeTab].map((step) => (
+                <div key={step} className="flex items-start gap-3 text-sm leading-7 text-slate-200">
+                  <CheckCircle2 size={17} className="mt-1 shrink-0 text-emerald-400" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-950/70 sm:p-5">
+          <div className="spec-scrollbar flex gap-2 overflow-x-auto pb-2">
+            <DemoTabButton
+              active={activeTab === 'login'}
+              icon={LockKeyhole}
+              label="Login"
+              onClick={() => resetTransientState('login')}
+            />
+            <DemoTabButton
+              active={activeTab === 'client'}
+              icon={Users2}
+              label="Cadastro cliente"
+              onClick={() => resetTransientState('client')}
+            />
+            <DemoTabButton
+              active={activeTab === 'vendor'}
+              icon={Building2}
+              label="Cadastro fornecedor"
+              onClick={() => resetTransientState('vendor')}
+            />
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-900/80">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Sandbox autenticável
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {activeTab === 'login' ? 'Acesso com resolução de perfil' : activeTab === 'client' ? 'Auto cadastro do cliente' : 'Pré-cadastro do fornecedor'}
+                </h3>
+              </div>
+              <AuthSpecBadge variant={activeTone}>
+                {feedback?.title || 'Pronto para simular'}
+              </AuthSpecBadge>
+            </div>
+
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {activeTab === 'login'
+                ? 'Use as credenciais demo ou force erros para visualizar feedbacks, bloqueio progressivo e mensagem neutra.'
+                : activeTab === 'client'
+                  ? 'O formulário reproduz validações de obrigatoriedade, unicidade simulada, CPF, telefone, senha e aceite.'
+                  : 'Esta versão simula o fluxo corporativo com CNPJ, e-mail de domínio empresarial, responsável legal e pendência operacional.'}
+            </p>
+
+            {feedback ? (
+              <div className={[
+                'mt-5 rounded-[20px] border px-4 py-3 text-sm leading-7',
+                feedback.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'
+                  : feedback.tone === 'warning'
+                    ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
+                    : feedback.tone === 'danger'
+                      ? 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
+                      : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200',
+              ].join(' ')}>
+                {feedback.text}
+              </div>
+            ) : null}
+
+            {activeTab === 'login' ? (
+              <form className="mt-6 grid gap-4" onSubmit={handleLoginSubmit}>
+                <LabField
+                  label="E-mail"
+                  value={loginData.email}
+                  onChange={(value) => handleLoginChange('email', value)}
+                  placeholder="voce@empresa.com"
+                  error={errors.email}
+                  type="email"
+                />
+                <LabField
+                  label="Senha"
+                  value={loginData.password}
+                  onChange={(value) => handleLoginChange('password', value)}
+                  placeholder="Digite sua senha"
+                  error={errors.password}
+                  type="password"
+                />
+                <LabCheckbox
+                  checked={loginData.remember}
+                  label="Lembrar dispositivo confiável"
+                  onChange={(checked) => handleLoginChange('remember', checked)}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => resetTransientState('client')}
+                    className="text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    Criar nova conta
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={attempts >= 5}
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    Entrar
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {activeTab === 'client' ? (
+              <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleClientSubmit}>
+                <LabField label="Nome completo" value={clientData.fullName} onChange={(value) => handleClientChange('fullName', value)} error={errors.fullName} />
+                <LabField label="E-mail" type="email" value={clientData.email} onChange={(value) => handleClientChange('email', value)} error={errors.email} />
+                <LabField label="CPF" value={clientData.cpf} onChange={(value) => handleClientChange('cpf', value)} error={errors.cpf} placeholder="000.000.000-00" />
+                <LabField label="Celular" value={clientData.phone} onChange={(value) => handleClientChange('phone', value)} error={errors.phone} placeholder="(00) 00000-0000" />
+                <LabField label="Senha" type="password" value={clientData.password} onChange={(value) => handleClientChange('password', value)} error={errors.password} />
+                <LabField label="Confirmar senha" type="password" value={clientData.confirmPassword} onChange={(value) => handleClientChange('confirmPassword', value)} error={errors.confirmPassword} />
+                <div className="md:col-span-2">
+                  <LabCheckbox checked={clientData.accepted} label="Aceito os termos de uso e a política de privacidade" onChange={(checked) => handleClientChange('accepted', checked)} error={errors.accepted} />
+                </div>
+                <div className="md:col-span-2 flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    Criar conta de cliente
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {activeTab === 'vendor' ? (
+              <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleVendorSubmit}>
+                <LabField label="Razão social" value={vendorData.companyName} onChange={(value) => handleVendorChange('companyName', value)} error={errors.companyName} />
+                <LabField label="Nome fantasia" value={vendorData.tradeName} onChange={(value) => handleVendorChange('tradeName', value)} error={errors.tradeName} />
+                <LabField label="CNPJ" value={vendorData.cnpj} onChange={(value) => handleVendorChange('cnpj', value)} error={errors.cnpj} placeholder="00.000.000/0000-00" />
+                <LabField label="E-mail corporativo" type="email" value={vendorData.email} onChange={(value) => handleVendorChange('email', value)} error={errors.email} placeholder="contato@empresa.com" />
+                <div className="md:col-span-2">
+                  <LabField label="Responsável legal" value={vendorData.legalName} onChange={(value) => handleVendorChange('legalName', value)} error={errors.legalName} />
+                </div>
+                <LabField label="Senha" type="password" value={vendorData.password} onChange={(value) => handleVendorChange('password', value)} error={errors.password} />
+                <LabField label="Confirmar senha" type="password" value={vendorData.confirmPassword} onChange={(value) => handleVendorChange('confirmPassword', value)} error={errors.confirmPassword} />
+                <div className="md:col-span-2">
+                  <LabCheckbox checked={vendorData.accepted} label="Aceito os termos comerciais e a análise documental" onChange={(checked) => handleVendorChange('accepted', checked)} error={errors.accepted} />
+                </div>
+                <div className="md:col-span-2 flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    Enviar pré-cadastro
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CodeNappPreviewLogo() {
+  return (
+    <div className="flex items-center gap-4">
+      <svg viewBox="0 0 92 64" className="h-12 w-auto text-white" fill="none" aria-hidden="true">
+        <path d="M4 32 28 8h14L18 32l24 24H28L4 32Z" fill="currentColor" />
+        <path d="m28 32 24-24h12L40 32l24 24H52L28 32Z" fill="currentColor" opacity="0.92" />
+        <path d="m52 8 24 24-24 24H40l24-24L40 8h12Z" fill="currentColor" opacity="0.75" />
+      </svg>
+      <div className="font-[var(--font-display)] leading-none tracking-tight text-white">
+        <div className="text-3xl">code</div>
+        <div className="-mt-1 text-3xl">napp</div>
+      </div>
+    </div>
+  );
+}
+
+function DemoTabButton({ active, icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'inline-flex items-center gap-2 whitespace-nowrap rounded-2xl border px-4 py-3 text-sm font-medium transition',
+        active
+          ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-950'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white',
+      ].join(' ')}
+    >
+      <Icon size={16} />
+      {label}
+    </button>
+  );
+}
+
+function LabField({ label, value, onChange, error, type = 'text', placeholder }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className={[
+          'w-full rounded-2xl border px-4 py-3 text-sm outline-none transition',
+          error
+            ? 'border-rose-300 bg-rose-50 text-rose-950 placeholder:text-rose-400 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-100'
+            : 'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500',
+        ].join(' ')}
+      />
+      {error ? <span className="mt-2 block text-xs font-medium text-rose-600 dark:text-rose-300">{error}</span> : null}
+    </label>
+  );
+}
+
+function LabCheckbox({ checked, label, onChange, error }) {
+  return (
+    <label className="block">
+      <span className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-950 focus:ring-slate-400 dark:border-slate-600"
+        />
+        <span>{label}</span>
+      </span>
+      {error ? <span className="mt-2 block text-xs font-medium text-rose-600 dark:text-rose-300">{error}</span> : null}
+    </label>
+  );
+}
+
+function LabStatusPill({ label, value, tone }) {
+  const toneClass = tone === 'warning'
+    ? 'border-amber-400/30 bg-amber-400/10 text-amber-100'
+    : tone === 'success'
+      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+      : tone === 'info'
+        ? 'border-sky-400/30 bg-sky-400/10 text-sky-100'
+        : 'border-white/10 bg-white/5 text-slate-200';
+
+  return (
+    <div className={`rounded-2xl border px-3 py-3 ${toneClass}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function isStrongPassword(value) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,}$/.test(value);
 }
 
 function MetaCard({ label, value, detail }) {
