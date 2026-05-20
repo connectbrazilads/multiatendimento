@@ -155,6 +155,45 @@ const recoveryAcceptance = [
   'Dado um e-mail nao cadastrado, quando solicitar recuperacao, entao a interface deve responder com a mesma mensagem usada para contas existentes.',
 ];
 
+const nfrRows = [
+  {
+    id: 'NFR-SEC-01',
+    title: 'Seguranca e criptografia',
+    description: 'Senhas armazenadas com hash resistente a forca bruta, trafego exclusivamente em TLS 1.2+ e segredos segregados por ambiente.',
+    metric: 'Zero armazenamento reversivel',
+  },
+  {
+    id: 'NFR-PER-01',
+    title: 'Performance percebida',
+    description: 'Tempo de resposta da autenticacao inferior a 2 segundos no percentil 95, desconsiderando indisponibilidade de terceiros.',
+    metric: 'p95 < 2s',
+  },
+  {
+    id: 'NFR-AUD-01',
+    title: 'Auditoria e observabilidade',
+    description: 'Registrar autenticacoes, falhas, resets, bloqueios e mudancas de perfil com correlacao por request id.',
+    metric: 'Retencao minima de 180 dias',
+  },
+  {
+    id: 'NFR-SCL-01',
+    title: 'Escalabilidade',
+    description: 'Camada de autenticacao preparada para crescimento horizontal e filas assincronas para e-mails e validacoes externas.',
+    metric: 'Arquitetura stateless',
+  },
+  {
+    id: 'NFR-RES-01',
+    title: 'Responsividade',
+    description: 'Experiencia integra a partir de 360px, com foco em navegacao movel para clientes e fornecedores em campo.',
+    metric: 'Mobile first validado',
+  },
+  {
+    id: 'NFR-LOG-01',
+    title: 'Logs operacionais',
+    description: 'Mensagens estruturadas, sem dados sensiveis, com alertas para anomalias de acesso e picos de falha.',
+    metric: 'Mascaramento obrigatorio',
+  },
+];
+
 const crossRules = [
   { rule: 'Expiracao de sessao', detail: 'Access token curto e refresh token rotativo com revogacao imediata em logout, reset de senha, bloqueio ou troca de perfil.' },
   { rule: 'Bloqueio progressivo', detail: 'Falhas repetidas elevam o tempo de espera e podem exigir desafio adicional.' },
