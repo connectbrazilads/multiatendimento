@@ -7,6 +7,7 @@ import api from './services/api';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
+const AuthSpecPage = lazy(() => import('./pages/AuthSpecPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Contacts = lazy(() => import('./pages/Contacts'));
@@ -124,6 +125,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/:slug/login" element={<Login />} />
+          <Route path="/validation/auth-spec" element={<AuthSpecPage />} />
 
           <Route
             element={(
