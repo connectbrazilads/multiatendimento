@@ -240,6 +240,7 @@ const cpfPattern = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
 const cnpjPattern = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
 const phonePattern = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
 const publicMailDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com'];
+const demoStorageKey = 'auth-spec-demo-accounts-v1';
 
 export default function AuthSpecPage() {
   const [theme, setTheme] = useState(() => localStorage.getItem('auth-spec-theme') || 'dark');
@@ -721,6 +722,7 @@ function ExperienceLab() {
   const [attempts, setAttempts] = useState(0);
   const [errors, setErrors] = useState({});
   const [feedback, setFeedback] = useState(null);
+  const [demoAccounts, setDemoAccounts] = useState(() => loadStoredDemoAccounts());
   const [loginData, setLoginData] = useState({
     email: '',
     password: '',
@@ -735,6 +737,21 @@ function ExperienceLab() {
     confirmPassword: '',
     accepted: false,
   });
+
+  useEffect(() => {
+    localStorage.setItem(demoStorageKey, JSON.stringify(demoAccounts));
+  }, [demoAccounts]);
+
+  const demoSeedAccounts = Object.entries(demoCredentials).map(([profile, credential]) => ({
+    profile,
+    email: credential.email,
+    password: credential.password,
+    destination: credential.destination,
+    status: profile === 'vendor' ? 'Aprovado' : 'Ativo',
+    source: 'seed',
+  }));
+
+  const allDemoAccounts = [...demoSeedAccounts, ...demoAccounts];
   const [vendorData, setVendorData] = useState({
     companyName: '',
     tradeName: '',
@@ -812,18 +829,20 @@ function ExperienceLab() {
     }
 
     const normalizedEmail = loginData.email.trim().toLowerCase();
-    const matchedProfile = Object.values(demoCredentials).find(
-      (credential) => credential.email === normalizedEmail && credential.password === loginData.password,
+    const matchedAccount = allDemoAccounts.find(
+      (account) => account.email === normalizedEmail && account.password === loginData.password,
     );
 
     setErrors({});
 
-    if (matchedProfile) {
+    if (matchedAccount) {
       setAttempts(0);
       setFeedback({
         tone: 'success',
         title: 'Acesso autorizado',
-        text: `Sessão criada com sucesso. O fluxo redireciona para ${matchedProfile.destination}.`,
+        text: matchedAccount.status === 'Pendente'
+          ? `Conta localizada com sucesso. O fluxo direciona para ${matchedAccount.destination}, mantendo o status pendente até a aprovação operacional.`
+          : `Sessão criada com sucesso. O fluxo redireciona para ${matchedAccount.destination}.`,
       });
       return;
     }
@@ -844,12 +863,13 @@ function ExperienceLab() {
 
     const nextErrors = {};
     if (clientData.fullName.trim().length < 3) nextErrors.fullName = 'Informe o nome completo.';
-    if (!emailPattern.test(clientData.email.trim())) nextErrors.email = 'Use um e-mail válido.';
-    else if ([demoCredentials.client.email, demoCredentials.vendor.email].includes(clientData.email.trim().toLowerCase())) {
-      nextErrors.email = 'Já existe conta para este e-mail.';
-    }
+    const normalizedClientEmail = clientData.email.trim().toLowerCase();
+    if (!emailPattern.test(normalizedClientEmail)) nextErrors.email = 'Use um e-mail válido.';
+    else if (allDemoAccounts.some((account) => account.email === normalizedClientEmail)) nextErrors.email = 'Já existe conta para este e-mail.';
     if (!cpfPattern.test(clientData.cpf.trim())) nextErrors.cpf = 'Use o formato 000.000.000-00.';
-    if (clientData.cpf.trim() === '123.456.789-00') nextErrors.cpf = 'CPF já cadastrado na base simulada.';
+    if (demoAccounts.some((account) => account.document === clientData.cpf.trim()) || clientData.cpf.trim() === '123.456.789-00') {
+      nextErrors.cpf = 'CPF já cadastrado na base simulada.';
+    }
     if (!phonePattern.test(clientData.phone.trim())) nextErrors.phone = 'Use o formato (00) 00000-0000.';
     if (!isStrongPassword(clientData.password)) nextErrors.password = 'A senha deve ter 10+ caracteres, maiúscula, minúscula e número.';
     if (clientData.confirmPassword !== clientData.password) nextErrors.confirmPassword = 'As senhas precisam coincidir.';
@@ -866,10 +886,36 @@ function ExperienceLab() {
       return;
     }
 
+    const createdAccount = {
+      profile: 'client',
+      email: normalizedClientEmail,
+      password: clientData.password,
+      destination: 'Área do cliente',
+      status: 'Aguardando confirmação de e-mail',
+      document: clientData.cpf.trim(),
+      name: clientData.fullName.trim(),
+    };
+
+    setDemoAccounts((current) => [...current, createdAccount]);
+    setLoginData((current) => ({
+      ...current,
+      email: createdAccount.email,
+      password: createdAccount.password,
+    }));
+    setClientData({
+      fullName: '',
+      email: '',
+      cpf: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+      accepted: false,
+    });
+    setErrors({});
     setFeedback({
       tone: 'success',
       title: 'Conta criada',
-      text: 'O cliente seguiria para o status Aguardando confirmação de e-mail antes do primeiro login.',
+      text: 'Conta criada na simulação e salva neste navegador. Você já pode testar o login com o mesmo e-mail e senha.',
     });
   }
 
@@ -887,9 +933,13 @@ function ExperienceLab() {
     else {
       const domain = normalizedVendorEmail.split('@')[1];
       if (publicMailDomains.includes(domain)) nextErrors.email = 'A simulação exige domínio corporativo para fornecedores.';
-      if ([demoCredentials.client.email, demoCredentials.vendor.email].includes(normalizedVendorEmail)) {
+      if (allDemoAccounts.some((account) => account.email === normalizedVendorEmail)) {
         nextErrors.email = 'Já existe conta para este e-mail.';
       }
+    }
+
+    if (demoAccounts.some((account) => account.document === vendorData.cnpj.trim()) || vendorData.cnpj.trim() === '12.345.678/0001-90') {
+      nextErrors.cnpj = 'CNPJ já existente na base simulada.';
     }
 
     if (vendorData.legalName.trim().length < 3) nextErrors.legalName = 'Informe o responsável legal.';
@@ -908,10 +958,38 @@ function ExperienceLab() {
       return;
     }
 
+    const createdAccount = {
+      profile: 'vendor',
+      email: normalizedVendorEmail,
+      password: vendorData.password,
+      destination: 'Onboarding pendente do fornecedor',
+      status: 'Pendente',
+      document: vendorData.cnpj.trim(),
+      name: vendorData.tradeName.trim(),
+      legalName: vendorData.legalName.trim(),
+    };
+
+    setDemoAccounts((current) => [...current, createdAccount]);
+    setLoginData((current) => ({
+      ...current,
+      email: createdAccount.email,
+      password: createdAccount.password,
+    }));
+    setVendorData({
+      companyName: '',
+      tradeName: '',
+      cnpj: '',
+      email: '',
+      legalName: '',
+      password: '',
+      confirmPassword: '',
+      accepted: false,
+    });
+    setErrors({});
     setFeedback({
       tone: 'success',
       title: 'Pré-cadastro recebido',
-      text: 'O fornecedor seguiria para análise documental, aprovação operacional e ativação assistida.',
+      text: 'Pré-cadastro salvo neste navegador. O login já reconhece a conta criada e retorna o status pendente de aprovação.',
     });
   }
 
@@ -1215,6 +1293,26 @@ function LabStatusPill({ label, value, tone }) {
       <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function loadStoredDemoAccounts() {
+  try {
+    const raw = localStorage.getItem(demoStorageKey);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((account) => (
+      account
+      && typeof account.email === 'string'
+      && typeof account.password === 'string'
+      && typeof account.profile === 'string'
+      && typeof account.destination === 'string'
+    ));
+  } catch {
+    return [];
+  }
 }
 
 function isStrongPassword(value) {
