@@ -40,7 +40,7 @@ async function getEquipments(req, res) {
 
 async function addEquipment(req, res) {
   const { contactId } = req.params;
-  const { manufacturer, model, serialNumber, sector, address } = req.body;
+  const { manufacturer, model, serialNumber, sector, address, type } = req.body;
   const equipment = await prisma.equipment.create({
     data: {
       tenantId: req.user.tenantId,
@@ -49,7 +49,8 @@ async function addEquipment(req, res) {
       model,
       serialNumber,
       sector,
-      address
+      address,
+      type
     }
   });
   res.json(equipment);
@@ -57,10 +58,10 @@ async function addEquipment(req, res) {
 
 async function updateEquipment(req, res) {
   const { id } = req.params;
-  const { manufacturer, model, serialNumber, sector, address, isActive } = req.body;
+  const { manufacturer, model, serialNumber, sector, address, type, isActive } = req.body;
   const equipment = await prisma.equipment.update({
     where: { id, tenantId: req.user.tenantId },
-    data: { manufacturer, model, serialNumber, sector, address, isActive }
+    data: { manufacturer, model, serialNumber, sector, address, type, isActive }
   });
   res.json(equipment);
 }

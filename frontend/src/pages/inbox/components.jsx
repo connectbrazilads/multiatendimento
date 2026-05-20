@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
+import ContactProfileModal from '../../components/ContactProfileModal';
 
 function getSafeTags(rawTags) {
   if (!rawTags) return [];
@@ -71,6 +72,16 @@ function getContactDisplayName(contact, fallback = 'Desconhecido') {
 
 function getContactPhone(contact, fallback = '') {
   return getSafeText(contact?.phone, fallback);
+}
+
+function getEquipmentDisplayName(equipment) {
+  const manufacturer = getSafeText(equipment?.manufacturer);
+  const model = getSafeText(equipment?.model, 'Equipamento');
+  return manufacturer && model.toLowerCase().startsWith(manufacturer.toLowerCase())
+    ? model
+    : manufacturer
+      ? `${manufacturer} ${model}`
+      : model;
 }
 
 function formatTicketTimestamp(value) {
@@ -444,21 +455,37 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   const [equipments, setEquipments] = useState([]);
   const [linkedCrm, setLinkedCrm] = useState(null);
   const [panelTab, setPanelTab] = useState('overview');
+  const [profileModal, setProfileModal] = useState(null);
   const statusMeta = getStatusMeta(ticket.status);
   const priorityMeta = getPriorityMeta(priority);
 
+  async function loadPanelContext() {
+    try {
+      const [mediaResponse, tagsResponse, equipmentResponse] = await Promise.all([
+        getContactMedia(contact.id),
+        getTags(),
+        getEquipments(contact.id),
+      ]);
+
+      setMedia(mediaResponse.data || []);
+      setAvailableTags(tagsResponse.data || []);
+      setEquipments(equipmentResponse.data || []);
+    } catch {
+      // noop
+    }
+
+    try {
+      const response = await api.get(`/contacts?search=${encodeURIComponent(contactPhone)}`);
+      const list = response.data.contacts || response.data || [];
+      const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contactPhone);
+      setLinkedCrm(crm || null);
+    } catch {
+      setLinkedCrm(null);
+    }
+  }
+
   useEffect(() => {
-    getContactMedia(contact.id).then((response) => setMedia(response.data));
-    getTags().then((response) => setAvailableTags(response.data));
-    getEquipments(contact.id).then((response) => setEquipments(response.data));
-    api
-      .get(`/contacts?search=${encodeURIComponent(contactPhone)}`)
-      .then((response) => {
-        const list = response.data.contacts || response.data || [];
-        const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contactPhone);
-        setLinkedCrm(crm);
-      })
-      .catch(() => {});
+    loadPanelContext();
   }, [contact.id, contactPhone]);
 
   useEffect(() => {
@@ -509,6 +536,17 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       equipmentsText ? `Equipamentos:\n${equipmentsText}` : '',
     ].filter(Boolean).join('\n\n');
   }
+
+  function openProfileModal(targetContact, initialTab = 'dados', initialEquipment = null) {
+    if (!targetContact?.id) {
+      toast.info('Nenhum cadastro vinculado para abrir');
+      return;
+    }
+
+    setProfileModal({ contact: targetContact, initialTab, initialEquipment });
+  }
+
+  const equipmentOwner = linkedCrm || contact;
 
   const overviewTab = (
     <>
@@ -568,20 +606,45 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       </div>
 
       <div style={styles.infoSection}>
-        <h5 style={styles.infoLabel}>Equipamentos</h5>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <h5 style={{ ...styles.infoLabel, marginBottom: 0 }}>Equipamentos</h5>
+          <button
+            type="button"
+            onClick={() => openProfileModal(equipmentOwner, 'equipamentos')}
+            style={{
+              ...styles.infoActionBtn,
+              minHeight: '34px',
+              padding: '0 0.8rem',
+              fontSize: '0.7rem',
+            }}
+          >
+            Adicionar
+          </button>
+        </div>
         <div style={styles.infoCardList}>
           {equipments.map((equipment) => (
             <div key={equipment.id} style={styles.infoListCard}>
-              <div style={styles.infoListTitle}>
-                {(() => {
-                  const manufacturer = getSafeText(equipment.manufacturer);
-                  const model = getSafeText(equipment.model, 'Equipamento');
-                  return model.toLowerCase().startsWith(manufacturer.toLowerCase()) ? model : (manufacturer ? `${manufacturer} ${model}` : model);
-                })()}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={styles.infoListTitle}>{getEquipmentDisplayName(equipment)}</div>
+                  <div style={styles.infoListMeta}>{equipment.type || 'Equipamento'}</div>
+                  <div style={styles.infoListSubtle}>Serie: {equipment.serialNumber || 'S/N'}</div>
+                  {equipment.sector ? <div style={styles.infoListSubtle}>Setor: {equipment.sector}</div> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openProfileModal(equipmentOwner, 'equipamentos', equipment)}
+                  style={{
+                    ...styles.infoActionBtn,
+                    minHeight: '32px',
+                    padding: '0 0.7rem',
+                    fontSize: '0.68rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  Editar
+                </button>
               </div>
-              <div style={styles.infoListMeta}>{equipment.type || 'Equipamento'}</div>
-              <div style={styles.infoListSubtle}>Serie: {equipment.serialNumber || 'S/N'}</div>
-              {equipment.sector ? <div style={styles.infoListSubtle}>Setor: {equipment.sector}</div> : null}
             </div>
           ))}
           {equipments.length === 0 ? <div style={styles.infoEmpty}>Nenhum equipamento vinculado</div> : null}
@@ -705,9 +768,14 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           </button>
           <h4 style={styles.infoName}>{contactName}</h4>
           {linkedCrm ? (
-            <div style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => openProfileModal(linkedCrm, 'dados')}
+              style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              title="Abrir empresa vinculada"
+            >
               CRM {linkedCrm.fantasyName || linkedCrm.name}
-            </div>
+            </button>
           ) : contact.fantasyName ? (
             <div style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 700, marginBottom: 8, padding: '4px 12px', background: 'rgba(212,175,55,0.1)', borderRadius: '8px', display: 'inline-block' }}>
               CRM {contact.fantasyName}
@@ -762,6 +830,19 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         {panelTab === 'notes' ? notesTab : null}
         {panelTab === 'media' ? mediaTab : null}
       </div>
+
+      {profileModal ? (
+        <ContactProfileModal
+          key={`${profileModal.contact.id}-${profileModal.initialTab}-${profileModal.initialEquipment?.id || 'new'}`}
+          contact={profileModal.contact}
+          initialTab={profileModal.initialTab}
+          initialEquipment={profileModal.initialEquipment || null}
+          onClose={() => setProfileModal(null)}
+          onUpdated={() => {
+            loadPanelContext();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -852,8 +933,9 @@ export function TicketSidebar({
   const filteredTickets = tickets.filter((ticket) => {
     const query = getSafeLowerText(search);
     const name = getSafeLowerText(ticket.contact?.name);
+    const fantasyName = getSafeLowerText(ticket.contact?.fantasyName);
     const phone = getSafeLowerText(ticket.contact?.phone);
-    return name.includes(query) || phone.includes(query);
+    return name.includes(query) || fantasyName.includes(query) || phone.includes(query);
   });
 
   const activeTabLabel = {
@@ -908,7 +990,10 @@ export function TicketSidebar({
             />
           </div>
           <button
-            onClick={() => setFilters({ priority: '', agentId: '', teamId: '' })}
+            onClick={() => {
+              setSearch('');
+              setFilters({ priority: '', agentId: '', teamId: '' });
+            }}
             style={styles.clearBtn}
           >
             Limpar

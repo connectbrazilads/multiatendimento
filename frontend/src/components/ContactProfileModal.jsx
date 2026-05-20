@@ -6,9 +6,21 @@ import ActionButton from './ui/ActionButton';
 import ModalShell from './ui/ModalShell';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+const EMPTY_EQUIPMENT = { manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' };
 
-export default function ContactProfileModal({ contact, onClose, onUpdated }) {
-  const [activeTab, setActiveTab] = useState('dados');
+function mapEquipmentToForm(equipment) {
+  return {
+    manufacturer: equipment?.manufacturer || '',
+    model: equipment?.model || '',
+    serialNumber: equipment?.serialNumber || '',
+    sector: equipment?.sector || '',
+    address: equipment?.address || '',
+    type: equipment?.type || '',
+  };
+}
+
+export default function ContactProfileModal({ contact, onClose, onUpdated, initialTab = 'dados', initialEquipment = null }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [formData, setFormData] = useState({
     name: contact.name || '',
     fantasyName: contact.fantasyName || '',
@@ -22,13 +34,30 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
   });
   const [equipments, setEquipments] = useState([]);
   const [osHistory, setOsHistory] = useState([]);
-  const [newEquip, setNewEquip] = useState({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
+  const [newEquip, setNewEquip] = useState(initialEquipment ? mapEquipmentToForm(initialEquipment) : { ...EMPTY_EQUIPMENT });
   const [editingEquipId, setEditingEquipId] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'equipamentos') loadEquipments();
     if (activeTab === 'os') loadOsHistory();
-  }, [activeTab]);
+  }, [activeTab, contact.id]);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [contact.id, initialTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'equipamentos') return;
+
+    if (initialEquipment?.id) {
+      setEditingEquipId(initialEquipment.id);
+      setNewEquip(mapEquipmentToForm(initialEquipment));
+      return;
+    }
+
+    setEditingEquipId(null);
+    setNewEquip({ ...EMPTY_EQUIPMENT });
+  }, [activeTab, contact.id, initialEquipment]);
 
   async function loadEquipments() {
     try {
@@ -84,8 +113,9 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
         await api.post(`/os/contacts/${contact.id}/equipments`, newEquip);
         toast.success('Equipamento adicionado');
       }
-      setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
+      setNewEquip({ ...EMPTY_EQUIPMENT });
       loadEquipments();
+      onUpdated?.();
     } catch (e) {
       toast.error('Erro ao salvar equipamento');
     }
@@ -93,14 +123,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
 
   function startEditEquip(equipment) {
     setEditingEquipId(equipment.id);
-    setNewEquip({
-      manufacturer: equipment.manufacturer || '',
-      model: equipment.model || '',
-      serialNumber: equipment.serialNumber || '',
-      sector: equipment.sector || '',
-      address: equipment.address || '',
-      type: equipment.type || '',
-    });
+    setNewEquip(mapEquipmentToForm(equipment));
   }
 
   async function handleDeleteEquip(id) {
@@ -108,6 +131,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
       try {
         await deleteEquipment(id);
         loadEquipments();
+        onUpdated?.();
         toast.success('Equipamento excluido');
       } catch (e) {
         toast.error('Erro ao excluir');
@@ -225,7 +249,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated }) {
                     variant="secondary"
                     onClick={() => {
                       setEditingEquipId(null);
-                      setNewEquip({ manufacturer: '', model: '', serialNumber: '', sector: '', address: '', type: '' });
+                      setNewEquip({ ...EMPTY_EQUIPMENT });
                     }}
                   >
                     Cancelar
