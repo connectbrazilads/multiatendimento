@@ -4,10 +4,10 @@ import './index.css';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import api from './services/api';
+import AuthSpecPage from './pages/AuthSpecPage';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
-const AuthSpecPage = lazy(() => import('./pages/AuthSpecPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Contacts = lazy(() => import('./pages/Contacts'));

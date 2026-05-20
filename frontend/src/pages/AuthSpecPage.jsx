@@ -40,6 +40,12 @@ const overviewMetrics = [
   { label: 'Status do artefato', value: 'Validacao', detail: 'Pronto para discovery tecnico, alinhamento funcional e refinamento.' },
 ];
 
+const executiveHighlights = [
+  { title: 'Objetivo', text: 'Definir a base funcional e operacional da autenticacao para uma plataforma de compras com dois perfis de acesso.' },
+  { title: 'Risco principal', text: 'Fraude, takeover de conta e aprovacao indevida de fornecedores sem trilha robusta de validacao.' },
+  { title: 'Decisao de desenho', text: 'Separar conversao de cliente e governanca de fornecedor sem fragmentar a experiencia da plataforma.' },
+];
+
 const scopeRows = [
   { title: 'Em escopo', text: 'Jornada de autenticacao web, cadastro por perfil, reset de senha, controles de sessao e regras de aprovacao para fornecedores.' },
   { title: 'Fora de escopo', text: 'SSO corporativo, login social, MFA obrigatorio para todos os usuarios e IAM avancado para backoffice.' },
@@ -261,8 +267,8 @@ export default function AuthSpecPage() {
                   <div className="space-y-5">
                     <div className="flex flex-wrap items-center gap-2">
                       <AuthSpecBadge variant="info">Product Discovery</AuthSpecBadge>
-                      <AuthSpecBadge variant="success">Documento em revisao</AuthSpecBadge>
-                      <AuthSpecBadge variant="warning">Link de validacao</AuthSpecBadge>
+                      <AuthSpecBadge variant="success">Spec executivo</AuthSpecBadge>
+                      <AuthSpecBadge variant="warning">Validacao controlada</AuthSpecBadge>
                     </div>
 
                     <div className="space-y-4">
@@ -283,6 +289,22 @@ export default function AuthSpecPage() {
                     <MetaCard label="Ultima revisao" value="20 mai 2026" detail="Versao refinada para avaliacao funcional e tecnica." />
                     <MetaCard label="Publicacao" value="Noindex ativo" detail="Pagina mantida acessivel, mas sinalizada para nao indexacao." />
                   </div>
+                </div>
+
+                <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-950/70">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AuthSpecBadge variant="neutral">Documento de referencia</AuthSpecBadge>
+                    <AuthSpecBadge variant="info">Leitura executiva + tecnica</AuthSpecBadge>
+                  </div>
+                  <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    A estrutura abaixo foi organizada para leitura rapida por produto, engenharia e avaliadores de processo. O topo resume contexto e decisao de desenho; as secoes seguintes detalham requisitos, regras e aceite por fluxo.
+                  </p>
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                  {executiveHighlights.map((item) => (
+                    <CompactInsightCard key={item.title} title={item.title} text={item.text} />
+                  ))}
                 </div>
 
                 <div className="mt-6 flex gap-3 overflow-x-auto pb-1 lg:hidden">
@@ -693,7 +715,7 @@ function ScopeGrid({ rows }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {rows.map((row) => (
-        <div key={row.title} className="rounded-[26px] border border-slate-200 bg-white/88 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900/72">
+        <div key={row.title} className="rounded-[26px] border border-slate-200 bg-white/88 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] transition-transform duration-200 hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900/72">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{row.title}</p>
           <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{row.text}</p>
         </div>
@@ -746,6 +768,9 @@ function FieldMatrixTable({ title, rows }) {
     <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50/85 dark:border-slate-800 dark:bg-slate-950/70">
       <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
         <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h3>
+        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+          Rolagem horizontal habilitada em telas menores
+        </p>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
@@ -910,6 +935,15 @@ function ReleaseChecklist({ rows }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CompactInsightCard({ title, text }) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white/88 p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900/72">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{text}</p>
     </div>
   );
 }
