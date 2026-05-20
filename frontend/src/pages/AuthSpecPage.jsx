@@ -25,201 +25,201 @@ import AuthSpecSection from '../components/authSpec/AuthSpecSection';
 import AuthSpecSidebar from '../components/authSpec/AuthSpecSidebar';
 
 const sections = [
-  { id: 'overview', label: 'Visao Geral', code: '00' },
+  { id: 'overview', label: 'Visão Geral', code: '00' },
   { id: 'login', label: 'Tela de Login', code: '01' },
   { id: 'signup', label: 'Auto Cadastro', code: '02' },
-  { id: 'recovery', label: 'Recuperacao de Senha', code: '03' },
-  { id: 'non-functional', label: 'Requisitos Nao Funcionais', code: '04' },
+  { id: 'recovery', label: 'Recuperação de Senha', code: '03' },
+  { id: 'non-functional', label: 'Requisitos Não Funcionais', code: '04' },
   { id: 'timeline', label: 'Timeline', code: '05' },
 ];
 
 const overviewMetrics = [
-  { label: 'Perfis de acesso', value: '2', detail: 'Clientes e fornecedores com regras e aprovacoes diferentes.' },
-  { label: 'Fluxos cobertos', value: '3', detail: 'Login, auto cadastro e recuperacao de senha.' },
-  { label: 'Itens criticos', value: '12', detail: 'Validacoes, seguranca, sessao, logs e trilha de auditoria.' },
-  { label: 'Status do artefato', value: 'Validacao', detail: 'Pronto para discovery tecnico, alinhamento funcional e refinamento.' },
+  { label: 'Perfis de acesso', value: '2', detail: 'Clientes e fornecedores com regras e aprovações diferentes.' },
+  { label: 'Fluxos cobertos', value: '3', detail: 'Login, auto cadastro e recuperação de senha.' },
+  { label: 'Itens críticos', value: '12', detail: 'Validações, segurança, sessão, logs e trilha de auditoria.' },
+  { label: 'Status do artefato', value: 'Validação', detail: 'Pronto para discovery técnico, alinhamento funcional e refinamento.' },
 ];
 
 const executiveHighlights = [
-  { title: 'Objetivo', text: 'Definir a base funcional e operacional da autenticacao para uma plataforma de compras com dois perfis de acesso.' },
-  { title: 'Risco principal', text: 'Fraude, takeover de conta e aprovacao indevida de fornecedores sem trilha robusta de validacao.' },
-  { title: 'Decisao de desenho', text: 'Separar conversao de cliente e governanca de fornecedor sem fragmentar a experiencia da plataforma.' },
+  { title: 'Objetivo', text: 'Definir a base funcional e operacional da autenticação para uma plataforma de compras com dois perfis de acesso.' },
+  { title: 'Risco principal', text: 'Fraude, takeover de conta e aprovação indevida de fornecedores sem trilha robusta de validação.' },
+  { title: 'Decisão de desenho', text: 'Separar conversão de cliente e governança de fornecedor sem fragmentar a experiência da plataforma.' },
 ];
 
 const scopeRows = [
-  { title: 'Em escopo', text: 'Jornada de autenticacao web, cadastro por perfil, reset de senha, controles de sessao e regras de aprovacao para fornecedores.' },
-  { title: 'Fora de escopo', text: 'SSO corporativo, login social, MFA obrigatorio para todos os usuarios e IAM avancado para backoffice.' },
-  { title: 'Premissas', text: 'Existe servico de identidade, envio de e-mail transacional, base unica de usuarios e times internos aptos a aprovar fornecedores.' },
-  { title: 'Dependencias', text: 'Servico de e-mail, validacao documental, modulo de consentimento e camada centralizada de logs e auditoria.' },
+  { title: 'Em escopo', text: 'Jornada de autenticação web, cadastro por perfil, reset de senha, controles de sessão e regras de aprovação para fornecedores.' },
+  { title: 'Fora de escopo', text: 'SSO corporativo, login social, MFA obrigatório para todos os usuários e IAM avançado para backoffice.' },
+  { title: 'Premissas', text: 'Existe serviço de identidade, envio de e-mail transacional, base única de usuários e times internos aptos a aprovar fornecedores.' },
+  { title: 'Dependências', text: 'Serviço de e-mail, validação documental, módulo de consentimento e camada centralizada de logs e auditoria.' },
 ];
 
 const deliveryRows = [
-  { title: 'Obrigatorio no MVP', status: 'MVP', text: 'Login seguro, validacao de e-mail e documento, reset de senha, aprovacao de fornecedor e trilha de eventos.' },
-  { title: 'Obrigatorio para go-live', status: 'Go-live', text: 'Bloqueio progressivo, revogacao de sessoes, cooldown de reenvio, monitoramento e mascaramento de dados.' },
-  { title: 'Pos MVP', status: 'Evolucao', text: 'MFA adaptativo, score por dispositivo, regras por tenant e federacao corporativa.' },
+  { title: 'Obrigatório no MVP', status: 'MVP', text: 'Login seguro, validação de e-mail e documento, reset de senha, aprovação de fornecedor e trilha de eventos.' },
+  { title: 'Obrigatório para go-live', status: 'Go-live', text: 'Bloqueio progressivo, revogação de sessões, cooldown de reenvio, monitoramento e mascaramento de dados.' },
+  { title: 'Pós MVP', status: 'Evolução', text: 'MFA adaptativo, score por dispositivo, regras por tenant e federação corporativa.' },
 ];
 
 const loginFieldRows = [
-  { id: 'FR-LOG-01', title: 'Identificacao por e-mail', description: 'A tela deve exigir e-mail valido como credencial primaria para clientes e fornecedores.', tags: ['Obrigatorio', 'Formato'] },
-  { id: 'FR-LOG-02', title: 'Senha mascarada', description: 'Campo com alternancia de visibilidade, suporte a colagem segura e bloqueio de autocomplete inadequado.', tags: ['UX', 'Seguranca'] },
-  { id: 'FR-LOG-03', title: 'Resolucao de perfil', description: 'Apos autenticar, o backend deve identificar o perfil do usuario e direcionar para a area adequada.', tags: ['Backoffice', 'Regra de negocio'] },
+  { id: 'FR-LOG-01', title: 'Identificação por e-mail', description: 'A tela deve exigir e-mail válido como credencial primária para clientes e fornecedores.', tags: ['Obrigatório', 'Formato'] },
+  { id: 'FR-LOG-02', title: 'Senha mascarada', description: 'Campo com alternância de visibilidade, suporte à colagem segura e bloqueio de autocomplete inadequado.', tags: ['UX', 'Segurança'] },
+  { id: 'FR-LOG-03', title: 'Resolução de perfil', description: 'Após autenticar, o backend deve identificar o perfil do usuário e direcionar para a área adequada.', tags: ['Backoffice', 'Regra de negócio'] },
 ];
 
 const loginRuleRows = [
-  { id: 'FR-LOG-04', title: 'Controle de tentativas invalidas', description: 'Apos 5 falhas em 15 minutos, a conta deve sofrer bloqueio temporario ou verificacao adicional.', tags: ['Alta criticidade', 'Rate limit'] },
-  { id: 'FR-LOG-05', title: 'Sessao autenticada', description: 'Acesso bem-sucedido deve emitir access token curto e refresh token rotativo vinculado ao contexto do dispositivo.', tags: ['Sessao', 'Auditoria'] },
-  { id: 'FR-LOG-06', title: 'Fallback operacional', description: 'Em indisponibilidade do servico de identidade, a UI deve exibir orientacao objetiva e registrar incidente.', tags: ['Disponibilidade', 'Suporte'] },
+  { id: 'FR-LOG-04', title: 'Controle de tentativas inválidas', description: 'Após 5 falhas em 15 minutos, a conta deve sofrer bloqueio temporário ou verificação adicional.', tags: ['Alta criticidade', 'Rate limit'] },
+  { id: 'FR-LOG-05', title: 'Sessão autenticada', description: 'Acesso bem-sucedido deve emitir access token curto e refresh token rotativo vinculado ao contexto do dispositivo.', tags: ['Sessão', 'Auditoria'] },
+  { id: 'FR-LOG-06', title: 'Fallback operacional', description: 'Em indisponibilidade do serviço de identidade, a UI deve exibir orientação objetiva e registrar incidente.', tags: ['Disponibilidade', 'Suporte'] },
 ];
 
 const loginFieldMatrix = [
-  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato valido, trim e lowercase', message: 'Informe um e-mail valido.' },
-  { field: 'Senha', type: 'password', format: 'Oculto', required: 'Sim', validation: 'Nao vazio e aderente a politica ativa', message: 'Informe sua senha.' },
-  { field: 'Lembrar dispositivo', type: 'checkbox', format: 'Booleano', required: 'Nao', validation: 'Opcional para device confiavel', message: 'Opcional.' },
+  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato válido, trim e lowercase', message: 'Informe um e-mail válido.' },
+  { field: 'Senha', type: 'password', format: 'Oculto', required: 'Sim', validation: 'Não vazio e aderente à política ativa', message: 'Informe sua senha.' },
+  { field: 'Lembrar dispositivo', type: 'checkbox', format: 'Booleano', required: 'Não', validation: 'Opcional para device confiável', message: 'Opcional.' },
 ];
 
 const loginActionRows = [
-  { action: 'Entrar', behavior: 'Fica habilitado apenas com campos obrigatorios preenchidos.', success: 'Cria sessao, grava auditoria e redireciona para a area correta.', error: 'Exibe mensagem generica sem revelar existencia da conta.' },
-  { action: 'Esqueci minha senha', behavior: 'Abre fluxo de reset mantendo o contexto do tenant.', success: 'Redireciona para a solicitacao de redefinicao.', error: 'Se houver indisponibilidade, exibir fallback orientativo.' },
-  { action: 'Mostrar senha', behavior: 'Alterna visibilidade sem apagar o valor digitado.', success: 'Mantem cursor e estado do formulario.', error: 'Nao aplicavel.' },
+  { action: 'Entrar', behavior: 'Fica habilitado apenas com campos obrigatórios preenchidos.', success: 'Cria sessão, grava auditoria e redireciona para a área correta.', error: 'Exibe mensagem genérica sem revelar existência da conta.' },
+  { action: 'Esqueci minha senha', behavior: 'Abre fluxo de reset mantendo o contexto do tenant.', success: 'Redireciona para a solicitação de redefinição.', error: 'Se houver indisponibilidade, exibir fallback orientativo.' },
+  { action: 'Mostrar senha', behavior: 'Alterna visibilidade sem apagar o valor digitado.', success: 'Mantém cursor e estado do formulário.', error: 'Não aplicável.' },
 ];
 
 const loginAcceptance = [
-  'Dado um usuario valido, quando informar credenciais corretas, entao o sistema deve autenticar e redirecionar para a area apropriada.',
-  'Dado um usuario com 5 falhas em 15 minutos, quando tentar novamente, entao o sistema deve aplicar bloqueio temporario e registrar o evento.',
-  'Dado um fornecedor pendente de aprovacao, quando autenticar com sucesso, entao o sistema deve direcionar para o estado de onboarding pendente.',
+  'Dado um usuário válido, quando informar credenciais corretas, então o sistema deve autenticar e redirecionar para a área apropriada.',
+  'Dado um usuário com 5 falhas em 15 minutos, quando tentar novamente, então o sistema deve aplicar bloqueio temporário e registrar o evento.',
+  'Dado um fornecedor pendente de aprovação, quando autenticar com sucesso, então o sistema deve direcionar para o estado de onboarding pendente.',
 ];
 
 const signupClientRows = [
-  { id: 'FR-CAD-CLI-01', title: 'Dados minimos de cliente', description: 'Nome completo, e-mail, CPF, celular, senha e aceite de termos devem ser obrigatorios.' },
-  { id: 'FR-CAD-CLI-02', title: 'Validacao documental', description: 'CPF deve passar por mascara, normalizacao e verificacao algoritmica antes da submissao.' },
-  { id: 'FR-CAD-CLI-03', title: 'Ativacao da conta', description: 'Cliente segue para confirmacao de e-mail antes de obter acesso completo.' },
+  { id: 'FR-CAD-CLI-01', title: 'Dados mínimos de cliente', description: 'Nome completo, e-mail, CPF, celular, senha e aceite de termos devem ser obrigatórios.' },
+  { id: 'FR-CAD-CLI-02', title: 'Validação documental', description: 'CPF deve passar por máscara, normalização e verificação algorítmica antes da submissão.' },
+  { id: 'FR-CAD-CLI-03', title: 'Ativação da conta', description: 'Cliente segue para confirmação de e-mail antes de obter acesso completo.' },
 ];
 
 const signupVendorRows = [
-  { id: 'FR-CAD-FOR-01', title: 'Dados corporativos obrigatorios', description: 'Razao social, nome fantasia, CNPJ, e-mail corporativo, telefone, responsavel legal e senha.' },
-  { id: 'FR-CAD-FOR-02', title: 'Onboarding com compliance', description: 'Fornecedor entra como Pendente ate concluir verificacoes e aprovacao operacional.' },
-  { id: 'FR-CAD-FOR-03', title: 'Conta principal', description: 'O primeiro usuario cadastrado assume o papel de administrador do fornecedor.' },
+  { id: 'FR-CAD-FOR-01', title: 'Dados corporativos obrigatórios', description: 'Razão social, nome fantasia, CNPJ, e-mail corporativo, telefone, responsável legal e senha.' },
+  { id: 'FR-CAD-FOR-02', title: 'Onboarding com compliance', description: 'Fornecedor entra como Pendente até concluir verificações e aprovação operacional.' },
+  { id: 'FR-CAD-FOR-03', title: 'Conta principal', description: 'O primeiro usuário cadastrado assume o papel de administrador do fornecedor.' },
 ];
 
 const signupFieldMatrixClient = [
-  { field: 'Nome completo', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Sem apenas espacos e sem lixo de digitacao', message: 'Informe seu nome completo.' },
-  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato, dominio e unicidade', message: 'Ja existe conta para este e-mail.' },
-  { field: 'CPF', type: 'text', format: '000.000.000-00', required: 'Sim', validation: 'Mascara, DV e unicidade', message: 'CPF invalido ou ja cadastrado.' },
-  { field: 'Celular', type: 'tel', format: '(00) 00000-0000', required: 'Sim', validation: 'Numero valido para contato e confirmacao', message: 'Informe um celular valido.' },
-  { field: 'Senha', type: 'password', format: 'Minimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, blacklist e politica vigente', message: 'Senha fora da politica.' },
-  { field: 'Aceite de termos', type: 'checkbox', format: 'Booleano', required: 'Sim', validation: 'Obrigatorio antes do submit', message: 'Voce precisa aceitar os termos.' },
+  { field: 'Nome completo', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Sem apenas espaços e sem lixo de digitação', message: 'Informe seu nome completo.' },
+  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato, domínio e unicidade', message: 'Já existe conta para este e-mail.' },
+  { field: 'CPF', type: 'text', format: '000.000.000-00', required: 'Sim', validation: 'Máscara, DV e unicidade', message: 'CPF inválido ou já cadastrado.' },
+  { field: 'Celular', type: 'tel', format: '(00) 00000-0000', required: 'Sim', validation: 'Número válido para contato e confirmação', message: 'Informe um celular válido.' },
+  { field: 'Senha', type: 'password', format: 'Mínimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, blacklist e política vigente', message: 'Senha fora da política.' },
+  { field: 'Aceite de termos', type: 'checkbox', format: 'Booleano', required: 'Sim', validation: 'Obrigatório antes do submit', message: 'Você precisa aceitar os termos.' },
 ];
 
 const signupFieldMatrixVendor = [
-  { field: 'Razao social', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Sem caracteres invalidos', message: 'Informe a razao social.' },
-  { field: 'Nome fantasia', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Obrigatorio para exibicao comercial', message: 'Informe o nome fantasia.' },
-  { field: 'CNPJ', type: 'text', format: '00.000.000/0000-00', required: 'Sim', validation: 'Mascara, DV e unicidade global', message: 'CNPJ invalido ou ja cadastrado.' },
-  { field: 'E-mail corporativo', type: 'email', format: 'nome@empresa.com', required: 'Sim', validation: 'Formato, dominio e unicidade', message: 'Use um e-mail corporativo valido.' },
-  { field: 'Responsavel legal', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Obrigatorio para aprovacao', message: 'Informe o responsavel legal.' },
-  { field: 'Senha', type: 'password', format: 'Minimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, blacklist e politica vigente', message: 'Senha fora da politica.' },
+  { field: 'Razão social', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Sem caracteres inválidos', message: 'Informe a razão social.' },
+  { field: 'Nome fantasia', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Obrigatório para exibição comercial', message: 'Informe o nome fantasia.' },
+  { field: 'CNPJ', type: 'text', format: '00.000.000/0000-00', required: 'Sim', validation: 'Máscara, DV e unicidade global', message: 'CNPJ inválido ou já cadastrado.' },
+  { field: 'E-mail corporativo', type: 'email', format: 'nome@empresa.com', required: 'Sim', validation: 'Formato, domínio e unicidade', message: 'Use um e-mail corporativo válido.' },
+  { field: 'Responsável legal', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Obrigatório para aprovação', message: 'Informe o responsável legal.' },
+  { field: 'Senha', type: 'password', format: 'Mínimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, blacklist e política vigente', message: 'Senha fora da política.' },
 ];
 
 const signupActionRows = [
-  { action: 'Selecionar perfil', behavior: 'Alterna a experiencia entre Cliente e Fornecedor e reseta campos exclusivos.', success: 'Exibe copy, campos e regras corretos.', error: 'Nao aplicavel.' },
-  { action: 'Criar conta', behavior: 'Dispara validacao completa antes do submit.', success: 'Cliente vai para confirmacao de e-mail; fornecedor vai para aprovacao.', error: 'Exibe erros por campo e resumo de bloqueios.' },
-  { action: 'Reenviar confirmacao', behavior: 'Disponivel para contas pendentes.', success: 'Novo e-mail emitido com limite de frequencia.', error: 'Exibir cooldown e mensagem neutra.' },
+  { action: 'Selecionar perfil', behavior: 'Alterna a experiência entre Cliente e Fornecedor e reseta campos exclusivos.', success: 'Exibe copy, campos e regras corretos.', error: 'Não aplicável.' },
+  { action: 'Criar conta', behavior: 'Dispara validação completa antes do submit.', success: 'Cliente vai para confirmação de e-mail; fornecedor vai para aprovação.', error: 'Exibe erros por campo e resumo de bloqueios.' },
+  { action: 'Reenviar confirmação', behavior: 'Disponível para contas pendentes.', success: 'Novo e-mail emitido com limite de frequência.', error: 'Exibir cooldown e mensagem neutra.' },
 ];
 
 const signupAcceptance = [
-  'Dado um cliente com dados validos, quando concluir o formulario, entao a conta deve ser criada em status Aguardando confirmacao de e-mail.',
-  'Dado um fornecedor com CNPJ duplicado, quando tentar concluir, entao o sistema deve bloquear a criacao e nao gerar conta parcial.',
-  'Dado um fornecedor aprovado, quando confirmar o e-mail, entao a conta deve ficar apta para o primeiro login.',
+  'Dado um cliente com dados válidos, quando concluir o formulário, então a conta deve ser criada em status Aguardando confirmação de e-mail.',
+  'Dado um fornecedor com CNPJ duplicado, quando tentar concluir, então o sistema deve bloquear a criação e não gerar conta parcial.',
+  'Dado um fornecedor aprovado, quando confirmar o e-mail, então a conta deve ficar apta para o primeiro login.',
 ];
 
 const recoveryRows = [
-  { id: 'FR-REC-01', title: 'Solicitacao segura', description: 'A interface aceita e-mail sem revelar se a conta existe na base.', tags: ['Privacidade', 'Anti enumeracao'] },
-  { id: 'FR-REC-02', title: 'Token de curta duracao', description: 'O link deve expirar em 15 minutos, ser de uso unico e invalidar tokens anteriores.', tags: ['Token', 'Tempo de vida'] },
-  { id: 'FR-REC-03', title: 'Revogacao de sessoes', description: 'Ao redefinir a senha, todas as sessoes ativas devem ser encerradas e o usuario notificado.', tags: ['Containment', 'Auditoria'] },
+  { id: 'FR-REC-01', title: 'Solicitação segura', description: 'A interface aceita e-mail sem revelar se a conta existe na base.', tags: ['Privacidade', 'Anti enumeração'] },
+  { id: 'FR-REC-02', title: 'Token de curta duração', description: 'O link deve expirar em 15 minutos, ser de uso único e invalidar tokens anteriores.', tags: ['Token', 'Tempo de vida'] },
+  { id: 'FR-REC-03', title: 'Revogação de sessões', description: 'Ao redefinir a senha, todas as sessões ativas devem ser encerradas e o usuário notificado.', tags: ['Containment', 'Auditoria'] },
 ];
 
 const recoveryFieldMatrix = [
-  { field: 'E-mail da conta', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato valido e resposta neutra', message: 'Se o e-mail existir, enviaremos instrucoes.' },
-  { field: 'Nova senha', type: 'password', format: 'Minimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, confirmacao e blacklist', message: 'Senha fora da politica.' },
-  { field: 'Confirmacao da senha', type: 'password', format: 'Igual ao campo anterior', required: 'Sim', validation: 'Match exato', message: 'As senhas nao coincidem.' },
-  { field: 'Token de redefinicao', type: 'hidden/url', format: 'JWT ou hash assinado', required: 'Sim', validation: 'Uso unico e expiracao curta', message: 'Link invalido ou expirado.' },
+  { field: 'E-mail da conta', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato válido e resposta neutra', message: 'Se o e-mail existir, enviaremos instruções.' },
+  { field: 'Nova senha', type: 'password', format: 'Mínimo de 10 caracteres', required: 'Sim', validation: 'Complexidade, confirmação e blacklist', message: 'Senha fora da política.' },
+  { field: 'Confirmação da senha', type: 'password', format: 'Igual ao campo anterior', required: 'Sim', validation: 'Match exato', message: 'As senhas não coincidem.' },
+  { field: 'Token de redefinição', type: 'hidden/url', format: 'JWT ou hash assinado', required: 'Sim', validation: 'Uso único e expiração curta', message: 'Link inválido ou expirado.' },
 ];
 
 const recoveryActionRows = [
   { action: 'Enviar link', behavior: 'Aceita e-mail e sempre retorna resposta neutra.', success: 'Gera token, registra evento e dispara o e-mail.', error: 'Em indisponibilidade, orientar nova tentativa sem detalhar o erro interno.' },
-  { action: 'Redefinir senha', behavior: 'Valida token, senha e confirmacao antes de persistir.', success: 'Atualiza credencial, revoga sessoes e retorna ao login.', error: 'Bloqueia token reutilizado e mostra mensagem objetiva.' },
+  { action: 'Redefinir senha', behavior: 'Valida token, senha e confirmação antes de persistir.', success: 'Atualiza credencial, revoga sessões e retorna ao login.', error: 'Bloqueia token reutilizado e mostra mensagem objetiva.' },
 ];
 
 const recoveryAcceptance = [
-  'Dado um token valido, quando o usuario informar uma nova senha aderente, entao o sistema deve redefinir a senha e encerrar as sessoes ativas.',
-  'Dado um token expirado, quando o usuario abrir o link, entao o sistema deve impedir o reset e orientar nova solicitacao.',
-  'Dado um e-mail nao cadastrado, quando solicitar recuperacao, entao a interface deve responder com a mesma mensagem usada para contas existentes.',
+  'Dado um token válido, quando o usuário informar uma nova senha aderente, então o sistema deve redefinir a senha e encerrar as sessões ativas.',
+  'Dado um token expirado, quando o usuário abrir o link, então o sistema deve impedir o reset e orientar nova solicitação.',
+  'Dado um e-mail não cadastrado, quando solicitar recuperação, então a interface deve responder com a mesma mensagem usada para contas existentes.',
 ];
 
 const nfrRows = [
   {
     id: 'NFR-SEC-01',
-    title: 'Seguranca e criptografia',
-    description: 'Senhas armazenadas com hash resistente a forca bruta, trafego exclusivamente em TLS 1.2+ e segredos segregados por ambiente.',
-    metric: 'Zero armazenamento reversivel',
+    title: 'Segurança e criptografia',
+    description: 'Senhas armazenadas com hash resistente a força bruta, tráfego exclusivamente em TLS 1.2+ e segredos segregados por ambiente.',
+    metric: 'Zero armazenamento reversível',
   },
   {
     id: 'NFR-PER-01',
     title: 'Performance percebida',
-    description: 'Tempo de resposta da autenticacao inferior a 2 segundos no percentil 95, desconsiderando indisponibilidade de terceiros.',
+    description: 'Tempo de resposta da autenticação inferior a 2 segundos no percentil 95, desconsiderando indisponibilidade de terceiros.',
     metric: 'p95 < 2s',
   },
   {
     id: 'NFR-AUD-01',
     title: 'Auditoria e observabilidade',
-    description: 'Registrar autenticacoes, falhas, resets, bloqueios e mudancas de perfil com correlacao por request id.',
-    metric: 'Retencao minima de 180 dias',
+    description: 'Registrar autenticações, falhas, resets, bloqueios e mudanças de perfil com correlação por request id.',
+    metric: 'Retenção mínima de 180 dias',
   },
   {
     id: 'NFR-SCL-01',
     title: 'Escalabilidade',
-    description: 'Camada de autenticacao preparada para crescimento horizontal e filas assincronas para e-mails e validacoes externas.',
+    description: 'Camada de autenticação preparada para crescimento horizontal e filas assíncronas para e-mails e validações externas.',
     metric: 'Arquitetura stateless',
   },
   {
     id: 'NFR-RES-01',
     title: 'Responsividade',
-    description: 'Experiencia integra a partir de 360px, com foco em navegacao movel para clientes e fornecedores em campo.',
+    description: 'Experiência íntegra a partir de 360px, com foco em navegação móvel para clientes e fornecedores em campo.',
     metric: 'Mobile first validado',
   },
   {
     id: 'NFR-LOG-01',
     title: 'Logs operacionais',
-    description: 'Mensagens estruturadas, sem dados sensiveis, com alertas para anomalias de acesso e picos de falha.',
-    metric: 'Mascaramento obrigatorio',
+    description: 'Mensagens estruturadas, sem dados sensíveis, com alertas para anomalias de acesso e picos de falha.',
+    metric: 'Mascaramento obrigatório',
   },
 ];
 
 const crossRules = [
-  { rule: 'Expiracao de sessao', detail: 'Access token curto e refresh token rotativo com revogacao imediata em logout, reset de senha, bloqueio ou troca de perfil.' },
+  { rule: 'Expiração de sessão', detail: 'Access token curto e refresh token rotativo com revogação imediata em logout, reset de senha, bloqueio ou troca de perfil.' },
   { rule: 'Bloqueio progressivo', detail: 'Falhas repetidas elevam o tempo de espera e podem exigir desafio adicional.' },
-  { rule: 'Confirmacao de e-mail', detail: 'Cliente pode reenviar confirmacao em janela controlada; fornecedor depende de confirmacao e aprovacao operacional.' },
-  { rule: 'Unicidade global', detail: 'E-mail, CPF e CNPJ nao podem coexistir em cadastros ativos, pendentes ou desativados sem fluxo formal de saneamento.' },
+  { rule: 'Confirmação de e-mail', detail: 'Cliente pode reenviar confirmação em janela controlada; fornecedor depende de confirmação e aprovação operacional.' },
+  { rule: 'Unicidade global', detail: 'E-mail, CPF e CNPJ não podem coexistir em cadastros ativos, pendentes ou desativados sem fluxo formal de saneamento.' },
 ];
 
 const timelineSteps = [
-  { title: 'Descoberta de contexto', detail: 'Usuario escolhe entrar, criar conta ou redefinir senha a partir da home de autenticacao.', icon: ScanSearch },
-  { title: 'Validacao de identidade', detail: 'Backend valida formato, unicidade, status da conta, reputacao da tentativa e bloqueios ativos.', icon: Fingerprint },
-  { title: 'Decisao de fluxo', detail: 'A plataforma direciona para sessao ativa, onboarding pendente, confirmacao de e-mail ou reset assistido.', icon: Layers3 },
-  { title: 'Persistencia e auditoria', detail: 'Cada transicao relevante grava eventos rastreaveis para seguranca, suporte e analytics.', icon: FileLock2 },
+  { title: 'Descoberta de contexto', detail: 'Usuário escolhe entrar, criar conta ou redefinir senha a partir da home de autenticação.', icon: ScanSearch },
+  { title: 'Validação de identidade', detail: 'Backend valida formato, unicidade, status da conta, reputação da tentativa e bloqueios ativos.', icon: Fingerprint },
+  { title: 'Decisão de fluxo', detail: 'A plataforma direciona para sessão ativa, onboarding pendente, confirmação de e-mail ou reset assistido.', icon: Layers3 },
+  { title: 'Persistência e auditoria', detail: 'Cada transição relevante grava eventos rastreáveis para segurança, suporte e analytics.', icon: FileLock2 },
 ];
 
 const messageCards = [
   { type: 'Sucesso', tone: 'success', text: 'Acesso validado com sucesso. Redirecionando para seu painel.' },
-  { type: 'Erro de credenciais', tone: 'danger', text: 'Nao foi possivel validar suas credenciais. Revise os dados e tente novamente.' },
-  { type: 'Bloqueio temporario', tone: 'warning', text: 'Detectamos multiplas tentativas invalidas. Aguarde alguns minutos antes de tentar novamente.' },
-  { type: 'Acao pendente', tone: 'info', text: 'Seu cadastro foi recebido e esta aguardando validacao complementar ou aprovacao operacional.' },
+  { type: 'Erro de credenciais', tone: 'danger', text: 'Não foi possível validar suas credenciais. Revise os dados e tente novamente.' },
+  { type: 'Bloqueio temporário', tone: 'warning', text: 'Detectamos múltiplas tentativas inválidas. Aguarde alguns minutos antes de tentar novamente.' },
+  { type: 'Ação pendente', tone: 'info', text: 'Seu cadastro foi recebido e está aguardando validação complementar ou aprovação operacional.' },
 ];
 
 const acceptanceSummary = [
-  { flow: 'Login', status: 'MVP', detail: 'Campos obrigatorios, mensagens, controle de falhas, sessao e direcionamento por perfil definidos.' },
-  { flow: 'Auto Cadastro', status: 'MVP', detail: 'Separacao entre cliente e fornecedor, unicidade, regras de senha e validacao documental definidas.' },
-  { flow: 'Recuperacao de Senha', status: 'MVP', detail: 'Token, expiraracao curta, resposta neutra, revogacao de sessoes e mensagens de erro descritas.' },
-  { flow: 'Seguranca e Operacao', status: 'Go-live', detail: 'Logs, auditoria, criptografia, performance, escalabilidade e mascaramento especificados.' },
+  { flow: 'Login', status: 'MVP', detail: 'Campos obrigatórios, mensagens, controle de falhas, sessão e direcionamento por perfil definidos.' },
+  { flow: 'Auto Cadastro', status: 'MVP', detail: 'Separação entre cliente e fornecedor, unicidade, regras de senha e validação documental definidas.' },
+  { flow: 'Recuperação de Senha', status: 'MVP', detail: 'Token, expiração curta, resposta neutra, revogação de sessões e mensagens de erro descritas.' },
+  { flow: 'Segurança e Operação', status: 'Go-live', detail: 'Logs, auditoria, criptografia, performance, escalabilidade e mascaramento especificados.' },
 ];
 
 export default function AuthSpecPage() {
@@ -238,6 +238,7 @@ export default function AuthSpecPage() {
 
   useEffect(() => {
     document.title = 'Auth Experience Spec | Multiatendimento';
+    document.body.classList.add('auth-spec-page');
 
     const previousRobots = document.querySelector('meta[name="robots"]');
     const createdRobots = previousRobots || document.createElement('meta');
@@ -250,6 +251,7 @@ export default function AuthSpecPage() {
 
     return () => {
       document.title = 'Multiatendimento';
+      document.body.classList.remove('auth-spec-page');
       if (!previousRobots && createdRobots.parentNode) {
         createdRobots.parentNode.removeChild(createdRobots);
       }
@@ -289,7 +291,7 @@ export default function AuthSpecPage() {
   }
 
   return (
-    <div className={theme === 'dark' ? 'dark' : ''}>
+    <div className={theme === 'dark' ? 'dark auth-spec-page' : 'auth-spec-page'}>
       <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_38%,#f8fafc_100%)] text-slate-900 transition-colors duration-300 dark:bg-[radial-gradient(circle_at_top,#0f172a_0%,#020617_45%,#020617_100%)] dark:text-slate-100">
         <div className="mx-auto flex max-w-[1600px] gap-6 px-4 py-6 sm:px-6 lg:px-8">
           <AuthSpecSidebar
@@ -307,7 +309,7 @@ export default function AuthSpecPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <AuthSpecBadge variant="info">Product Discovery</AuthSpecBadge>
                       <AuthSpecBadge variant="success">Spec executivo</AuthSpecBadge>
-                      <AuthSpecBadge variant="warning">Validacao controlada</AuthSpecBadge>
+                      <AuthSpecBadge variant="warning">Validação controlada</AuthSpecBadge>
                     </div>
 
                     <div className="space-y-4">
@@ -315,28 +317,28 @@ export default function AuthSpecPage() {
                         Plataforma de compras online
                       </p>
                       <h1 className="max-w-4xl font-[var(--font-display)] text-4xl tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-                        Especificacao funcional da autenticacao para clientes e fornecedores.
+                        Especificação funcional da autenticação para clientes e fornecedores.
                       </h1>
                       <p className="max-w-3xl text-base leading-8 text-slate-600 dark:text-slate-300">
-                        Este artefato consolida requisitos funcionais, nao funcionais e criterios de aceite para a jornada de acesso de uma plataforma B2C/B2B. O objetivo e equilibrar conversao, seguranca, governanca e operacao.
+                        Este artefato consolida requisitos funcionais, não funcionais e critérios de aceite para a jornada de acesso de uma plataforma B2C/B2B. O objetivo é equilibrar conversão, segurança, governança e operação.
                       </p>
                     </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
-                    <MetaCard label="Owner" value="Product + Security" detail="Alinhamento entre experiencia, risco, suporte e compliance." />
-                    <MetaCard label="Ultima revisao" value="20 mai 2026" detail="Versao refinada para avaliacao funcional e tecnica." />
-                    <MetaCard label="Publicacao" value="Noindex ativo" detail="Pagina mantida acessivel, mas sinalizada para nao indexacao." />
+                    <MetaCard label="Owner" value="Product + Security" detail="Alinhamento entre experiência, risco, suporte e compliance." />
+                    <MetaCard label="Última revisão" value="20 mai 2026" detail="Versão refinada para avaliação funcional e técnica." />
+                    <MetaCard label="Publicação" value="Noindex ativo" detail="Página mantida acessível, mas sinalizada para não indexação." />
                   </div>
                 </div>
 
                 <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                   <div className="flex flex-wrap items-center gap-2">
-                    <AuthSpecBadge variant="neutral">Documento de referencia</AuthSpecBadge>
-                    <AuthSpecBadge variant="info">Leitura executiva + tecnica</AuthSpecBadge>
+                    <AuthSpecBadge variant="neutral">Documento de referência</AuthSpecBadge>
+                    <AuthSpecBadge variant="info">Leitura executiva + técnica</AuthSpecBadge>
                   </div>
                   <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                    A estrutura abaixo foi organizada para leitura rapida por produto, engenharia e avaliadores de processo. O topo resume contexto e decisao de desenho; as secoes seguintes detalham requisitos, regras e aceite por fluxo.
+                    A estrutura abaixo foi organizada para leitura rápida por produto, engenharia e avaliadores de processo. O topo resume contexto e decisão de desenho; as seções seguintes detalham requisitos, regras e aceite por fluxo.
                   </p>
                 </div>
 
@@ -346,7 +348,7 @@ export default function AuthSpecPage() {
                   ))}
                 </div>
 
-                <div className="mt-6 flex gap-3 overflow-x-auto pb-1 lg:hidden">
+                <div className="spec-scrollbar mt-6 flex gap-3 overflow-x-auto pb-1 lg:hidden">
                   {sections.map((section) => (
                     <a
                       key={section.id}
@@ -399,23 +401,23 @@ export default function AuthSpecPage() {
                       <NarrativeCard
                         title="Cliente"
                         icon={Users2}
-                        text="Prioriza conversao e baixo atrito, com cadastro rapido, validacao de CPF e recuperacao de senha simples."
+                        text="Prioriza conversão e baixo atrito, com cadastro rápido, validação de CPF e recuperação de senha simples."
                       />
                       <NarrativeCard
                         title="Fornecedor"
                         icon={Building2}
-                        text="Exige governanca adicional, validacao de CNPJ, aprovacao operacional e rastreabilidade reforcada."
+                        text="Exige governança adicional, validação de CNPJ, aprovação operacional e rastreabilidade reforçada."
                       />
                     </div>
 
                     <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50/90 p-5 dark:border-slate-800 dark:bg-slate-950/70">
                       <div className="flex flex-wrap items-center gap-3">
-                        <AuthSpecBadge variant="danger">Critico</AuthSpecBadge>
+                        <AuthSpecBadge variant="danger">Crítico</AuthSpecBadge>
                         <AuthSpecBadge variant="info">LGPD friendly</AuthSpecBadge>
                         <AuthSpecBadge variant="success">Pronto para refinamento</AuthSpecBadge>
                       </div>
                       <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                        O desenho considera protecao contra enumeracao de contas, limitacao de tentativas invalidas, validacao documental de fornecedores e comunicacao transacional consistente em todos os eventos sensiveis.
+                        O desenho considera proteção contra enumeração de contas, limitação de tentativas inválidas, validação documental de fornecedores e comunicação transacional consistente em todos os eventos sensíveis.
                       </p>
                     </div>
                   </div>
@@ -423,8 +425,8 @@ export default function AuthSpecPage() {
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/85 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/76 dark:shadow-[0_28px_80px_rgba(2,6,23,0.45)] sm:p-8">
                     <SectionKicker icon={AlertTriangle} title="Mapa de criticidade" />
                     <div className="mt-6 space-y-4">
-                      <CriticalityRow label="Credenciais e sessao" variant="danger" detail="Maior exposicao a fraude, takeover de conta e custos de suporte." />
-                      <CriticalityRow label="Cadastro de fornecedor" variant="warning" detail="Risco operacional alto sem validacao documental e aprovacao controlada." />
+                      <CriticalityRow label="Credenciais e sessão" variant="danger" detail="Maior exposição a fraude, takeover de conta e custos de suporte." />
+                      <CriticalityRow label="Cadastro de fornecedor" variant="warning" detail="Risco operacional alto sem validação documental e aprovação controlada." />
                       <CriticalityRow label="Reset de senha" variant="info" detail="Fluxo sensivel a engenharia social e abuso de token." />
                       <CriticalityRow label="Observabilidade" variant="success" detail="Base para resposta a incidentes, analytics e melhoria continua." />
                     </div>
@@ -444,28 +446,28 @@ export default function AuthSpecPage() {
                 icon={LockKeyhole}
                 expanded={expandedSections.login}
                 onToggle={() => toggleSection('login')}
-                summary="A experiencia de login deve ser objetiva, segura e resiliente a fraude. O sistema autentica clientes e fornecedores com os mesmos campos base, mas aplica regras contextuais de sessao e bloqueio conforme perfil e risco da tentativa."
+                summary="A experiência de login deve ser objetiva, segura e resiliente a fraude. O sistema autentica clientes e fornecedores com os mesmos campos base, mas aplica regras contextuais de sessão e bloqueio conforme perfil e risco da tentativa."
                 badges={[
-                  <AuthSpecBadge key="b1" variant="danger">Seguranca critica</AuthSpecBadge>,
-                  <AuthSpecBadge key="b2" variant="success">Conversao assistida</AuthSpecBadge>,
-                  <AuthSpecBadge key="b3" variant="info">Auditoria obrigatoria</AuthSpecBadge>,
+                  <AuthSpecBadge key="b1" variant="danger">Segurança crítica</AuthSpecBadge>,
+                  <AuthSpecBadge key="b2" variant="success">Conversão assistida</AuthSpecBadge>,
+                  <AuthSpecBadge key="b3" variant="info">Auditoria obrigatória</AuthSpecBadge>,
                 ]}
               >
                 <div className="space-y-8">
                   <div className="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
                     <div className="space-y-6">
-                      <SpecMatrix title="Campos obrigatorios e validacoes" rows={loginFieldRows} />
-                      <SpecMatrix title="Regras de negocio e autenticacao" rows={loginRuleRows} />
+                      <SpecMatrix title="Campos obrigatórios e validações" rows={loginFieldRows} />
+                      <SpecMatrix title="Regras de negócio e autenticação" rows={loginRuleRows} />
                     </div>
 
                     <div className="space-y-6">
                       <CalloutCard
                         icon={ShieldCheck}
-                        title="Controles de seguranca"
+                        title="Controles de segurança"
                         items={[
-                          'Hash de senha resistente a brute force e politica de rotacao de credenciais comprometidas.',
+                          'Hash de senha resistente a brute force e política de rotação de credenciais comprometidas.',
                           'Rate limit por IP, identidade e device para contencao de abuso automatizado.',
-                          'Sessao revogavel, refresh token rotativo e invalidacao automatica apos logout, reset ou bloqueio.',
+                          'Sessão revogável, refresh token rotativo e invalidação automática após logout, reset ou bloqueio.',
                         ]}
                       />
                       <CalloutCard
@@ -474,7 +476,7 @@ export default function AuthSpecPage() {
                         items={[
                           'Falha generica sem expor existencia da conta.',
                           'Sucesso com redirecionamento contextual para o dashboard do perfil autenticado.',
-                          'Conta bloqueada com orientacao de suporte ou fluxo de redefinicao de senha.',
+                          'Conta bloqueada com orientação de suporte ou fluxo de redefinição de senha.',
                         ]}
                       />
                     </div>
@@ -491,12 +493,12 @@ export default function AuthSpecPage() {
 
                   <div className="grid gap-6 xl:grid-cols-[1.2fr_0.9fr]">
                     <FieldMatrixTable title="Matriz formal de campos da tela de login" rows={loginFieldMatrix} />
-                    <ActionBehaviorGrid title="Comportamento esperado dos componentes de acao" rows={loginActionRows} />
+                    <ActionBehaviorGrid title="Comportamento esperado dos componentes de ação" rows={loginActionRows} />
                   </div>
 
                   <div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]">
-                    <RuleListCard title="Politicas transversais de acesso" rows={crossRules} />
-                    <AcceptanceChecklist title="Criterios de aceite da tela de login" items={loginAcceptance} />
+                    <RuleListCard title="Políticas transversais de acesso" rows={crossRules} />
+                    <AcceptanceChecklist title="Critérios de aceite da tela de login" items={loginAcceptance} />
                   </div>
                 </div>
               </AuthSpecSection>
@@ -508,7 +510,7 @@ export default function AuthSpecPage() {
                 icon={UserPlus}
                 expanded={expandedSections.signup}
                 onToggle={() => toggleSection('signup')}
-                summary="O auto cadastro precisa separar claramente os dois perfis desde o inicio da jornada, minimizando friccao para clientes e reforcando validacoes corporativas para fornecedores."
+                summary="O auto cadastro precisa separar claramente os dois perfis desde o início da jornada, minimizando fricção para clientes e reforçando validações corporativas para fornecedores."
                 badges={[
                   <AuthSpecBadge key="b1" variant="success">Onboarding guiado</AuthSpecBadge>,
                   <AuthSpecBadge key="b2" variant="warning">Compliance fornecedor</AuthSpecBadge>,
@@ -522,14 +524,14 @@ export default function AuthSpecPage() {
                       icon={Users2}
                       accent="sky"
                       rows={signupClientRows}
-                      footer="Ativacao preferencialmente automatica apos confirmacao de e-mail e aceite explicito das politicas."
+                      footer="Ativação preferencialmente automática após confirmação de e-mail e aceite explícito das políticas."
                     />
                     <ProfilePanel
                       title="Fornecedor"
                       icon={Building2}
                       accent="amber"
                       rows={signupVendorRows}
-                      footer="Fluxo condicionado a analise documental, aprovacao operacional e eventual validacao externa de CNPJ."
+                      footer="Fluxo condicionado à análise documental, aprovação operacional e eventual validação externa de CNPJ."
                     />
                   </div>
 
@@ -538,16 +540,16 @@ export default function AuthSpecPage() {
                       icon={KeyRound}
                       title="Regras de senha e e-mail"
                       items={[
-                        'Senha com minimo de 10 caracteres, combinacao de classes e bloqueio de senhas expostas em bases conhecidas.',
-                        'E-mail validado em formato, dominio e unicidade antes da criacao definitiva da conta.',
-                        'Confirmacao de senha apenas na interface; persistencia somente apos validacoes criticas.',
+                        'Senha com mínimo de 10 caracteres, combinação de classes e bloqueio de senhas expostas em bases conhecidas.',
+                        'E-mail validado em formato, domínio e unicidade antes da criação definitiva da conta.',
+                        'Confirmação de senha apenas na interface; persistência somente após validações críticas.',
                       ]}
                     />
                     <CalloutCard
                       icon={BadgeCheck}
-                      title="Validacoes documentais"
+                      title="Validações documentais"
                       items={[
-                        'CPF e CNPJ com mascara, normalizacao, digitos verificadores e rejeicao de padroes invalidos.',
+                        'CPF e CNPJ com máscara, normalização, dígitos verificadores e rejeição de padrões inválidos.',
                         'Unicidade por documento e e-mail em toda a base, inclusive contas pendentes ou inativas.',
                         'Fornecedor pode exigir anexos e aceite de termos comerciais antes de obter acesso pleno.',
                       ]}
@@ -557,9 +559,9 @@ export default function AuthSpecPage() {
                   <div className="rounded-[28px] border border-slate-200 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-950/70">
                     <SectionKicker icon={ArrowRight} title="Fluxos esperados por perfil" />
                     <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                      <FlowCard step="Selecao do perfil" text="A primeira decisao da tela deve separar Cliente e Fornecedor, alterando copy, campos e expectativas do processo." />
-                      <FlowCard step="Validacao e submissao" text="O formulario valida documento, e-mail, senha e aceite de termos antes do envio ao servico de identidade." />
-                      <FlowCard step="Pos cadastro" text="Cliente segue para confirmacao de e-mail; fornecedor entra em estado Pendente com SLA de analise definido." />
+                      <FlowCard step="Seleção do perfil" text="A primeira decisão da tela deve separar Cliente e Fornecedor, alterando copy, campos e expectativas do processo." />
+                      <FlowCard step="Validação e submissão" text="O formulário valida documento, e-mail, senha e aceite de termos antes do envio ao serviço de identidade." />
+                      <FlowCard step="Pós cadastro" text="Cliente segue para confirmação de e-mail; fornecedor entra em estado Pendente com SLA de análise definido." />
                     </div>
                   </div>
 
@@ -569,22 +571,22 @@ export default function AuthSpecPage() {
                   </div>
 
                   <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                    <ActionBehaviorGrid title="Botoes, estados e mensagens do auto cadastro" rows={signupActionRows} />
-                    <AcceptanceChecklist title="Criterios de aceite do auto cadastro" items={signupAcceptance} />
+                    <ActionBehaviorGrid title="Botões, estados e mensagens do auto cadastro" rows={signupActionRows} />
+                    <AcceptanceChecklist title="Critérios de aceite do auto cadastro" items={signupAcceptance} />
                   </div>
                 </div>
               </AuthSpecSection>
 
               <AuthSpecSection
                 id="recovery"
-                title="Recuperacao de Senha"
+                title="Recuperação de Senha"
                 eyebrow="Fluxo 03"
                 icon={KeyRound}
                 expanded={expandedSections.recovery}
                 onToggle={() => toggleSection('recovery')}
-                summary="A redefinicao de senha deve ser segura, silenciosa em relacao a existencia da conta e suficientemente orientada para reduzir tickets de suporte."
+                summary="A redefinição de senha deve ser segura, silenciosa em relação à existência da conta e suficientemente orientada para reduzir tickets de suporte."
                 badges={[
-                  <AuthSpecBadge key="b1" variant="danger">Protecao contra abuso</AuthSpecBadge>,
+                  <AuthSpecBadge key="b1" variant="danger">Proteção contra abuso</AuthSpecBadge>,
                   <AuthSpecBadge key="b2" variant="info">E-mail transacional</AuthSpecBadge>,
                   <AuthSpecBadge key="b3" variant="success">Baixo atrito</AuthSpecBadge>,
                 ]}
@@ -599,39 +601,39 @@ export default function AuthSpecPage() {
                       items={[
                         'Usuario informa o e-mail e recebe resposta neutra imediatamente.',
                         'Backoffice gera token assinado, registra evento e aciona envio assincrono do e-mail.',
-                        'Pagina de redefinicao valida token, forca nova senha e encerra sessoes anteriores.',
+                        'Página de redefinição valida token, força nova senha e encerra sessões anteriores.',
                       ]}
                     />
                     <CalloutCard
                       icon={FileLock2}
                       title="Mensagens de erro"
                       items={[
-                        'Token expirado deve orientar nova solicitacao sem revelar detalhes internos.',
-                        'Token invalido ou reutilizado deve bloquear a acao e gerar evento de seguranca.',
-                        'Senha fora da politica deve explicar criterios de forma objetiva antes do reenvio.',
+                        'Token expirado deve orientar nova solicitação sem revelar detalhes internos.',
+                        'Token inválido ou reutilizado deve bloquear a ação e gerar evento de segurança.',
+                        'Senha fora da política deve explicar critérios de forma objetiva antes do reenvio.',
                       ]}
                     />
                   </div>
 
                   <div className="grid gap-6 xl:grid-cols-[1.15fr_0.95fr]">
-                    <FieldMatrixTable title="Matriz formal de campos da recuperacao de senha" rows={recoveryFieldMatrix} />
-                    <ActionBehaviorGrid title="Comportamento dos componentes de recuperacao" rows={recoveryActionRows} />
+                    <FieldMatrixTable title="Matriz formal de campos da recuperação de senha" rows={recoveryFieldMatrix} />
+                    <ActionBehaviorGrid title="Comportamento dos componentes de recuperação" rows={recoveryActionRows} />
                   </div>
 
-                  <AcceptanceChecklist title="Criterios de aceite da recuperacao de senha" items={recoveryAcceptance} />
+                  <AcceptanceChecklist title="Critérios de aceite da recuperação de senha" items={recoveryAcceptance} />
                 </div>
               </AuthSpecSection>
 
               <AuthSpecSection
                 id="non-functional"
-                title="Requisitos Nao Funcionais"
+                title="Requisitos Não Funcionais"
                 eyebrow="Camada transversal"
                 icon={ShieldCheck}
                 expanded={expandedSections['non-functional']}
                 onToggle={() => toggleSection('non-functional')}
-                summary="Os requisitos nao funcionais consolidam o padrao enterprise esperado para um sistema de autenticacao exposto a alto volume, variacao de dispositivos e risco de fraude."
+                summary="Os requisitos não funcionais consolidam o padrão enterprise esperado para um sistema de autenticação exposto a alto volume, variação de dispositivos e risco de fraude."
                 badges={[
-                  <AuthSpecBadge key="b1" variant="danger">Obrigatorio para go-live</AuthSpecBadge>,
+                  <AuthSpecBadge key="b1" variant="danger">Obrigatório para go-live</AuthSpecBadge>,
                   <AuthSpecBadge key="b2" variant="info">Observabilidade ativa</AuthSpecBadge>,
                 ]}
               >
@@ -658,7 +660,7 @@ export default function AuthSpecPage() {
               </AuthSpecSection>
 
               <section id="timeline" className="scroll-mt-24 rounded-[30px] border border-slate-200/80 bg-white/88 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/76 dark:shadow-[0_28px_80px_rgba(2,6,23,0.45)] sm:p-8">
-                <SectionKicker icon={UserCog} title="Timeline do fluxo de autenticacao" />
+                <SectionKicker icon={UserCog} title="Timeline do fluxo de autenticação" />
                 <div className="mt-6 grid gap-4 xl:grid-cols-4">
                   {timelineSteps.map((step, index) => {
                     const Icon = step.icon;
@@ -811,7 +813,7 @@ function FieldMatrixTable({ title, rows }) {
           Rolagem horizontal habilitada em telas menores
         </p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="spec-scrollbar overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-white/80 dark:bg-slate-900/80">
             <tr className="text-slate-500 dark:text-slate-400">
@@ -819,7 +821,7 @@ function FieldMatrixTable({ title, rows }) {
               <th className="px-4 py-3 font-semibold">Tipo</th>
               <th className="px-4 py-3 font-semibold">Formato</th>
               <th className="px-4 py-3 font-semibold">Obrig.</th>
-              <th className="px-4 py-3 font-semibold">Validacao</th>
+              <th className="px-4 py-3 font-semibold">Validação</th>
               <th className="px-4 py-3 font-semibold">Mensagem</th>
             </tr>
           </thead>
@@ -962,7 +964,7 @@ function FlowCard({ step, text }) {
 function ReleaseChecklist({ rows }) {
   return (
     <div className="mt-6 rounded-[28px] border border-slate-200 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-950/70">
-      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Consolidacao de aceite e prontidao</h3>
+      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Consolidação de aceite e prontidão</h3>
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
         {rows.map((row) => (
           <div key={row.flow} className="rounded-[22px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/80">

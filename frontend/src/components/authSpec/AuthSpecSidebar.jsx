@@ -24,7 +24,7 @@ export default function AuthSpecSidebar({ sections, activeSection, theme, onThem
           </div>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="spec-scrollbar max-h-[calc(100vh-20rem)] space-y-2 overflow-y-auto pr-1">
           {sections.map((section) => {
             const isActive = activeSection === section.id;
 
