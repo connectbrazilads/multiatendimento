@@ -716,7 +716,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         position: isMobile ? 'fixed' : 'relative',
         inset: isMobile ? 0 : 'auto',
         width: isMobile ? '100%' : styles.infoPanel.width,
-        zIndex: isMobile ? 2000 : 1,
+        zIndex: isMobile ? 2000 : profileModal ? 2500 : 1,
         height: '100%',
       }}
     >

@@ -336,7 +336,7 @@ const s = {
     color: 'var(--accent)',
     borderBottomColor: 'var(--accent)',
   },
-  content: { padding: '1.8rem', overflowY: 'auto', maxHeight: '70vh' },
+  content: { padding: '1.8rem', overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' },
   inputGroup: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' },
   label: {
     fontSize: '0.78rem',
