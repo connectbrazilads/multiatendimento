@@ -178,6 +178,79 @@ const nfrRows = [
   },
 ];
 
+const loginFieldMatrix = [
+  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato valido, trim e lowercase', message: 'Informe um e-mail valido.' },
+  { field: 'Senha', type: 'password', format: 'Oculto', required: 'Sim', validation: 'Minimo de politica vigente, sem campo vazio', message: 'Informe sua senha.' },
+  { field: 'Lembrar dispositivo', type: 'checkbox', format: 'Booleano', required: 'Nao', validation: 'Disponivel apenas em device confiavel', message: 'Opcional.' },
+];
+
+const loginActionRows = [
+  { action: 'Entrar', behavior: 'Permanece desabilitado ate os campos obrigatorios estarem preenchidos.', success: 'Cria sessao, registra auditoria e redireciona para a area correta.', error: 'Exibe mensagem generica sem revelar se a conta existe.' },
+  { action: 'Esqueci minha senha', behavior: 'Leva para o fluxo de recuperacao mantendo o contexto do tenant.', success: 'Abre etapa de solicitacao de reset.', error: 'Se o servico estiver indisponivel, mostrar fallback com orientacao.' },
+  { action: 'Mostrar senha', behavior: 'Alterna visibilidade do campo sem limpar digitacao.', success: 'Mantem cursor e estado do formulario.', error: 'Nao aplicavel.' },
+];
+
+const loginAcceptance = [
+  'Dado um usuario valido, quando informar credenciais corretas, entao o sistema deve autenticar e redirecionar para a area de cliente ou fornecedor.',
+  'Dado um usuario com 5 falhas em 15 minutos, quando tentar novamente, entao o sistema deve aplicar bloqueio temporario e registrar o evento.',
+  'Dado um fornecedor pendente de aprovacao, quando autenticar com sucesso, entao o sistema deve direcionar para o estado de onboarding pendente.',
+];
+
+const signupFieldMatrixClient = [
+  { field: 'Nome completo', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Sem numeros isolados e sem apenas espacos', message: 'Informe seu nome completo.' },
+  { field: 'E-mail', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato, dominio e unicidade', message: 'Ja existe conta para este e-mail.' },
+  { field: 'CPF', type: 'text', format: '000.000.000-00', required: 'Sim', validation: 'Mascara, digitos verificadores e unicidade', message: 'CPF invalido ou ja cadastrado.' },
+  { field: 'Celular', type: 'tel', format: '(00) 00000-0000', required: 'Sim', validation: 'DDI/DDDs aceitos pelo negocio', message: 'Informe um celular valido.' },
+  { field: 'Senha', type: 'password', format: 'Min. 10 caracteres', required: 'Sim', validation: 'Complexidade e blacklist de senhas', message: 'Senha fora da politica.' },
+  { field: 'Aceite de termos', type: 'checkbox', format: 'Booleano', required: 'Sim', validation: 'Obrigatorio antes de concluir', message: 'Voce precisa aceitar os termos.' },
+];
+
+const signupFieldMatrixVendor = [
+  { field: 'Razao social', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Sem caracteres invalidos', message: 'Informe a razao social.' },
+  { field: 'Nome fantasia', type: 'text', format: '3 a 150 caracteres', required: 'Sim', validation: 'Obrigatorio para exibicao comercial', message: 'Informe o nome fantasia.' },
+  { field: 'CNPJ', type: 'text', format: '00.000.000/0000-00', required: 'Sim', validation: 'Mascara, DV e unicidade global', message: 'CNPJ invalido ou ja cadastrado.' },
+  { field: 'E-mail corporativo', type: 'email', format: 'nome@empresa.com', required: 'Sim', validation: 'Formato, dominio e unicidade', message: 'Use um e-mail corporativo valido.' },
+  { field: 'Responsavel legal', type: 'text', format: '2 a 120 caracteres', required: 'Sim', validation: 'Obrigatorio para trilha de aprovacao', message: 'Informe o responsavel legal.' },
+  { field: 'Senha', type: 'password', format: 'Min. 10 caracteres', required: 'Sim', validation: 'Complexidade e blacklist de senhas', message: 'Senha fora da politica.' },
+];
+
+const signupActionRows = [
+  { action: 'Selecionar perfil', behavior: 'Alterna o formulario entre Cliente e Fornecedor e reseta campos exclusivos.', success: 'Exibe campos, copy e regras corretas.', error: 'Nao aplicavel.' },
+  { action: 'Criar conta', behavior: 'Dispara validacao completa antes do submit.', success: 'Cliente entra em confirmacao de e-mail; fornecedor entra em fila de aprovacao.', error: 'Mostra erro por campo e resumo no topo quando houver bloqueio de envio.' },
+  { action: 'Reenviar confirmacao', behavior: 'Disponivel para cadastros pendentes de confirmacao.', success: 'Novo e-mail emitido com limite de frequencia.', error: 'Exibir cooldown e mensagem neutra.' },
+];
+
+const signupAcceptance = [
+  'Dado um cliente com dados validos, quando concluir o formulario, entao a conta deve ser criada em status Aguardando confirmacao de e-mail.',
+  'Dado um fornecedor com CNPJ duplicado, quando tentar concluir, entao o sistema deve bloquear a criacao e informar inconsistenca sem criar conta parcial.',
+  'Dado um fornecedor aprovado, quando confirmar e-mail, entao a conta deve ficar apta para primeiro login.',
+];
+
+const recoveryFieldMatrix = [
+  { field: 'E-mail da conta', type: 'email', format: 'nome@dominio.com', required: 'Sim', validation: 'Formato valido e resposta neutra', message: 'Se o e-mail existir, enviaremos instrucoes.' },
+  { field: 'Nova senha', type: 'password', format: 'Min. 10 caracteres', required: 'Sim', validation: 'Complexidade, confirmacao e blacklist', message: 'Senha fora da politica.' },
+  { field: 'Confirmacao da senha', type: 'password', format: 'Igual ao campo anterior', required: 'Sim', validation: 'Match exato', message: 'As senhas nao coincidem.' },
+  { field: 'Token de redefinicao', type: 'hidden/url', format: 'JWT ou hash assinado', required: 'Sim', validation: 'Uso unico e expiracao curta', message: 'Link invalido ou expirado.' },
+];
+
+const recoveryActionRows = [
+  { action: 'Enviar link', behavior: 'Aceita e-mail e sempre retorna resposta neutra.', success: 'Gera token, registra evento e aciona e-mail.', error: 'Em indisponibilidade, orientar tentativa posterior sem expor detalhes.' },
+  { action: 'Redefinir senha', behavior: 'Valida token, senha e confirmacao antes de persistir.', success: 'Atualiza credencial, revoga sessoes e direciona ao login.', error: 'Bloqueia token reutilizado e mostra mensagem objetiva.' },
+];
+
+const recoveryAcceptance = [
+  'Dado um token valido, quando o usuario informar uma nova senha aderente, entao o sistema deve redefinir a senha e encerrar todas as sessoes ativas.',
+  'Dado um token expirado, quando o usuario abrir o link, entao o sistema deve impedir o reset e orientar nova solicitacao.',
+  'Dado um e-mail nao cadastrado, quando solicitar recuperacao, entao a interface deve responder com a mesma mensagem usada para contas existentes.',
+];
+
+const crossRules = [
+  { rule: 'Expiracao de sessao', detail: 'Access token curto e refresh token rotativo com revogacao imediata em logout, reset de senha, bloqueio ou troca de perfil.' },
+  { rule: 'Bloqueio progressivo', detail: 'Falhas repetidas elevam o tempo de espera e podem exigir desafio adicional antes de nova tentativa.' },
+  { rule: 'Confirmacao de e-mail', detail: 'Cliente pode reenviar confirmacao em janela controlada; fornecedor depende de confirmacao de e-mail e aprovacao operacional.' },
+  { rule: 'Unicidade global', detail: 'E-mail, CPF e CNPJ nao podem coexistir em registros ativos, pendentes ou desativados sem fluxo formal de saneamento.' },
+];
+
 const timelineSteps = [
   {
     title: 'Descoberta de contexto',
@@ -465,6 +538,16 @@ export default function AuthSpecPage() {
                       </div>
                     ))}
                   </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[1.2fr_0.9fr]">
+                    <FieldMatrixTable title="Matriz formal de campos da tela de login" rows={loginFieldMatrix} />
+                    <ActionBehaviorGrid title="Comportamento esperado dos componentes de acao" rows={loginActionRows} />
+                  </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]">
+                    <RuleListCard title="Politicas transversais de acesso" rows={crossRules} />
+                    <AcceptanceChecklist title="Criterios de aceite da tela de login" items={loginAcceptance} />
+                  </div>
                 </div>
               </AuthSpecSection>
 
@@ -539,6 +622,16 @@ export default function AuthSpecPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-6">
+                    <FieldMatrixTable title="Matriz formal de campos do cadastro de cliente" rows={signupFieldMatrixClient} />
+                    <FieldMatrixTable title="Matriz formal de campos do cadastro de fornecedor" rows={signupFieldMatrixVendor} />
+                  </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                    <ActionBehaviorGrid title="Botoes, estados e mensagens do auto cadastro" rows={signupActionRows} />
+                    <AcceptanceChecklist title="Criterios de aceite do auto cadastro" items={signupAcceptance} />
+                  </div>
                 </div>
               </AuthSpecSection>
 
@@ -579,6 +672,13 @@ export default function AuthSpecPage() {
                       ]}
                     />
                   </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[1.15fr_0.95fr]">
+                    <FieldMatrixTable title="Matriz formal de campos da recuperacao de senha" rows={recoveryFieldMatrix} />
+                    <ActionBehaviorGrid title="Comportamento dos componentes de recuperacao" rows={recoveryActionRows} />
+                  </div>
+
+                  <AcceptanceChecklist title="Criterios de aceite da recuperacao de senha" items={recoveryAcceptance} />
                 </div>
               </AuthSpecSection>
 
@@ -723,6 +823,96 @@ function SpecMatrix({ title, rows }) {
             </div>
             <h4 className="mt-4 text-base font-semibold text-slate-950 dark:text-white">{row.title}</h4>
             <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{row.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FieldMatrixTable({ title, rows }) {
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50/85 dark:border-slate-800 dark:bg-slate-950/70">
+      <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+        <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-white/80 dark:bg-slate-900/80">
+            <tr className="text-slate-500 dark:text-slate-400">
+              <th className="px-4 py-3 font-semibold">Campo</th>
+              <th className="px-4 py-3 font-semibold">Tipo</th>
+              <th className="px-4 py-3 font-semibold">Formato</th>
+              <th className="px-4 py-3 font-semibold">Obrig.</th>
+              <th className="px-4 py-3 font-semibold">Validacao</th>
+              <th className="px-4 py-3 font-semibold">Mensagem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.field} className="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/70">
+                <td className="px-4 py-4 font-medium text-slate-950 dark:text-white">{row.field}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{row.type}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{row.format}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{row.required}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{row.validation}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{row.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ActionBehaviorGrid({ title, rows }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h3>
+      <div className="mt-5 space-y-4">
+        {rows.map((row) => (
+          <div key={row.action} className="rounded-[22px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/80">
+            <div className="flex flex-wrap items-center gap-2">
+              <AuthSpecBadge variant="neutral">{row.action}</AuthSpecBadge>
+            </div>
+            <div className="mt-4 space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              <p><span className="font-semibold text-slate-900 dark:text-white">Estado esperado:</span> {row.behavior}</p>
+              <p><span className="font-semibold text-slate-900 dark:text-white">Sucesso:</span> {row.success}</p>
+              <p><span className="font-semibold text-slate-900 dark:text-white">Erro:</span> {row.error}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AcceptanceChecklist({ title, items }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h3>
+      <div className="mt-5 space-y-3">
+        {items.map((item) => (
+          <div key={item} className="flex items-start gap-3 rounded-[20px] border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/80">
+            <CheckCircle2 size={18} className="mt-1 shrink-0 text-emerald-500" />
+            <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{item}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RuleListCard({ title, rows }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{title}</h3>
+      <div className="mt-5 space-y-4">
+        {rows.map((row) => (
+          <div key={row.rule} className="rounded-[22px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/80">
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">{row.rule}</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{row.detail}</p>
           </div>
         ))}
       </div>
