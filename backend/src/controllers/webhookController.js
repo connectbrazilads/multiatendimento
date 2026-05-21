@@ -63,11 +63,30 @@ function shouldUseKnowledgeSearch(message) {
     || normalized.includes('erro');
 }
 
+function isLikelyEquipmentModel(message) {
+  const normalized = (message || '').trim();
+  if (normalized.length < 4 || normalized.length > 40) return false;
+
+  if (/\b(?:xerox|ricoh|kyocera|canon|hp|epson|brother|lexmark|sharp|konica|minolta|samsung)\b[\s\-]*[a-z0-9-]{2,}/i.test(normalized)) {
+    return true;
+  }
+
+  return /\b[a-z]{1,6}[\s-]?[a-z]?\d{3,6}\b/i.test(normalized);
+}
+
 function shouldExtractClientMemory(message) {
   const normalized = (message || '').trim();
-  if (normalized.length < 30) return false;
+  if (!normalized) return false;
 
-  return /modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized);
+  if (/modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized)) {
+    return true;
+  }
+
+  if (isLikelyEquipmentModel(normalized)) {
+    return true;
+  }
+
+  return false;
 }
 
 function pickBestContactMatch(contacts, phoneCandidates, instanceId) {
@@ -113,6 +132,68 @@ function extractMedia(msg) {
   if (m.documentMessage) return { type: 'document', caption: m.documentMessage.caption || '', fileName: m.documentMessage.fileName || 'Documento' };
   if (m.stickerMessage)  return { type: 'image',    caption: '' };
   return null;
+}
+
+function joinAiParts(parts = []) {
+  return parts
+    .map((part) => (part || '').toString().trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+function describeMessageForAi(message, fallbackText = '') {
+  const body = (message?.body || '').trim();
+  const transcription = (message?.transcription || '').trim();
+  const mediaType = message?.mediaType;
+  const fileName = (message?.fileName || '').trim();
+
+  if (!mediaType) return body || fallbackText.trim();
+
+  if (mediaType === 'image') {
+    return joinAiParts([
+      '[Cliente enviou uma foto/imagem.]',
+      body ? `Legenda do cliente: ${body}` : '',
+      transcription ? `Análise visual automática: ${transcription}` : '',
+    ]);
+  }
+
+  if (mediaType === 'audio') {
+    return joinAiParts([
+      '[Cliente enviou um áudio.]',
+      transcription ? `Transcrição do áudio: ${transcription}` : '',
+    ]);
+  }
+
+  if (mediaType === 'video') {
+    return joinAiParts([
+      '[Cliente enviou um vídeo.]',
+      body ? `Legenda do cliente: ${body}` : '',
+      transcription ? `Resumo automático do vídeo: ${transcription}` : '',
+    ]);
+  }
+
+  if (mediaType === 'document') {
+    return joinAiParts([
+      `[Cliente enviou um documento${fileName ? `: ${fileName}` : '.'}]`,
+      body ? `Legenda do cliente: ${body}` : '',
+      transcription ? `Conteúdo extraído: ${transcription}` : '',
+    ]);
+  }
+
+  return joinAiParts([
+    `[Cliente enviou uma mídia do tipo ${mediaType}.]`,
+    body,
+    transcription,
+  ]) || fallbackText.trim();
+}
+
+function normalizeHistoryForAi(messages = []) {
+  return messages
+    .map((message) => {
+      const aiBody = describeMessageForAi(message);
+      return aiBody ? { ...message, body: aiBody } : null;
+    })
+    .filter(Boolean);
 }
 
 async function downloadMedia(settings, instanceName, msg, messageId) {
@@ -474,7 +555,12 @@ async function handleWebhook(req, res) {
               const imgBase64 = (await fs.promises.readFile(fullPath)).toString('base64');
               const mimeType = mediaUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
               console.log('[vision] analisando imagem...');
-              transcription = await geminiService.analyzeImage(tenant.settings.geminiKey, imgBase64, mimeType);
+              transcription = await geminiService.analyzeImage(
+                tenant.settings.geminiKey,
+                imgBase64,
+                mimeType,
+                'Você está analisando uma foto enviada em um atendimento técnico de impressora. Descreva apenas o que é visível na impressão e destaque defeitos como sombra, repetição, manchas, desalinhamento, falha de cor, faixa, borrado ou marcas. Responda em português, de forma objetiva, em até 3 frases.'
+              );
               console.log('[vision] resultado:', transcription?.substring(0, 50));
             }
           } catch (err) { console.error('[vision] erro:', err.message); }
@@ -583,8 +669,9 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   const settings = tenant.settings;
   const transferWord = settings.botTransferWord || 'humano';
   const currentNotes = contact.notes || '';
+  const currentUserTurn = describeMessageForAi(incomingMessage, userMessage);
 
-  if (userMessage.toLowerCase().includes(transferWord.toLowerCase())) {
+  if (currentUserTurn.toLowerCase().includes(transferWord.toLowerCase())) {
     await prisma.ticket.update({ where: { id: ticket.id }, data: { status: 'pending' } });
     if (io) io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id, status: 'pending' });
     return;
@@ -592,7 +679,7 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 
   // 1. FILTRO DE PALAVRAS-CHAVE (ATALHO RÁPIDO)
   let autoCategory = null;
-  const msgLower = userMessage.toLowerCase();
+  const msgLower = currentUserTurn.toLowerCase();
   if (msgLower.includes('boleto') || msgLower.includes('nota') || msgLower.includes('pagamento')) autoCategory = 'FINANCEIRO';
   if (msgLower.includes('toner') || msgLower.includes('tonner') || msgLower.includes('cilindro')) autoCategory = 'SUPRIMENTO';
   if (msgLower.includes('falha') || msgLower.includes('não imprime') || msgLower.includes('parou')) autoCategory = 'SUPORTE';
@@ -612,7 +699,7 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     return true;
   });
 
-  const reversedHistory = [...cleanHistory].reverse();
+  const reversedHistory = normalizeHistoryForAi([...cleanHistory].reverse());
 
   // 3. SYSTEM PROMPT (Prioridade absoluta para o que o usuário escreveu no painel)
   const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
@@ -642,6 +729,8 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
    - Verifique a lista [EQUIPAMENTOS DO CLIENTE] abaixo.
    - Se houver equipamentos na lista: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
    - Se a lista estiver vazia: Pergunte educadamente qual o modelo da máquina.
+   - Se o cliente já informou o modelo no histórico recente, NUNCA peça o modelo novamente.
+   - Se o cliente já enviou foto, vídeo, áudio ou documento no histórico recente, NUNCA peça o anexo novamente. Só peça novo envio se o arquivo estiver ilegível ou insuficiente, explicando objetivamente o que faltou.
 3. [VALIDAÇÃO DE COR]: Se a máquina for COLORIDA (verifique no campo "Tipo" ou pelo conhecimento do modelo, ex: Xerox 7845, Ricoh C3003), você DEVE perguntar quais cores de toner o cliente precisa (Ciano, Magenta, Amarelo ou Preto).
 4. [CONFIRMAÇÃO]: NUNCA diga "Já abri o chamado". Use sempre frases como "Entendido! Iremos abrir um chamado para você e nosso time técnico seguirá com o atendimento." ou "Perfeito, vou encaminhar sua solicitação para a abertura do chamado."
 5. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
@@ -657,9 +746,9 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   let topContent = null;
   let found = false;
 
-  if (settings.geminiKey && shouldUseKnowledgeSearch(userMessage)) {
+  if (settings.geminiKey && shouldUseKnowledgeSearch(currentUserTurn)) {
     try {
-      const userEmbedding = await geminiService.getEmbedding(settings.geminiKey, userMessage);
+      const userEmbedding = await geminiService.getEmbedding(settings.geminiKey, currentUserTurn);
       if (userEmbedding) {
         const allKnowledges = await getKnowledgeCached(tenant.id);
         
@@ -701,11 +790,13 @@ ${knowledgeContext}
 
 ${technicalInstructions}`;
 
-  let botReply = await geminiService.chat(settings.geminiKey, finalPrompt, reversedHistory, userMessage);
+  console.log(`[bot] Ticket ${ticket.id} | Turno atual normalizado:\n${currentUserTurn}`);
+
+  let botReply = await geminiService.chat(settings.geminiKey, finalPrompt, reversedHistory, currentUserTurn);
 
   // EXTRAÇÃO DE MEMÓRIA DE LONGO PRAZO (Background Task)
-  if (shouldExtractClientMemory(userMessage)) {
-    const extractionHistory = [...reversedHistory, { fromMe: false, body: userMessage }];
+  if (shouldExtractClientMemory(currentUserTurn)) {
+    const extractionHistory = [...reversedHistory, { fromMe: false, body: currentUserTurn }];
     geminiService.extractClientInfo(settings.geminiKey, extractionHistory, contact.notes)
       .then(async (newNotes) => {
         if (newNotes) {
@@ -761,7 +852,7 @@ ${technicalInstructions}`;
     await prisma.knowledgeLog.create({
       data: {
         tenantId: tenant.id,
-        query: userMessage,
+        query: currentUserTurn,
         content: topContent,
         similarity: topSimilarity,
         found
