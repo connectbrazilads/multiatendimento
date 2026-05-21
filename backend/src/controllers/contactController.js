@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const xlsx = require('xlsx');
+const evolutionService = require('../services/evolutionService');
 
 async function list(req, res) {
   const q = req.query.q || req.query.search;
@@ -100,12 +101,19 @@ async function create(req, res) {
   } = req.body;
   const { tenantId } = req.user;
 
-  let cleanPhone = String(phone).replace(/\D/g, '');
-  if (cleanPhone.length <= 11 && !cleanPhone.startsWith('55')) {
-    cleanPhone = '55' + cleanPhone;
-  }
+  const cleanPhone = evolutionService.normalizePhoneNumber(phone);
+  if (!cleanPhone) return res.status(400).json({ error: 'Telefone invalido' });
 
-  const exists = await prisma.contact.findFirst({ where: { tenantId, phone: cleanPhone } });
+  const phoneCandidates = evolutionService.buildPhoneLookupCandidates(cleanPhone);
+  const exists = await prisma.contact.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { phone: { in: phoneCandidates } },
+        { whatsapp: { in: phoneCandidates } },
+      ],
+    },
+  });
   if (exists) return res.status(400).json({ error: 'Telefone já cadastrado' });
 
   let finalInstanceId = instanceId;
@@ -233,18 +241,18 @@ async function importExcel(req, res) {
       const equipAddr = address; // O endereço da linha da planilha vai para o equipamento individual
 
       if (!phone) continue;
-      phone = String(phone).replace(/\D/g, '');
-      if (phone.length <= 11 && !phone.startsWith('55')) {
-        phone = '55' + phone;
-      }
+      phone = evolutionService.normalizePhoneNumber(phone);
+      if (!phone) continue;
+
+      const phoneCandidates = evolutionService.buildPhoneLookupCandidates(phone);
 
       // Upsert do Contato - Tenta encontrar por telefone, ou CPF/CNPJ, ou Nome Fantasia
       let contact = await prisma.contact.findFirst({ 
         where: { 
           tenantId,
           OR: [
-            { phone },
-            { whatsapp: phone },
+            { phone: { in: phoneCandidates } },
+            { whatsapp: { in: phoneCandidates } },
             cpfCnpj ? { cpfCnpj } : undefined,
             fantasyName ? { fantasyName } : undefined,
             name ? { name } : undefined

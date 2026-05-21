@@ -601,6 +601,7 @@ export default function VendasPage() {
 
         <div className="sales-nav-actions">
           <a className="sales-link-btn" href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" rel="noreferrer">Entrar</a>
+          <a className="sales-link-btn" href="https://app.printwayy.com/Account/Login" target="_blank" rel="noreferrer">Portal PrintWayy</a>
           <a className="sales-cta-btn" href="https://wa.me/555194412679?text=Quero%20conhecer%20o%20sistema%20de%20multiatendimento" target="_blank" rel="noreferrer">
             Falar com vendas
           </a>
@@ -623,6 +624,7 @@ export default function VendasPage() {
               <a key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>{item.label}</a>
             ))}
             <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" rel="noreferrer">Entrar</a>
+            <a href="https://app.printwayy.com/Account/Login" target="_blank" rel="noreferrer">Portal PrintWayy</a>
             <a href="https://wa.me/555194412679?text=Quero%20conhecer%20o%20sistema%20de%20multiatendimento" target="_blank" rel="noreferrer">Falar com vendas</a>
           </div>
         </div>

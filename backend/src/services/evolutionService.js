@@ -262,7 +262,55 @@ async function createInstance(url, key, instanceName) {
 
 function normalizePhoneNumber(phone) {
   if (typeof phone !== 'string' && typeof phone !== 'number') return '';
-  return String(phone).replace(/\D/g, '');
+  let digits = String(phone).replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.startsWith('550')) {
+    digits = `55${digits.slice(3)}`;
+  }
+
+  if (!digits.startsWith('55')) {
+    if (digits.startsWith('0') && digits.length >= 11) {
+      digits = digits.slice(1);
+    }
+
+    if (digits.length <= 11) {
+      digits = `55${digits}`;
+    }
+  }
+
+  return digits;
+}
+
+function buildPhoneLookupCandidates(phone) {
+  const rawDigits = typeof phone === 'string' || typeof phone === 'number'
+    ? String(phone).replace(/\D/g, '')
+    : '';
+
+  if (!rawDigits) return [];
+
+  const candidates = new Set([rawDigits]);
+  const normalized = normalizePhoneNumber(rawDigits);
+  if (normalized) {
+    candidates.add(normalized);
+  }
+
+  if (rawDigits.startsWith('00')) {
+    candidates.add(rawDigits.slice(2));
+  }
+
+  if (normalized.startsWith('55')) {
+    const localDigits = normalized.slice(2);
+    candidates.add(localDigits);
+    candidates.add(`0${localDigits}`);
+    candidates.add(`550${localDigits}`);
+  }
+
+  return Array.from(candidates).filter(Boolean);
 }
 
 function extractProfilePictureUrl(payload) {
@@ -350,5 +398,6 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
 
 module.exports = {
   sendText, sendMedia, sendAudio, sendMessage, getMediaBase64, saveMediaFile,
-  getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage
+  getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage,
+  normalizePhoneNumber, buildPhoneLookupCandidates
 };

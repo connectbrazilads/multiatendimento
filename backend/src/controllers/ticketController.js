@@ -595,10 +595,7 @@ async function sendMessage(req, res) {
     }
     
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
-    let phone = (ticket.contact?.phone || '').replace(/\D/g, '');
-    if (phone.length <= 11 && !phone.startsWith('55')) {
-      phone = '55' + phone;
-    }
+    const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
 
     const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, finalBody, quotedMsgId);
     const externalId = result?.key?.id || result?.message?.key?.id;
@@ -652,10 +649,7 @@ async function sendMediaMessage(req, res) {
     const mime = file.mimetype;
 
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
-    let phone = (ticket.contact?.phone || '').replace(/\D/g, '');
-    if (phone.length <= 11 && !phone.startsWith('55')) {
-      phone = '55' + phone;
-    }
+    const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
 
     let mediaUrl = `/uploads/media/${file.filename}`;
     let mediaType = 'document';
@@ -965,8 +959,7 @@ async function forwardMessage(req, res) {
     const evolutionService = require('../services/evolutionService');
     const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
 
-    let phone = (contact.phone || '').replace(/\D/g, '');
-    if (phone.length <= 11 && !phone.startsWith('55')) phone = '55' + phone;
+    const phone = evolutionService.normalizePhoneNumber(contact.phone || '');
 
     let result;
     const body = originalMsg.body;

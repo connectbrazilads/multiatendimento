@@ -228,101 +228,107 @@ export default function Contacts() {
       {showAddModal ? (
         <ModalShell kicker="Novo cadastro" title="Cadastrar cliente" onClose={() => setShowAddModal(false)} maxWidth="48rem">
           <div style={s.modalBody}>
-            <div style={s.formGrid}>
-              <div style={s.field}>
-                <label style={s.label}>Nome completo</label>
-                <input style={s.input} value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Ex: Joao da Silva" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>Nome fantasia / depto</label>
-                <input style={s.input} value={newContact.fantasyName} onChange={(e) => setNewContact({ ...newContact, fantasyName: e.target.value })} placeholder="Ex: Financeiro" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>WhatsApp (com DDD)</label>
-                <input style={s.input} value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} placeholder="Ex: 5551999999999" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>E-mail</label>
-                <input style={s.input} value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })} placeholder="exemplo@email.com" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>CPF / CNPJ</label>
-                <input style={s.input} value={newContact.document} onChange={(e) => setNewContact({ ...newContact, document: e.target.value })} placeholder="00.000.000/0001-00" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>Endereco</label>
-                <input style={s.input} value={newContact.address} onChange={(e) => setNewContact({ ...newContact, address: e.target.value })} placeholder="Rua, Numero, Bairro" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>Cidade</label>
-                <input style={s.input} value={newContact.city} onChange={(e) => setNewContact({ ...newContact, city: e.target.value })} placeholder="Ex: Porto Alegre" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>Estado (UF)</label>
-                <input style={s.input} value={newContact.state} onChange={(e) => setNewContact({ ...newContact, state: e.target.value })} placeholder="Ex: RS" />
-              </div>
-              <div style={s.field}>
-                <label style={s.label}>CEP</label>
-                <input style={s.input} value={newContact.zipCode} onChange={(e) => setNewContact({ ...newContact, zipCode: e.target.value })} placeholder="00000-000" />
-              </div>
-            </div>
-
-            <div style={s.sectionDivider}>
-              <h3 style={s.sectionTitle}>
-                <Printer size={20} /> Equipamento principal (opcional)
-              </h3>
+            <div style={s.modalScrollArea}>
               <div style={s.formGrid}>
                 <div style={s.field}>
-                  <label style={s.label}>Marca</label>
-                  <input
-                    style={s.input}
-                    value={newContact.equipment.manufacturer}
-                    onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, manufacturer: e.target.value } })}
-                    placeholder="Ex: Xerox"
-                  />
+                  <label style={s.label}>Nome completo</label>
+                  <input style={s.input} value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Ex: Joao da Silva" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Modelo</label>
-                  <input
-                    style={s.input}
-                    value={newContact.equipment.model}
-                    onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, model: e.target.value } })}
-                    placeholder="Ex: WorkCentre 7845"
-                  />
+                  <label style={s.label}>Nome fantasia / depto</label>
+                  <input style={s.input} value={newContact.fantasyName} onChange={(e) => setNewContact({ ...newContact, fantasyName: e.target.value })} placeholder="Ex: Financeiro" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Numero de serie</label>
-                  <input
-                    style={s.input}
-                    value={newContact.equipment.serialNumber}
-                    onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, serialNumber: e.target.value } })}
-                    placeholder="Ex: ABC123456"
-                  />
+                  <label style={s.label}>WhatsApp (com DDD)</label>
+                  <input style={s.input} value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} placeholder="Ex: 5551999999999" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Tipo de impressora</label>
-                  <input
-                    style={s.input}
-                    value={newContact.equipment.type}
-                    onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, type: e.target.value } })}
-                    placeholder="Ex: Multifuncional monocromatica"
-                  />
+                  <label style={s.label}>E-mail</label>
+                  <input style={s.input} value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })} placeholder="exemplo@email.com" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Setor / localizacao</label>
-                  <input
-                    style={s.input}
-                    value={newContact.equipment.sector}
-                    onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, sector: e.target.value } })}
-                    placeholder="Ex: Recepcao"
-                  />
+                  <label style={s.label}>CPF / CNPJ</label>
+                  <input style={s.input} value={newContact.document} onChange={(e) => setNewContact({ ...newContact, document: e.target.value })} placeholder="00.000.000/0001-00" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Endereco</label>
+                  <input style={s.input} value={newContact.address} onChange={(e) => setNewContact({ ...newContact, address: e.target.value })} placeholder="Rua, Numero, Bairro" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Cidade</label>
+                  <input style={s.input} value={newContact.city} onChange={(e) => setNewContact({ ...newContact, city: e.target.value })} placeholder="Ex: Porto Alegre" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>Estado (UF)</label>
+                  <input style={s.input} value={newContact.state} onChange={(e) => setNewContact({ ...newContact, state: e.target.value })} placeholder="Ex: RS" />
+                </div>
+                <div style={s.field}>
+                  <label style={s.label}>CEP</label>
+                  <input style={s.input} value={newContact.zipCode} onChange={(e) => setNewContact({ ...newContact, zipCode: e.target.value })} placeholder="00000-000" />
+                </div>
+              </div>
+              <div style={s.sectionDivider}>
+                <h3 style={s.sectionTitle}>
+                  <Printer size={20} /> Equipamento principal (opcional)
+                </h3>
+                <div style={s.formGrid}>
+                  <div style={s.field}>
+                    <label style={s.label}>Marca</label>
+                    <input
+                      style={s.input}
+                      value={newContact.equipment.manufacturer}
+                      onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, manufacturer: e.target.value } })}
+                      placeholder="Ex: Xerox"
+                    />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Modelo</label>
+                    <input
+                      style={s.input}
+                      value={newContact.equipment.model}
+                      onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, model: e.target.value } })}
+                      placeholder="Ex: WorkCentre 7845"
+                    />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Numero de serie</label>
+                    <input
+                      style={s.input}
+                      value={newContact.equipment.serialNumber}
+                      onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, serialNumber: e.target.value } })}
+                      placeholder="Ex: ABC123456"
+                    />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Tipo de impressora</label>
+                    <input
+                      style={s.input}
+                      value={newContact.equipment.type}
+                      onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, type: e.target.value } })}
+                      placeholder="Ex: Multifuncional monocromatica"
+                    />
+                  </div>
+                  <div style={s.field}>
+                    <label style={s.label}>Setor / localizacao</label>
+                    <input
+                      style={s.input}
+                      value={newContact.equipment.sector}
+                      onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, sector: e.target.value } })}
+                      placeholder="Ex: Recepcao"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <ActionButton style={{ width: '100%', marginTop: '0.5rem' }} onClick={handleCreate}>
-              Cadastrar cliente
-            </ActionButton>
+            <div style={s.modalFooter}>
+              <ActionButton variant="secondary" style={s.modalFooterBtn} onClick={() => setShowAddModal(false)}>
+                Fechar
+              </ActionButton>
+              <ActionButton style={s.modalFooterBtn} onClick={handleCreate}>
+                Cadastrar cliente
+              </ActionButton>
+            </div>
           </div>
         </ModalShell>
       ) : null}
@@ -409,11 +415,22 @@ const s = {
     gap: '8px',
     fontSize: '0.85rem',
   },
-  modalBody: { padding: '0 1.8rem 1.8rem' },
-  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' },
+  modalBody: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
+  modalScrollArea: { padding: '0 1.8rem', overflowY: 'auto', flex: 1, minHeight: 0 },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   label: { fontSize: '0.72rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
   input: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.95rem' },
-  sectionDivider: { marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' },
+  sectionDivider: { marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem', paddingBottom: '1.5rem' },
   sectionTitle: { margin: '0 0 1.5rem 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' },
+  modalFooter: {
+    display: 'flex',
+    gap: '0.85rem',
+    padding: '1rem 1.8rem 1.8rem',
+    borderTop: '1px solid var(--border-color)',
+    background: 'var(--bg-surface)',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+  },
+  modalFooterBtn: { flex: '1 1 240px' },
 };

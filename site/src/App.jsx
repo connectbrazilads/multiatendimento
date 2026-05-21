@@ -54,6 +54,7 @@ const Navbar = () => {
           <a href="#equipamentos" style={{ color: 'inherit' }}>Equipamentos</a>
           <a href="#diferenciais" style={{ color: 'inherit' }}>Diferenciais</a>
           <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 800 }}>Área do Cliente</a>
+          <a href="https://app.printwayy.com/Account/Login" target="_blank" rel="noreferrer" style={{ color: '#fff', fontWeight: 800, background: 'var(--primary)', padding: '0.55rem 1rem', borderRadius: '999px', lineHeight: 1 }}>Portal PrintWayy</a>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -84,6 +85,7 @@ const Navbar = () => {
               <a href="#equipamentos" onClick={() => setMobileMenuOpen(false)}>Equipamentos</a>
               <a href="#diferenciais" onClick={() => setMobileMenuOpen(false)}>Diferenciais</a>
               <a href="https://crm.lcddigital.com.br/lcddigital/login" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Área do Cliente</a>
+              <a href="https://app.printwayy.com/Account/Login" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Portal PrintWayy</a>
               <a href="https://wa.me/555194412679" target="_blank" rel="noreferrer" className="primary-button" style={{ textAlign: 'center', marginTop: '1rem' }}>Falar com Consultor</a>
             </div>
           </motion.div>

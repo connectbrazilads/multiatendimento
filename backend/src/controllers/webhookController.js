@@ -70,6 +70,26 @@ function shouldExtractClientMemory(message) {
   return /modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized);
 }
 
+function pickBestContactMatch(contacts, phoneCandidates, instanceId) {
+  if (!Array.isArray(contacts) || contacts.length === 0) return null;
+
+  const normalizedCandidates = new Set(phoneCandidates);
+
+  const rankContact = (contact) => {
+    const sameInstance = contact.instanceId === instanceId ? 100 : 0;
+    const exactPhone = normalizedCandidates.has(contact.phone) ? 10 : 0;
+    const exactWhatsapp = normalizedCandidates.has(contact.whatsapp) ? 5 : 0;
+    const hasName = contact.name && contact.name !== '.' ? 2 : 0;
+    return sameInstance + exactPhone + exactWhatsapp + hasName;
+  };
+
+  return [...contacts].sort((left, right) => {
+    const scoreDiff = rankContact(right) - rankContact(left);
+    if (scoreDiff !== 0) return scoreDiff;
+    return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+  })[0];
+}
+
 function getMessageContent(m) {
   if (!m) return null;
   if (m.ephemeralMessage) return getMessageContent(m.ephemeralMessage.message);
@@ -191,10 +211,7 @@ async function handleWebhook(req, res) {
     if (remoteJid.includes('@g.us')) return;
     if (remoteJid === 'status@broadcast') return;
 
-    let phone = remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
-    if (phone.length <= 11 && !phone.startsWith('55')) {
-      phone = '55' + phone;
-    }
+    const phone = evolutionService.normalizePhoneNumber(remoteJid.replace('@s.whatsapp.net', ''));
 
     const media = extractMedia(msg);
     const mContent = getMessageContent(msg.message);
@@ -247,11 +264,45 @@ async function handleWebhook(req, res) {
       return;
     }
 
-    const contact = await prisma.contact.upsert({
-      where: { tenantId_instanceId_phone: { tenantId: tenant.id, instanceId: waInstance.id, phone } },
-      update: { name: fromMe ? undefined : (msg.pushName || undefined) },
-      create: { tenantId: tenant.id, instanceId: waInstance.id, phone, name: msg.pushName },
+    const phoneCandidates = evolutionService.buildPhoneLookupCandidates(phone);
+    const matchingContacts = await prisma.contact.findMany({
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { phone: { in: phoneCandidates } },
+          { whatsapp: { in: phoneCandidates } },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
     });
+
+    const matchedContact = pickBestContactMatch(matchingContacts, phoneCandidates, waInstance.id);
+
+    let contact;
+    if (matchedContact) {
+      const shouldUpdateName = !fromMe && msg.pushName && (!matchedContact.name || matchedContact.name === '.');
+      const nextContactData = {
+        ...(matchedContact.phone !== phone ? { phone } : {}),
+        ...(matchedContact.instanceId !== waInstance.id ? { instanceId: waInstance.id } : {}),
+        ...(shouldUpdateName ? { name: msg.pushName } : {}),
+      };
+
+      contact = Object.keys(nextContactData).length > 0
+        ? await prisma.contact.update({
+            where: { id: matchedContact.id },
+            data: nextContactData,
+          })
+        : matchedContact;
+    } else {
+      contact = await prisma.contact.create({
+        data: {
+          tenantId: tenant.id,
+          instanceId: waInstance.id,
+          phone,
+          name: fromMe ? null : (msg.pushName || null),
+        },
+      });
+    }
 
     // Busca foto de perfil em background se ainda não tiver
     if (!contact.avatarUrl && tenant.settings?.evolutionUrl && tenant.settings?.evolutionKey) {
@@ -307,7 +358,14 @@ async function handleWebhook(req, res) {
         }
       });
       if (io) io.to(tenant.id).emit('new_ticket', ticket);
-    } else if (ticket.status === 'resolved') {
+    } else if (ticket.instanceId !== waInstance.id) {
+      ticket = await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { instanceId: waInstance.id, updatedAt: new Date() }
+      });
+    }
+
+    if (ticket.status === 'resolved') {
       // Se o ticket já existia mas estava resolvido, REABRE ele para evitar duplicação na lista
       ticket = await prisma.ticket.update({
         where: { id: ticket.id },

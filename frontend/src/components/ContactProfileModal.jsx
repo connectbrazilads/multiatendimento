@@ -139,6 +139,43 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
     });
   }
 
+  function renderFooterActions() {
+    if (activeTab === 'dados') {
+      return (
+        <>
+          <ActionButton variant="danger" style={s.footerBtn} onClick={handleDeleteContact}>
+            <Trash2 size={16} /> Excluir perfil
+          </ActionButton>
+          <ActionButton variant="secondary" style={s.footerBtn} onClick={onClose}>
+            Fechar
+          </ActionButton>
+          <ActionButton style={s.footerBtn} onClick={handleUpdateData}>
+            Salvar dados
+          </ActionButton>
+        </>
+      );
+    }
+
+    if (activeTab === 'equipamentos') {
+      return (
+        <>
+          <ActionButton variant="secondary" style={s.footerBtn} onClick={onClose}>
+            Fechar
+          </ActionButton>
+          <ActionButton style={s.footerBtn} onClick={handleAddOrUpdateEquip}>
+            {editingEquipId ? 'Salvar alteracoes' : 'Adicionar equipamento'}
+          </ActionButton>
+        </>
+      );
+    }
+
+    return (
+      <ActionButton variant="secondary" style={s.footerBtn} onClick={onClose}>
+        Fechar
+      </ActionButton>
+    );
+  }
+
   function statusBadge(status) {
     const colors = {
       PENDENTE: '#ff4d4f',
@@ -159,21 +196,22 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
 
   return (
     <ModalShell kicker="Perfil do cliente" title={contact.name || 'Cliente'} onClose={onClose} maxWidth="52rem">
-      <div style={s.tabs}>
-        <button style={{ ...s.tab, ...(activeTab === 'dados' ? s.tabActive : {}) }} onClick={() => setActiveTab('dados')}>
-          <User size={16} /> Dados
-        </button>
-        <button style={{ ...s.tab, ...(activeTab === 'equipamentos' ? s.tabActive : {}) }} onClick={() => setActiveTab('equipamentos')}>
-          <Printer size={16} /> Equipamentos
-        </button>
-        <button style={{ ...s.tab, ...(activeTab === 'os' ? s.tabActive : {}) }} onClick={() => setActiveTab('os')}>
-          <FileText size={16} /> Historico O.S.
-        </button>
-      </div>
+      <div style={s.panelBody}>
+        <div style={s.tabs}>
+          <button style={{ ...s.tab, ...(activeTab === 'dados' ? s.tabActive : {}) }} onClick={() => setActiveTab('dados')}>
+            <User size={16} /> Dados
+          </button>
+          <button style={{ ...s.tab, ...(activeTab === 'equipamentos' ? s.tabActive : {}) }} onClick={() => setActiveTab('equipamentos')}>
+            <Printer size={16} /> Equipamentos
+          </button>
+          <button style={{ ...s.tab, ...(activeTab === 'os' ? s.tabActive : {}) }} onClick={() => setActiveTab('os')}>
+            <FileText size={16} /> Historico O.S.
+          </button>
+        </div>
 
-      <div style={s.content}>
-        {activeTab === 'dados' ? (
-          <div>
+        <div style={s.content}>
+          {activeTab === 'dados' ? (
+            <div>
             <div style={s.inputGroup}>
               <div>
                 <label style={s.label}>Nome</label>
@@ -214,18 +252,11 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                 <input style={s.input} value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} />
               </div>
             </div>
-            <div style={s.actionsRow}>
-              <ActionButton onClick={handleUpdateData}>Salvar dados</ActionButton>
             </div>
+          ) : null}
 
-            <ActionButton variant="danger" style={s.deleteBtn} onClick={handleDeleteContact}>
-              <Trash2 size={16} /> Excluir perfil do cliente
-            </ActionButton>
-          </div>
-        ) : null}
-
-        {activeTab === 'equipamentos' ? (
-          <div>
+          {activeTab === 'equipamentos' ? (
+            <div>
             <div style={{ ...s.equipFormCard, borderColor: editingEquipId ? 'var(--accent-border)' : 'var(--border-color)' }}>
               <div style={s.equipFormTitle}>{editingEquipId ? 'Editando equipamento' : 'Novo equipamento'}</div>
               <div style={s.inputGroup}>
@@ -240,11 +271,8 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                 <input style={s.input} placeholder="Tipo (ex: Multifuncional)" value={newEquip.type} onChange={(e) => setNewEquip({ ...newEquip, type: e.target.value })} />
                 <input style={s.input} placeholder="Endereco especifico (opcional)" value={newEquip.address} onChange={(e) => setNewEquip({ ...newEquip, address: e.target.value })} />
               </div>
-              <div style={s.actionsRow}>
-                <ActionButton onClick={handleAddOrUpdateEquip}>
-                  {editingEquipId ? 'Salvar alteracoes' : 'Adicionar equipamento'}
-                </ActionButton>
-                {editingEquipId ? (
+              {editingEquipId ? (
+                <div style={s.actionsRow}>
                   <ActionButton
                     variant="secondary"
                     onClick={() => {
@@ -252,10 +280,10 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                       setNewEquip({ ...EMPTY_EQUIPMENT });
                     }}
                   >
-                    Cancelar
+                    Cancelar edicao
                   </ActionButton>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
 
             {equipments.map((equipment) => (
@@ -280,11 +308,11 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                 {equipment.address ? <div style={s.equipText}>Local: {equipment.address}</div> : null}
               </div>
             ))}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
 
-        {activeTab === 'os' ? (
-          <div>
+          {activeTab === 'os' ? (
+            <div>
             {osHistory.length === 0 ? <div style={s.emptyText}>Nenhuma O.S. registrada.</div> : null}
             {osHistory.map((os) => (
               <div key={os.id} style={s.osCard}>
@@ -306,19 +334,32 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                 </div>
               </div>
             ))}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={s.footer}>
+          {renderFooterActions()}
+        </div>
       </div>
     </ModalShell>
   );
 }
 
 const s = {
+  panelBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minHeight: 0,
+  },
   tabs: {
     display: 'flex',
     borderBottom: '1px solid var(--border-color)',
     padding: '0 1.8rem',
     gap: '0.5rem',
+    flexShrink: 0,
+    overflowX: 'auto',
   },
   tab: {
     padding: '0.95rem 1rem',
@@ -336,8 +377,8 @@ const s = {
     color: 'var(--accent)',
     borderBottomColor: 'var(--accent)',
   },
-  content: { padding: '1.8rem', overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' },
-  inputGroup: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' },
+  content: { padding: '1.8rem', overflowY: 'auto', flex: 1, minHeight: 0 },
+  inputGroup: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' },
   label: {
     fontSize: '0.78rem',
     color: 'var(--accent)',
@@ -358,7 +399,6 @@ const s = {
     boxSizing: 'border-box',
   },
   actionsRow: { display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' },
-  deleteBtn: { width: '100%', marginTop: '28px' },
   equipFormCard: {
     background: 'var(--bg-panel)',
     padding: '16px',
@@ -402,4 +442,14 @@ const s = {
   osRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' },
   osLink: { fontSize: '0.8rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 },
   emptyText: { color: 'var(--text-muted)' },
+  footer: {
+    display: 'flex',
+    gap: '0.85rem',
+    padding: '1rem 1.8rem 1.8rem',
+    borderTop: '1px solid var(--border-color)',
+    background: 'var(--bg-surface)',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+  },
+  footerBtn: { flex: '1 1 220px' },
 };
