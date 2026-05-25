@@ -221,14 +221,41 @@ async function analyzeImage(apiKey, imageBase64, mimeType, prompt = 'Descreva es
 async function extractClientInfo(apiKey, history, currentNotes) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const historyText = history.map((m) => `${m.fromMe ? 'Agente' : 'Cliente'}: ${m.body}`).join('\n');
-  const prompt = `Extraia informacoes tecnicas do cliente desta conversa e atualize a ficha tecnica consolidada. Capture especialmente modelo de equipamento, marca, serie, serial, setor, ramal, endereco e identificadores curtos como "Xerox 7845" mesmo quando vierem em mensagens isoladas. Responda IGNORAR se nao houver nada novo.\n\nFicha Atual:\n${currentNotes}\n\nConversa:\n${historyText}`;
+  const prompt = `Analise a conversa abaixo e retorne um objeto JSON contendo exatamente as chaves "name" e "notes":
+1. "name": O nome pessoal do cliente se ele se identificou ou disse como se chama nesta conversa (se não informado, retorne null).
+2. "notes": A ficha técnica consolidada e atualizada do cliente. Capture modelo de equipamento, marca, série, serial, setor, ramal, endereço e observações. Atualize a ficha atual com as novas informações fornecidas na conversa.
+
+Se não houver NENHUMA informação nova na conversa para atualizar as notas nem o nome, responda exatamente com a palavra: IGNORAR.
+
+Ficha Atual:
+${currentNotes}
+
+Conversa:
+${historyText}`;
 
   for (const modelName of getModels('GEMINI_LIGHT_MODELS', DEFAULT_LIGHT_MODELS)) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       const resp = result.response.text().trim();
-      return resp === 'IGNORAR' || resp.toLowerCase() === 'ignorar' ? null : resp;
+      
+      if (resp === 'IGNORAR' || resp.toLowerCase() === 'ignorar') return null;
+      
+      let cleanJson = resp;
+      if (cleanJson.startsWith('```json')) {
+        cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '').trim();
+      }
+      
+      try {
+        const parsed = JSON.parse(cleanJson);
+        return {
+          name: parsed.name || null,
+          notes: parsed.notes || null
+        };
+      } catch (e) {
+        // Fallback caso o modelo retorne texto plano
+        return { name: null, notes: resp };
+      }
     } catch (err) {
       if (shouldTryNextModel(err)) continue;
       return null;

@@ -78,7 +78,7 @@ function shouldExtractClientMemory(message) {
   const normalized = (message || '').trim();
   if (!normalized) return false;
 
-  if (/modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized)) {
+  if (/nome|modelo|serie|serial|setor|endereco|ramal|equipamento|impressora|copiadora|maquina|whatsapp|email/i.test(normalized)) {
     return true;
   }
 
@@ -725,17 +725,21 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
 ---
 [INSTRUÇÕES DE FLUXO DE SISTEMA - PRIORITÁRIO]:
 1. Você é o Assistente Virtual da LCD DIGITAL.
-2. Ao receber pedidos de TONER ou SUPORTE:
+2. [IDENTIFICAÇÃO DE CLIENTE & SETOR]:
+   - Nome: Se o nome do contato for genérico, ausente ou apenas um caractere/ponto (nome atual registrado: "${contact.name || ''}"), pergunte o nome da pessoa de forma simpática no início da conversa.
+   - Setor: Pergunte em qual setor ou departamento o equipamento está localizado (ex: Financeiro, Faturamento, Recepção), a menos que você já saiba o setor ou que ele conste nas NOTAS ATUAIS do cliente.
+   - Não seja invasivo ou robótico. Faça as perguntas integradas ao diálogo de forma natural na primeira ou segunda interação.
+3. Ao receber pedidos de TONER ou SUPORTE:
    - Verifique a lista [EQUIPAMENTOS DO CLIENTE] abaixo.
    - Se houver equipamentos na lista: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
    - Se a lista estiver vazia: Pergunte educadamente qual o modelo da máquina.
    - Se o cliente já informou o modelo no histórico recente, NUNCA peça o modelo novamente.
    - Se o cliente já enviou foto, vídeo, áudio ou documento no histórico recente, NUNCA peça o anexo novamente. Só peça novo envio se o arquivo estiver ilegível ou insuficiente, explicando objetivamente o que faltou.
-3. [VALIDAÇÃO DE COR]: Se a máquina for COLORIDA (verifique no campo "Tipo" ou pelo conhecimento do modelo, ex: Xerox 7845, Ricoh C3003), você DEVE perguntar quais cores de toner o cliente precisa (Ciano, Magenta, Amarelo ou Preto).
-4. [CONFIRMAÇÃO]: NUNCA diga "Já abri o chamado". Use sempre frases como "Entendido! Iremos abrir um chamado para você e nosso time técnico seguirá com o atendimento." ou "Perfeito, vou encaminhar sua solicitação para a abertura do chamado."
-5. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
-6. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
-7. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
+4. [VALIDAÇÃO DE COR]: Se a máquina for COLORIDA (verifique no campo "Tipo" ou pelo conhecimento do modelo, ex: Xerox 7845, Ricoh C3003), você DEVE perguntar quais cores de toner o cliente precisa (Ciano, Magenta, Amarelo ou Preto).
+5. [CONFIRMAÇÃO]: NUNCA diga "Já abri o chamado". Use sempre frases como "Entendido! Iremos abrir um chamado para você e nosso time técnico seguirá com o atendimento." ou "Perfeito, vou encaminhar sua solicitação para a abertura do chamado."
+6. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
+7. SEMPRE adicione no final da resposta: [[ROUTE: CATEGORIA]]
+8. Seja curto, direto e use o estilo de conversa do WhatsApp.`;
 
   console.log(`[bot] Ticket ${ticket.id} | Equipamentos encontrados: ${equipments.length}`);
   if (equipments.length > 0) console.log(`[bot] Contexto de equipamentos enviado:\n${equipContext}`);
@@ -798,13 +802,24 @@ ${technicalInstructions}`;
   if (shouldExtractClientMemory(currentUserTurn)) {
     const extractionHistory = [...reversedHistory, { fromMe: false, body: currentUserTurn }];
     geminiService.extractClientInfo(settings.geminiKey, extractionHistory, contact.notes)
-      .then(async (newNotes) => {
-        if (newNotes) {
-          await prisma.contact.update({
-            where: { id: contact.id },
-            data: { notes: newNotes }
-          });
-          if (io) io.to(tenant.id).emit('contact_updated', { contactId: contact.id });
+      .then(async (result) => {
+        if (result) {
+          const updateData = {};
+          if (result.notes) updateData.notes = result.notes;
+          
+          // Se a IA extraiu o nome e o contato ainda não tinha um nome válido (ou era ponto/número/vazio), atualiza o nome no banco
+          const isGenericName = !contact.name || contact.name === '.' || contact.name.trim() === '' || contact.name.includes('+') || contact.name.match(/^\d+$/);
+          if (result.name && (isGenericName || contact.name.length < 3)) {
+            updateData.name = result.name;
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await prisma.contact.update({
+              where: { id: contact.id },
+              data: updateData
+            });
+            if (io) io.to(tenant.id).emit('contact_updated', { contactId: contact.id });
+          }
         }
       })
       .catch(err => console.error('[webhook] erro na extração de memória:', err.message));
