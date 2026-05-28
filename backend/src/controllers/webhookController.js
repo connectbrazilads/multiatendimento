@@ -308,9 +308,17 @@ async function handleWebhook(req, res) {
 
     if (!body) {
       if (mContent?.contactMessage) {
-        body = `👤 Contato: ${mContent.contactMessage.displayName || 'Desconhecido'}`;
+        const name = mContent.contactMessage.displayName || 'Desconhecido';
+        const vcard = mContent.contactMessage.vcard || '';
+        const phoneMatch = vcard.match(/waid=([0-9]+)/) || vcard.match(/TEL.*:.*?\+?([0-9\-\s]+)/);
+        let phoneText = '';
+        if (phoneMatch) {
+          const number = phoneMatch[1].replace(/\D/g, '');
+          phoneText = `\n📱 +${number}\n🔗 https://wa.me/${number}`;
+        }
+        body = `👤 Contato: ${name}${phoneText}`;
       } else if (mContent?.contactsArrayMessage) {
-        body = `👥 ${mContent.contactsArrayMessage.contacts?.length || 'Vários'} Contato(s)`;
+        body = `👥 ${mContent.contactsArrayMessage.contacts?.length || 'Vários'} Contato(s)\n*(Abra no celular para salvar)*`;
       } else if (mContent?.locationMessage) {
         body = mContent.locationMessage.name ? `📍 Localização: ${mContent.locationMessage.name}` : `📍 Localização`;
       }
