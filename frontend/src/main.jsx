@@ -14,7 +14,6 @@ const Contacts = lazy(() => import('./pages/Contacts'));
 const Users = lazy(() => import('./pages/Users'));
 const Teams = lazy(() => import('./pages/Teams'));
 const Settings = lazy(() => import('./pages/Settings'));
-const InternalChat = lazy(() => import('./pages/InternalChat'));
 const Connections = lazy(() => import('./pages/Connections'));
 const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
 const Campaigns = lazy(() => import('./pages/Campaigns'));
@@ -141,7 +140,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/users" element={<Users />} />
             <Route path="/teams" element={<Teams />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/internal-chat" element={<InternalChat />} />
             <Route path="/connections" element={<Connections />} />
             <Route path="/knowledge" element={<KnowledgeBase />} />
             <Route path="/campaigns" element={<Campaigns />} />

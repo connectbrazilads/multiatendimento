@@ -1,22 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MessageSquareText, Send, Sparkles, Users } from 'lucide-react';
+import { Send, Users, X, ChevronLeft, Sparkles } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { io } from 'socket.io-client';
 import { getUsers, getInternalMessages, sendInternalMessage } from '../services/api';
 import { SOCKET_URL } from '../services/socket';
-import ActionButton from '../components/ui/ActionButton';
-import EmptyState from '../components/ui/EmptyState';
+import ActionButton from './ui/ActionButton';
 
 let socket;
 
-export default function InternalChat() {
+export default function InternalChatDrawer({ isOpen, onClose }) {
   const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const bottomRef = useRef(null);
+  const myId = localStorage.getItem('userId');
 
   useEffect(() => {
+    if (!isOpen) return;
+
     getUsers()
       .then((response) => setUsers(response.data))
       .catch(() => {});
@@ -24,14 +26,15 @@ export default function InternalChat() {
     const token = localStorage.getItem('token');
     socket = io(SOCKET_URL, { auth: { token } });
 
-    return () => socket.disconnect();
-  }, []);
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [isOpen]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !isOpen) return;
 
     const handleNewInternal = (message) => {
-      const myId = localStorage.getItem('userId');
       if (message.senderId === myId) return;
 
       if (
@@ -39,16 +42,19 @@ export default function InternalChat() {
         (message.senderId === myId && message.receiverId === selected?.id)
       ) {
         setMessages((prev) => [...prev, message]);
+      } else {
+        // Se a mensagem for de outro usuário, mostraremos uma notificação no Layout
+        // Aqui não precisamos fazer nada específico, o Layout já cuida da notificação
       }
     };
 
     socket.on('new_internal', handleNewInternal);
     return () => socket.off('new_internal', handleNewInternal);
-  }, [selected]);
+  }, [selected, isOpen, myId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, selected]);
 
   async function selectUser(user) {
     setSelected(user);
@@ -69,51 +75,63 @@ export default function InternalChat() {
     }
   }
 
-  const myId = localStorage.getItem('userId');
+  if (!isOpen) return null;
 
   return (
-    <div style={s.container}>
-      <aside style={s.sidebar}>
-        <div style={s.sidebarHeader}>
-          <p style={s.sidebarKicker}>Colaboracao</p>
-          <div style={s.sidebarTitle}>Equipe multiatendimento</div>
-        </div>
-
-        <div style={s.userList}>
-          {users.filter((user) => user.id !== myId).map((user) => {
-            const isSelected = selected?.id === user.id;
-            return (
-              <button
-                key={user.id}
-                style={{ ...s.userItem, ...(isSelected ? s.userItemActive : {}) }}
-                onClick={() => selectUser(user)}
-              >
-                <div style={s.avatar}>{user.name[0].toUpperCase()}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ ...s.userName, color: isSelected ? 'var(--accent)' : 'var(--text-main)' }}>{user.name}</div>
-                  <div style={s.userRole}>{user.role}</div>
-                </div>
+    <>
+      <div style={s.backdrop} onClick={onClose} />
+      <div style={s.drawer}>
+        {!selected ? (
+          // LIST VIEW
+          <div style={s.viewContainer}>
+            <div style={s.header}>
+              <div style={s.headerTitle}>
+                <Users size={18} />
+                Equipe
+              </div>
+              <button style={s.iconBtn} onClick={onClose}>
+                <X size={20} />
               </button>
-            );
-          })}
-        </div>
-      </aside>
-
-      <main style={s.main}>
-        {selected ? (
-          <>
-            <div style={s.chatHeader}>
+            </div>
+            
+            <div style={s.content}>
+              {users.filter((user) => user.id !== myId).length === 0 ? (
+                <div style={s.emptyWrap}>
+                  <Sparkles size={24} color="var(--text-dim)" />
+                  <p style={{color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: '1rem'}}>
+                    Nenhum outro colaborador encontrado.
+                  </p>
+                </div>
+              ) : (
+                users.filter((user) => user.id !== myId).map((user) => (
+                  <button key={user.id} style={s.userItem} onClick={() => selectUser(user)}>
+                    <div style={s.avatar}>{user.name[0].toUpperCase()}</div>
+                    <div style={s.userInfo}>
+                      <div style={s.userName}>{user.name}</div>
+                      <div style={s.userRole}>{user.role}</div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          // CHAT VIEW
+          <div style={s.viewContainer}>
+            <div style={s.header}>
+              <button style={s.backBtn} onClick={() => setSelected(null)}>
+                <ChevronLeft size={20} />
+              </button>
               <div style={s.chatIdentity}>
                 <div style={s.avatarSmall}>{selected.name[0].toUpperCase()}</div>
                 <div>
                   <div style={s.chatTitle}>{selected.name}</div>
-                  <div style={s.chatSubtitle}>Canal interno da equipe</div>
+                  <div style={s.chatSubtitle}>Equipe Interna</div>
                 </div>
               </div>
-              <div style={s.onlineStatus}>
-                <span style={s.statusDot} />
-                Disponivel
-              </div>
+              <button style={s.iconBtn} onClick={onClose}>
+                <X size={20} />
+              </button>
             </div>
 
             <div style={s.messageList}>
@@ -138,100 +156,97 @@ export default function InternalChat() {
                 style={s.input}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Escreva uma mensagem interna..."
+                placeholder="Mensagem..."
               />
               <ActionButton type="submit" style={s.sendBtn}>
                 <Send size={16} />
-                Enviar
               </ActionButton>
             </form>
-          </>
-        ) : (
-          <div style={s.emptyWrap}>
-            <EmptyState
-              icon={<Sparkles size={24} />}
-              title="Colaboracao em tempo real"
-              description="Selecione um colega para iniciar uma conversa interna e alinhar atendimentos em andamento."
-              style={s.emptyState}
-            />
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
 const s = {
-  container: {
-    display: 'flex',
-    flex: 1,
-    height: '100%',
-    width: '100%',
-    background: 'var(--bg-base)',
+  backdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.3)',
+    backdropFilter: 'blur(2px)',
+    zIndex: 1040,
+    animation: 'fadeIn 0.2s ease',
   },
-  sidebar: {
-    width: '320px',
-    borderRight: '1px solid var(--border-color)',
+  drawer: {
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '380px',
+    maxWidth: '100%',
+    background: 'var(--bg-base)',
+    boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
+    zIndex: 1050,
     display: 'flex',
     flexDirection: 'column',
-    background: 'var(--bg-surface)',
+    animation: 'slideInRight 0.3s ease',
   },
-  sidebarHeader: {
-    padding: '1.5rem',
-    borderBottom: '1px solid var(--border-color)',
+  viewContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
   },
-  sidebarKicker: {
-    margin: '0 0 0.35rem',
-    color: 'var(--accent)',
-    fontSize: '0.74rem',
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  sidebarTitle: {
-    color: 'var(--text-main)',
-    fontWeight: 800,
-    fontSize: '1.02rem',
-    letterSpacing: '-0.02em',
-  },
-  userList: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '0.75rem',
-  },
-  userItem: {
-    width: '100%',
+  header: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.9rem',
-    padding: '0.95rem',
-    cursor: 'pointer',
-    borderRadius: '14px',
-    marginBottom: '0.35rem',
+    justifyContent: 'space-between',
+    padding: '1rem 1.25rem',
+    background: 'var(--bg-surface)',
+    borderBottom: '1px solid var(--border-color)',
+  },
+  headerTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    fontSize: '1.05rem',
+  },
+  iconBtn: {
     background: 'transparent',
-    border: '1px solid transparent',
-    textAlign: 'left',
-  },
-  userItemActive: {
-    background: 'var(--accent-light)',
-    borderColor: 'var(--accent-border)',
-  },
-  avatar: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '14px',
-    background: 'var(--accent)',
-    color: 'var(--text-inverse)',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    padding: '0.4rem',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontWeight: 800,
-    fontSize: '1rem',
-    flexShrink: 0,
   },
-  avatarSmall: {
-    width: '36px',
-    height: '36px',
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  userItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.9rem',
+    padding: '0.85rem',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'all 0.2s ease',
+  },
+  avatar: {
+    width: '40px',
+    height: '40px',
     borderRadius: '12px',
     background: 'var(--accent)',
     color: 'var(--text-inverse)',
@@ -239,12 +254,17 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: 800,
-    fontSize: '0.82rem',
+    fontSize: '0.9rem',
     flexShrink: 0,
+  },
+  userInfo: {
+    minWidth: 0,
+    flex: 1,
   },
   userName: {
     fontWeight: 700,
     fontSize: '0.95rem',
+    color: 'var(--text-main)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -256,54 +276,48 @@ const s = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
   },
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--bg-base)',
-  },
-  chatHeader: {
-    padding: '1rem 1.5rem',
-    background: 'var(--bg-surface)',
-    borderBottom: '1px solid var(--border-color)',
+  backBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    padding: '0.4rem',
+    borderRadius: '8px',
+    marginRight: '0.5rem',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '1rem',
   },
   chatIdentity: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.85rem',
+    gap: '0.75rem',
+    flex: 1,
+  },
+  avatarSmall: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    background: 'var(--accent)',
+    color: 'var(--text-inverse)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 800,
+    fontSize: '0.8rem',
   },
   chatTitle: {
     fontWeight: 800,
     color: 'var(--text-main)',
-    fontSize: '1.05rem',
+    fontSize: '0.95rem',
   },
   chatSubtitle: {
-    fontSize: '0.78rem',
+    fontSize: '0.7rem',
     color: 'var(--text-dim)',
-    marginTop: '0.2rem',
-  },
-  onlineStatus: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.45rem',
-    color: 'var(--text-muted)',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-  },
-  statusDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#48bb78',
   },
   messageList: {
     flex: 1,
     overflowY: 'auto',
-    padding: '2rem',
+    padding: '1rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
@@ -312,60 +326,62 @@ const s = {
     display: 'flex',
   },
   bubble: {
-    padding: '0.8rem 1.15rem',
-    borderRadius: '18px',
-    maxWidth: '70%',
-    fontSize: '0.95rem',
-    boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
-    position: 'relative',
-    lineHeight: 1.6,
+    padding: '0.65rem 0.95rem',
+    borderRadius: '14px',
+    maxWidth: '85%',
+    fontSize: '0.9rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    lineHeight: 1.5,
   },
   bubbleFromMe: {
     background: 'var(--accent)',
     color: 'var(--text-inverse)',
     border: '1px solid var(--accent)',
+    borderBottomRightRadius: '4px',
   },
   bubbleFromOther: {
     background: 'var(--bg-surface)',
     color: 'var(--text-main)',
     border: '1px solid var(--border-color)',
+    borderBottomLeftRadius: '4px',
   },
   time: {
-    fontSize: '0.68rem',
-    marginTop: '0.4rem',
+    fontSize: '0.65rem',
+    marginTop: '0.3rem',
+    textAlign: 'right',
   },
   inputArea: {
-    padding: '1.25rem 1.5rem',
+    padding: '1rem',
     background: 'var(--bg-surface)',
     borderTop: '1px solid var(--border-color)',
     display: 'flex',
-    gap: '0.9rem',
+    gap: '0.75rem',
     alignItems: 'center',
   },
   input: {
     flex: 1,
-    padding: '0.95rem 1.2rem',
+    padding: '0.8rem 1rem',
     borderRadius: '999px',
     border: '1px solid var(--border-color)',
     background: 'var(--bg-panel)',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.95rem',
+    fontSize: '0.9rem',
   },
   sendBtn: {
-    padding: '0.9rem 1.15rem',
-    borderRadius: '999px',
-    minWidth: '8rem',
-  },
-  emptyWrap: {
-    flex: 1,
+    padding: '0.8rem',
+    borderRadius: '50%',
+    minWidth: 'auto',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '2rem',
   },
-  emptyState: {
-    maxWidth: '30rem',
-    width: '100%',
-  },
+  emptyWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '3rem 1rem',
+    opacity: 0.8,
+  }
 };

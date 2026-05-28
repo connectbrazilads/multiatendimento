@@ -23,13 +23,14 @@ import {
 import { getMe, getMediaUrl } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ToastContainer from './ToastContainer';
-
+import InternalChatDrawer from './InternalChatDrawer';
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [notification, setNotification] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const audioRef = React.useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'));
   const desktopMenuRef = React.useRef(null);
   const role = localStorage.getItem('role')?.toLowerCase();
@@ -136,7 +137,7 @@ export default function Layout() {
   const desktopLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/internal-chat', icon: <MessageCircle size={18} />, label: 'Chat Interno', roles: ['admin', 'agent', 'superadmin'] },
+    { action: () => setIsChatOpen(true), icon: <MessageCircle size={18} />, label: 'Chat Interno', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexoes', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/contacts', icon: <Users size={18} />, label: 'Clientes / CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', roles: ['admin', 'agent', 'superadmin'] },
@@ -148,9 +149,9 @@ export default function Layout() {
   ];
 
   const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
-  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/internal-chat', '/connections', '/contacts', '/campaigns'];
-  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryDesktopRoutes.includes(link.to));
-  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryDesktopRoutes.includes(link.to));
+  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/connections', '/contacts', '/campaigns'];
+  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryDesktopRoutes.includes(link.to) || link.label === 'Chat Interno');
+  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryDesktopRoutes.includes(link.to) && link.label !== 'Chat Interno');
   const secondaryMenuActive = secondaryDesktopLinks.some((link) => location.pathname === link.to);
 
   const mobileLinks = [
@@ -194,10 +195,17 @@ export default function Layout() {
           <div style={styles.centerNav}>
             <div style={{ ...styles.links }} className="desktop-nav-scroll">
               {primaryDesktopLinks.map((link) => (
-                <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
-                  {link.icon}
-                  {link.label}
-                </NavLink>
+                link.to ? (
+                  <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                    {link.icon}
+                    {link.label}
+                  </NavLink>
+                ) : (
+                  <button key={link.label} onClick={link.action} style={{ ...styles.link, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {link.icon}
+                    {link.label}
+                  </button>
+                )
               ))}
             </div>
 
@@ -215,19 +223,26 @@ export default function Layout() {
                 {desktopMenuOpen ? (
                   <div style={styles.moreMenuDropdown}>
                     {secondaryDesktopLinks.map((link) => (
-                      <NavLink
-                        key={link.to}
-                        to={link.to}
-                        end={link.to === '/dashboard'}
-                        onClick={() => setDesktopMenuOpen(false)}
-                        style={({ isActive }) => ({
-                          ...styles.moreMenuItem,
-                          ...(isActive ? styles.moreMenuItemActive : {}),
-                        })}
-                      >
-                        {link.icon}
-                        {link.label}
-                      </NavLink>
+                      link.to ? (
+                        <NavLink
+                          key={link.to}
+                          to={link.to}
+                          end={link.to === '/dashboard'}
+                          onClick={() => setDesktopMenuOpen(false)}
+                          style={({ isActive }) => ({
+                            ...styles.moreMenuItem,
+                            ...(isActive ? styles.moreMenuItemActive : {}),
+                          })}
+                        >
+                          {link.icon}
+                          {link.label}
+                        </NavLink>
+                      ) : (
+                        <button key={link.label} onClick={() => { link.action(); setDesktopMenuOpen(false); }} style={{ ...styles.moreMenuItem, border: 'none', background: 'transparent', width: '100%', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                          {link.icon}
+                          {link.label}
+                        </button>
+                      )
                     ))}
                   </div>
                 ) : null}
@@ -266,7 +281,11 @@ export default function Layout() {
         <div
           style={{ ...styles.toast, right: isMobile ? '1rem' : '2rem', left: isMobile ? '1rem' : 'auto' }}
           onClick={() => {
-            navigate(notification.isInternal ? '/internal-chat' : '/inbox');
+            if (notification.isInternal) {
+              setIsChatOpen(true);
+            } else {
+              navigate('/inbox');
+            }
             setNotification(null);
           }}
         >
@@ -282,6 +301,7 @@ export default function Layout() {
         </div>
       ) : null}
 
+      <InternalChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
       <ToastContainer />
     </div>
   );

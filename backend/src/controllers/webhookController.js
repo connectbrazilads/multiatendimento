@@ -298,13 +298,23 @@ async function handleWebhook(req, res) {
     const mContent = getMessageContent(msg.message);
     
     // Tentativa robusta de pegar o texto (body) da mensagem
-    const body = mContent?.conversation
+    let body = mContent?.conversation
       || mContent?.extendedTextMessage?.text
       || mContent?.imageMessage?.caption
       || mContent?.videoMessage?.caption
       || mContent?.documentMessage?.caption
       || media?.caption
       || '';
+
+    if (!body) {
+      if (mContent?.contactMessage) {
+        body = `👤 Contato: ${mContent.contactMessage.displayName || 'Desconhecido'}`;
+      } else if (mContent?.contactsArrayMessage) {
+        body = `👥 ${mContent.contactsArrayMessage.contacts?.length || 'Vários'} Contato(s)`;
+      } else if (mContent?.locationMessage) {
+        body = mContent.locationMessage.name ? `📍 Localização: ${mContent.locationMessage.name}` : `📍 Localização`;
+      }
+    }
 
     const contextInfo = mContent?.extendedTextMessage?.contextInfo 
                      || mContent?.imageMessage?.contextInfo
@@ -320,7 +330,9 @@ async function handleWebhook(req, res) {
                        || qContent?.imageMessage?.caption
                        || qContent?.videoMessage?.caption
                        || (qContent?.audioMessage ? '🎤 Áudio' : null)
-                       || (qContent?.documentMessage ? '📎 Documento' : null);
+                       || (qContent?.documentMessage ? '📎 Documento' : null)
+                       || (qContent?.contactMessage ? `👤 Contato: ${qContent.contactMessage.displayName || 'Desconhecido'}` : null)
+                       || (qContent?.locationMessage ? '📍 Localização' : null);
 
     // Trata atualização de conexão e QR Code
     if (event === 'connection.update' || event === 'qrcode.updated') {
