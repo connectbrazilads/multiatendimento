@@ -47,6 +47,7 @@ export default function Settings() {
     companyPhone: '',
     companyCity: '',
     companyState: '',
+    serpApiKey: '',
   });
   const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
@@ -296,6 +297,18 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, geminiKey: e.target.value })}
                   placeholder="AIza..."
                 />
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Chave SerpAPI (Prospecção de Leads)</label>
+                <input
+                  style={s.input}
+                  type="password"
+                  value={form.serpApiKey}
+                  onChange={(e) => setForm({ ...form, serpApiKey: e.target.value })}
+                  placeholder="Cole aqui sua chave do serpapi.com"
+                />
+                <p style={s.hint}>Cadastre-se grátis em serpapi.com — 250 buscas/mês gratuitas.</p>
               </div>
 
               <div style={s.field}>

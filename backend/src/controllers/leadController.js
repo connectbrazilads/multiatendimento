@@ -12,9 +12,19 @@ async function searchLeads(req, res) {
       return res.status(400).json({ error: 'Informe uma busca válida (ex: "dentistas em São Paulo")' });
     }
 
+    // Pega a chave SerpAPI das settings do tenant ou variável de ambiente global
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+    const apiKey = settings?.serpApiKey || process.env.SERPAPI_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({ 
+        error: 'Chave SerpAPI não configurada. Vá em Ajustes e preencha o campo "Chave SerpAPI" ou defina a variável de ambiente SERPAPI_KEY.' 
+      });
+    }
+
     console.log(`[leads] Tenant ${tenantId} buscando: "${query}"`);
     
-    const results = await scrapeGoogleMaps(query.trim(), Math.min(maxResults, 50));
+    const results = await scrapeGoogleMaps(query.trim(), apiKey, Math.min(maxResults, 50));
     
     // Salva os leads no banco, evitando duplicatas por placeId
     let saved = 0;

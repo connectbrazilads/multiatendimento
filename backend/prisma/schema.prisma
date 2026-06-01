@@ -65,6 +65,9 @@ model TenantSettings {
   companyCity       String?
   companyState      String?
 
+  // SerpAPI para Prospecção de Leads
+  serpApiKey         String?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
 }
