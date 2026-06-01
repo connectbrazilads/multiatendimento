@@ -1,11 +1,11 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const os = require('os');
+const { execSync } = require('child_process');
 
 /**
- * Scraper de leads via Google Maps usando Puppeteer.
- * Busca empresas por query (ex: "dentistas em São Paulo") e extrai:
- * nome, telefone, endereço, website, avaliação, categoria.
+ * Scraper de leads via Google Maps usando Puppeteer-core.
+ * Usa o Chromium do sistema (instalado pelo Nixpacks) em vez de baixar separado.
  * 
  * LOGS: Todos os logs usam o prefixo [scraper] para fácil filtro nos logs do Easypanel.
  */
@@ -28,6 +28,66 @@ function logMemory(label) {
   const mem = process.memoryUsage();
   const sysMem = os.freemem();
   console.log(`[scraper] [MEM ${label}] RSS=${Math.round(mem.rss / 1024 / 1024)}MB | Heap=${Math.round(mem.heapUsed / 1024 / 1024)}MB | SistemaLivre=${Math.round(sysMem / 1024 / 1024)}MB`);
+}
+
+/**
+ * Encontra o executável do Chromium no sistema.
+ * Procura em: paths fixos comuns, nix store, e via 'which'.
+ */
+function findChromiumPath() {
+  // 0. Variável de ambiente (definida no nixpacks.json)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    console.log(`[scraper]   ✓ Chromium via ENV PUPPETEER_EXECUTABLE_PATH: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  // 1. Caminhos fixos conhecidos
+  const knownPaths = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/snap/bin/chromium',
+  ];
+  
+  for (const p of knownPaths) {
+    if (fs.existsSync(p)) {
+      console.log(`[scraper]   ✓ Chromium encontrado em path fixo: ${p}`);
+      return p;
+    }
+  }
+
+  // 2. Procura no Nix store (Nixpacks instala lá)
+  try {
+    const nixResult = execSync('find /nix/store -name "chromium" -type f -executable 2>/dev/null | head -1', { encoding: 'utf-8', timeout: 5000 }).trim();
+    if (nixResult && fs.existsSync(nixResult)) {
+      console.log(`[scraper]   ✓ Chromium encontrado no Nix store: ${nixResult}`);
+      return nixResult;
+    }
+  } catch (e) { /* ok */ }
+
+  // 3. Tenta via 'which'
+  try {
+    const whichResult = execSync('which chromium chromium-browser google-chrome 2>/dev/null | head -1', { encoding: 'utf-8', timeout: 3000 }).trim();
+    if (whichResult && fs.existsSync(whichResult)) {
+      console.log(`[scraper]   ✓ Chromium encontrado via which: ${whichResult}`);
+      return whichResult;
+    }
+  } catch (e) { /* ok */ }
+
+  // 4. Busca genérica por qualquer binário chromium
+  try {
+    const findResult = execSync('find / -name "chromium" -o -name "chromium-browser" -o -name "chrome" 2>/dev/null | grep -E "bin/" | head -1', { encoding: 'utf-8', timeout: 10000 }).trim();
+    if (findResult && fs.existsSync(findResult)) {
+      console.log(`[scraper]   ✓ Chromium encontrado via busca global: ${findResult}`);
+      return findResult;
+    }
+  } catch (e) { /* ok */ }
+
+  console.error('[scraper]   ✗ CHROMIUM NÃO ENCONTRADO no sistema!');
+  console.error('[scraper]   Paths verificados:', knownPaths.join(', '));
+  console.error('[scraper]   Verifique se o nixpacks.json inclui "chromium" nos apt packages.');
+  return null;
 }
 
 async function scrapeGoogleMaps(query, maxResults = 30) {
@@ -54,15 +114,17 @@ async function scrapeGoogleMaps(query, maxResults = 30) {
       protocolTimeout: 60000,
     };
 
-    // Detecta chromium do sistema (Docker/Nixpacks)
-    const systemChromium = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']
-      .find(p => fs.existsSync(p));
+    // Encontra o Chromium do sistema
+    const chromiumPath = findChromiumPath();
     
-    if (systemChromium) {
-      launchOptions.executablePath = systemChromium;
-      console.log(`[scraper]   ✓ Chromium do sistema encontrado: ${systemChromium}`);
+    if (chromiumPath) {
+      launchOptions.executablePath = chromiumPath;
     } else {
-      console.log(`[scraper]   ℹ Usando Chromium embutido do Puppeteer (ambiente local/dev)`);
+      throw new Error(
+        'Chromium não encontrado no sistema. ' +
+        'Certifique-se de que "chromium" está listado no nixpacks.json. ' +
+        'No ambiente local (Windows/Mac), instale o pacote "puppeteer" em vez de "puppeteer-core".'
+      );
     }
 
     browser = await puppeteer.launch(launchOptions);
