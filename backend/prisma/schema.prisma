@@ -402,10 +402,13 @@ model Lead {
   query       String?  // Busca que originou o lead
   imported    Boolean  @default(false)
   contactId   String?  // Se foi importado para Contact
+  sentAt      DateTime? // Data do último envio WhatsApp
+  sentCount   Int      @default(0) // Quantas vezes foi enviado
   createdAt   DateTime @default(now())
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, placeId])
   @@index([tenantId, imported])
   @@index([tenantId, query])
+  @@index([tenantId, sentAt])
 }

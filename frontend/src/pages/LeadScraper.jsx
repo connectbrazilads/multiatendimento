@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, Radar, Trash2, Send, CheckSquare, Square, Star,
-  Phone, MapPin, Globe, Loader, ExternalLink, XCircle, Image,
+  Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, Filter,
 } from 'lucide-react';
 import { searchLeads, getLeads, deleteLead, deleteAllLeads, sendToLeads, uploadFile } from '../services/api';
 import { toast } from '../utils/toast';
@@ -25,6 +25,7 @@ export default function LeadScraper() {
   const [sendImage, setSendImage] = useState(null);
   const [sendImagePreview, setSendImagePreview] = useState('');
   const [sending, setSending] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'sent' | 'unsent'
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -72,15 +73,16 @@ export default function LeadScraper() {
   }
 
   async function handleDeleteAll() {
-    if (!confirm('Tem certeza que deseja remover TODOS os leads?')) return;
-    try {
-      await deleteAllLeads();
-      setLeads([]);
-      setSelected(new Set());
-      toast.success('Todos os leads foram removidos');
-    } catch (err) {
-      toast.error('Erro ao remover');
-    }
+    toast.confirm('Tem certeza que deseja remover TODOS os leads?', async () => {
+      try {
+        await deleteAllLeads();
+        setLeads([]);
+        setSelected(new Set());
+        toast.success('Todos os leads foram removidos');
+      } catch (err) {
+        toast.error('Erro ao remover');
+      }
+    });
   }
 
   function toggleSelect(id) {
@@ -91,10 +93,11 @@ export default function LeadScraper() {
   }
 
   function toggleSelectAll() {
-    if (selected.size === leadsWithPhone.length) {
+    const selectable = filteredLeads.filter((l) => l.phone);
+    if (selected.size === selectable.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(leadsWithPhone.map((l) => l.id)));
+      setSelected(new Set(selectable.map((l) => l.id)));
     }
   }
 
@@ -133,6 +136,7 @@ export default function LeadScraper() {
       setSendImage(null);
       setSendImagePreview('');
       setSelected(new Set());
+      loadLeads(); // Recarrega para mostrar status atualizado
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao enviar');
     } finally {
@@ -140,8 +144,28 @@ export default function LeadScraper() {
     }
   }
 
-  const leadsWithPhone = leads.filter((l) => l.phone);
-  const filteredLeads = leads;
+  // Filtragem
+  const filteredLeads = leads.filter((l) => {
+    if (statusFilter === 'sent') return !!l.sentAt;
+    if (statusFilter === 'unsent') return !l.sentAt;
+    return true;
+  });
+
+  const leadsWithPhone = filteredLeads.filter((l) => l.phone);
+  const totalSent = leads.filter((l) => l.sentAt).length;
+  const totalUnsent = leads.filter((l) => !l.sentAt && l.phone).length;
+
+  // Contagem de selecionados que já foram enviados (para label de reenvio)
+  const selectedAlreadySent = Array.from(selected).filter((id) => {
+    const lead = leads.find((l) => l.id === id);
+    return lead?.sentAt;
+  }).length;
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
 
   return (
     <div style={s.container}>
@@ -150,7 +174,7 @@ export default function LeadScraper() {
         title="Buscar Leads"
         subtitle={
           leads.length > 0
-            ? `${leads.length} leads capturados • ${leadsWithPhone.length} com telefone`
+            ? `${leads.length} leads • ${leadsWithPhone.length} com telefone • ${totalSent} enviados • ${totalUnsent} pendentes`
             : 'Encontre novos clientes buscando empresas no Google Maps.'
         }
       />
@@ -203,7 +227,7 @@ export default function LeadScraper() {
         {searching ? (
           <div style={s.searchingInfo}>
             <Loader size={16} className="spin" />
-            <span>Buscando empresas no Google Maps... Isso pode levar até 2 minutos.</span>
+            <span>Buscando empresas no Google Maps... Isso pode levar até 30 segundos.</span>
           </div>
         ) : null}
       </SurfaceCard>
@@ -221,6 +245,27 @@ export default function LeadScraper() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+
+            {/* STATUS FILTER PILLS */}
+            <div style={s.filterPills}>
+              {[
+                { key: 'all', label: `Todos (${leads.length})` },
+                { key: 'unsent', label: `Pendentes (${totalUnsent})` },
+                { key: 'sent', label: `Enviados (${totalSent})` },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  style={{
+                    ...s.filterPill,
+                    ...(statusFilter === f.key ? s.filterPillActive : {}),
+                  }}
+                  onClick={() => setStatusFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             <span style={s.selectedCount}>
               {selected.size > 0 ? `${selected.size} selecionados` : ''}
             </span>
@@ -234,8 +279,10 @@ export default function LeadScraper() {
             ) : null}
             {selected.size > 0 ? (
               <ActionButton onClick={() => setShowSendModal(true)} style={s.toolBtn}>
-                <Send size={16} />
-                Enviar WhatsApp ({selected.size})
+                {selectedAlreadySent > 0 ? <RotateCcw size={16} /> : <Send size={16} />}
+                {selectedAlreadySent > 0
+                  ? `Reenviar (${selected.size})`
+                  : `Enviar WhatsApp (${selected.size})`}
               </ActionButton>
             ) : null}
             <ActionButton variant="secondary" onClick={handleDeleteAll} style={{ ...s.toolBtn, color: '#e53e3e' }}>
@@ -257,6 +304,7 @@ export default function LeadScraper() {
                 <th style={s.th}></th>
                 <th style={s.th}>Nome</th>
                 <th style={s.th}>Telefone</th>
+                <th style={s.th}>Status</th>
                 <th style={s.th}>Endereço</th>
                 <th style={s.th}>Categoria</th>
                 <th style={s.th}>Avaliação</th>
@@ -268,6 +316,7 @@ export default function LeadScraper() {
               {filteredLeads.map((lead) => {
                 const isSelected = selected.has(lead.id);
                 const hasPhone = !!lead.phone;
+                const isSent = !!lead.sentAt;
                 return (
                   <tr key={lead.id} style={{ ...s.tr, ...(isSelected ? s.trSelected : {}) }}>
                     <td style={s.td}>
@@ -294,6 +343,21 @@ export default function LeadScraper() {
                         </a>
                       ) : (
                         <span style={s.noData}>—</span>
+                      )}
+                    </td>
+                    <td style={s.td}>
+                      {isSent ? (
+                        <div style={s.sentBadge}>
+                          <CheckCircle size={14} />
+                          <div>
+                            <div style={{ fontWeight: 700 }}>Enviado{lead.sentCount > 1 ? ` (${lead.sentCount}x)` : ''}</div>
+                            <div style={{ fontSize: '0.68rem', opacity: 0.8 }}>{formatDate(lead.sentAt)}</div>
+                          </div>
+                        </div>
+                      ) : hasPhone ? (
+                        <span style={s.pendingBadge}>Pendente</span>
+                      ) : (
+                        <span style={s.noPhoneBadge}>Sem telefone</span>
                       )}
                     </td>
                     <td style={s.td}>
@@ -350,12 +414,56 @@ export default function LeadScraper() {
       {/* SEND MODAL */}
       {showSendModal ? (
         <ModalShell
-          kicker="Envio em massa"
-          title={`Enviar WhatsApp para ${selected.size} lead(s)`}
+          kicker={selectedAlreadySent > 0 ? 'Reenvio' : 'Envio em massa'}
+          title={`${selectedAlreadySent > 0 ? 'Reenviar' : 'Enviar'} WhatsApp para ${selected.size} lead(s)`}
           onClose={() => setShowSendModal(false)}
-          maxWidth="36rem"
+          maxWidth="40rem"
         >
           <div style={s.modalBody}>
+            {/* Alerta de reenvio */}
+            {selectedAlreadySent > 0 ? (
+              <div style={s.resendAlert}>
+                <RotateCcw size={16} />
+                <span>
+                  <strong>{selectedAlreadySent}</strong> dos {selected.size} leads selecionados já receberam mensagem anteriormente.
+                  O envio será feito novamente para todos os selecionados.
+                </span>
+              </div>
+            ) : null}
+
+            {/* Prévia dos leads selecionados */}
+            <div style={s.selectedPreview}>
+              <div style={s.previewHeader}>
+                <span style={s.fieldLabel}>Leads selecionados</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                  {selected.size} leads
+                </span>
+              </div>
+              <div style={s.previewList}>
+                {Array.from(selected).slice(0, 8).map((id) => {
+                  const lead = leads.find((l) => l.id === id);
+                  if (!lead) return null;
+                  return (
+                    <div key={id} style={s.previewItem}>
+                      <span style={s.previewName}>{lead.name}</span>
+                      <span style={s.previewPhone}>{lead.phone}</span>
+                      {lead.sentAt ? (
+                        <span style={s.previewSent}>
+                          <CheckCircle size={12} /> Já enviado
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {selected.size > 8 ? (
+                  <div style={{ ...s.previewItem, color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                    +{selected.size - 8} leads...
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Campo de mensagem */}
             <div style={s.field}>
               <label style={s.fieldLabel}>Mensagem</label>
               <textarea
@@ -365,10 +473,12 @@ export default function LeadScraper() {
                 onChange={(e) => setSendMessage(e.target.value)}
                 placeholder="Escreva a mensagem que será enviada para todos os leads selecionados..."
               />
+              <div style={s.charCount}>{sendMessage.length} caracteres</div>
             </div>
 
+            {/* Upload de imagem */}
             <div style={s.field}>
-              <label style={s.fieldLabel}>Imagem (opcional)</label>
+              <label style={s.fieldLabel}>Imagem / Promoção (opcional)</label>
               <div style={s.imageUploadArea}>
                 {sendImagePreview ? (
                   <div style={s.imagePreviewWrap}>
@@ -380,13 +490,20 @@ export default function LeadScraper() {
                         setSendImagePreview('');
                       }}
                     >
-                      <XCircle size={18} />
+                      <XCircle size={20} />
                     </button>
+                    <div style={s.imageFileName}>
+                      <Image size={14} />
+                      {sendImage?.name}
+                    </div>
                   </div>
                 ) : (
                   <label style={s.imageUploadLabel}>
-                    <Image size={20} />
-                    Clique para anexar imagem
+                    <Image size={22} />
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Clique para anexar imagem</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '2px' }}>PNG, JPG ou WEBP — ideal para flyers e promoções</div>
+                    </div>
                     <input
                       type="file"
                       accept="image/*"
@@ -398,14 +515,24 @@ export default function LeadScraper() {
               </div>
             </div>
 
+            {/* Footer */}
             <div style={s.modalFooter}>
               <ActionButton variant="secondary" onClick={() => setShowSendModal(false)} style={{ flex: 1 }}>
                 Cancelar
               </ActionButton>
-              <ActionButton onClick={handleSend} disabled={sending} style={{ flex: 1 }}>
+              <ActionButton onClick={handleSend} disabled={sending} style={{ flex: 2 }}>
                 {sending ? <Loader size={16} className="spin" /> : <Send size={16} />}
-                {sending ? 'Enviando...' : `Enviar para ${selected.size} leads`}
+                {sending
+                  ? 'Enviando...'
+                  : selectedAlreadySent > 0
+                    ? `Reenviar para ${selected.size} leads`
+                    : `Enviar para ${selected.size} leads`}
               </ActionButton>
+            </div>
+
+            {/* Aviso de delay */}
+            <div style={s.delayNotice}>
+              ⏱ O envio inclui um intervalo de 2-5 segundos entre cada mensagem para proteger seu número contra bloqueios.
             </div>
           </div>
         </ModalShell>
@@ -428,10 +555,7 @@ const s = {
     flex: 1,
     color: 'var(--text-main)',
   },
-  searchCard: {
-    padding: '1.5rem',
-    marginBottom: '1.5rem',
-  },
+  searchCard: { padding: '1.5rem', marginBottom: '1.5rem' },
   searchRow: {
     display: 'flex',
     gap: '1rem',
@@ -487,17 +611,8 @@ const s = {
     marginBottom: '1rem',
     flexWrap: 'wrap',
   },
-  toolbarLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  },
-  toolbarRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.65rem',
-    flexWrap: 'wrap',
-  },
+  toolbarLeft: { display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' },
+  toolbarRight: { display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' },
   searchWrap: { position: 'relative' },
   searchIcon: {
     position: 'absolute',
@@ -512,37 +627,44 @@ const s = {
     padding: '0.7rem 1rem 0.7rem 2.5rem',
     borderRadius: '12px',
     color: 'var(--text-main)',
-    width: '240px',
+    width: '200px',
     outline: 'none',
     fontSize: '0.88rem',
   },
-  selectedCount: {
-    fontSize: '0.82rem',
-    fontWeight: 700,
-    color: 'var(--accent)',
+  filterPills: {
+    display: 'flex',
+    gap: '0.35rem',
+    background: 'var(--bg-panel)',
+    borderRadius: '12px',
+    padding: '3px',
+    border: '1px solid var(--border-color)',
   },
-  toolBtn: {
-    fontSize: '0.82rem',
-    padding: '0.6rem 1rem',
+  filterPill: {
+    padding: '0.4rem 0.75rem',
+    borderRadius: '10px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
     whiteSpace: 'nowrap',
   },
-  loadingWrap: {
-    textAlign: 'center',
-    padding: '3rem',
-    color: 'var(--text-muted)',
-    fontWeight: 700,
+  filterPillActive: {
+    background: 'var(--accent)',
+    color: '#fff',
   },
+  selectedCount: { fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)' },
+  toolBtn: { fontSize: '0.82rem', padding: '0.6rem 1rem', whiteSpace: 'nowrap' },
+  loadingWrap: { textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontWeight: 700 },
   tableWrap: {
     overflowX: 'auto',
     borderRadius: '16px',
     border: '1px solid var(--border-color)',
     background: 'var(--bg-surface)',
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '0.88rem',
-  },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' },
   th: {
     textAlign: 'left',
     padding: '0.85rem 1rem',
@@ -555,17 +677,9 @@ const s = {
     whiteSpace: 'nowrap',
     background: 'var(--bg-panel)',
   },
-  tr: {
-    borderBottom: '1px solid var(--border-color)',
-    transition: 'background 0.15s ease',
-  },
-  trSelected: {
-    background: 'var(--accent-light)',
-  },
-  td: {
-    padding: '0.75rem 1rem',
-    verticalAlign: 'middle',
-  },
+  tr: { borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s ease' },
+  trSelected: { background: 'var(--accent-light)' },
+  td: { padding: '0.75rem 1rem', verticalAlign: 'middle' },
   checkBtn: {
     background: 'none',
     border: 'none',
@@ -582,12 +696,7 @@ const s = {
     textOverflow: 'ellipsis',
     maxWidth: '220px',
   },
-  leadQuery: {
-    fontSize: '0.7rem',
-    color: 'var(--text-dim)',
-    marginTop: '2px',
-    fontStyle: 'italic',
-  },
+  leadQuery: { fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px', fontStyle: 'italic' },
   phoneLink: {
     color: '#48bb78',
     fontWeight: 700,
@@ -597,6 +706,33 @@ const s = {
     gap: '0.35rem',
     whiteSpace: 'nowrap',
     fontSize: '0.85rem',
+  },
+  sentBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    color: '#48bb78',
+    fontSize: '0.78rem',
+  },
+  pendingBadge: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: '6px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    background: 'rgba(214, 175, 55, 0.12)',
+    color: '#D4AF37',
+    border: '1px solid rgba(214, 175, 55, 0.25)',
+  },
+  noPhoneBadge: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: '6px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    background: 'rgba(160, 160, 160, 0.1)',
+    color: 'var(--text-dim)',
+    border: '1px solid var(--border-color)',
   },
   addressText: {
     display: 'flex',
@@ -625,15 +761,8 @@ const s = {
     color: '#D4AF37',
     fontSize: '0.88rem',
   },
-  websiteLink: {
-    color: 'var(--accent)',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  noData: {
-    color: 'var(--text-dim)',
-    fontSize: '0.82rem',
-  },
+  websiteLink: { color: 'var(--accent)', display: 'flex', alignItems: 'center' },
+  noData: { color: 'var(--text-dim)', fontSize: '0.82rem' },
   deleteBtn: {
     background: 'none',
     border: 'none',
@@ -650,11 +779,56 @@ const s = {
     flexDirection: 'column',
     gap: '1.25rem',
   },
-  field: {
+  resendAlert: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
+    alignItems: 'flex-start',
+    gap: '0.6rem',
+    padding: '0.85rem 1rem',
+    background: 'rgba(214, 175, 55, 0.08)',
+    border: '1px solid rgba(214, 175, 55, 0.25)',
+    borderRadius: '12px',
+    fontSize: '0.82rem',
+    color: '#D4AF37',
+    fontWeight: 600,
+    lineHeight: 1.5,
   },
+  selectedPreview: {
+    background: 'var(--bg-base)',
+    borderRadius: '12px',
+    border: '1px solid var(--border-color)',
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0.65rem 1rem',
+    borderBottom: '1px solid var(--border-color)',
+  },
+  previewList: {
+    maxHeight: '160px',
+    overflowY: 'auto',
+  },
+  previewItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.5rem 1rem',
+    borderBottom: '1px solid var(--border-color)',
+    fontSize: '0.82rem',
+  },
+  previewName: { fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  previewPhone: { color: '#48bb78', fontWeight: 600, fontSize: '0.78rem' },
+  previewSent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    color: '#48bb78',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+  },
+  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   textarea: {
     background: 'var(--bg-panel)',
     border: '1px solid var(--border-color)',
@@ -667,6 +841,12 @@ const s = {
     fontFamily: 'inherit',
     lineHeight: 1.5,
   },
+  charCount: {
+    textAlign: 'right',
+    fontSize: '0.72rem',
+    color: 'var(--text-dim)',
+    fontWeight: 600,
+  },
   imageUploadArea: {
     border: '2px dashed var(--border-color)',
     borderRadius: '12px',
@@ -675,32 +855,26 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    transition: 'border-color 0.2s',
   },
   imageUploadLabel: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: '0.75rem',
     cursor: 'pointer',
     padding: '1.5rem',
     color: 'var(--text-muted)',
     fontWeight: 700,
     fontSize: '0.88rem',
-  },
-  imagePreviewWrap: {
-    position: 'relative',
     width: '100%',
   },
-  imagePreview: {
-    width: '100%',
-    maxHeight: '200px',
-    objectFit: 'cover',
-    display: 'block',
-  },
+  imagePreviewWrap: { position: 'relative', width: '100%' },
+  imagePreview: { width: '100%', maxHeight: '220px', objectFit: 'cover', display: 'block' },
   removeImageBtn: {
     position: 'absolute',
     top: '8px',
     right: '8px',
-    background: 'rgba(0,0,0,0.6)',
+    background: 'rgba(0,0,0,0.65)',
     border: 'none',
     color: '#fff',
     cursor: 'pointer',
@@ -708,11 +882,29 @@ const s = {
     padding: '4px',
     display: 'flex',
   },
+  imageFileName: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.5rem 1rem',
+    fontSize: '0.78rem',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+    background: 'var(--bg-panel)',
+    borderTop: '1px solid var(--border-color)',
+  },
   modalFooter: {
     display: 'flex',
     gap: '0.85rem',
-    paddingTop: '0.5rem',
+    paddingTop: '0.75rem',
     borderTop: '1px solid var(--border-color)',
-    marginTop: '0.5rem',
+  },
+  delayNotice: {
+    fontSize: '0.75rem',
+    color: 'var(--text-dim)',
+    textAlign: 'center',
+    fontWeight: 600,
+    padding: '0.35rem 0',
+    lineHeight: 1.5,
   },
 };

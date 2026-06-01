@@ -226,6 +226,12 @@ async function sendToLeads(req, res) {
 
         sent++;
 
+        // Marca o lead como enviado
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: { sentAt: new Date(), sentCount: { increment: 1 } }
+        });
+
         // Delay entre envios para evitar ban
         await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
       } catch (err) {
