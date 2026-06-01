@@ -34,6 +34,7 @@ model Tenant {
   tags           Tag[]
   equipments     Equipment[]
   serviceOrders  ServiceOrder[]
+  leads          Lead[]
 }
 
 model TenantSettings {
@@ -381,4 +382,27 @@ model ServiceOrder {
   contact        Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   equipment      Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   ticket         Ticket?    @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  tenantId    String
+  placeId     String?  // Google Place ID (para evitar duplicatas)
+  name        String
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  website     String?
+  rating      Float?
+  category    String?  // Ex: "Escritório de Advocacia"
+  query       String?  // Busca que originou o lead
+  imported    Boolean  @default(false)
+  contactId   String?  // Se foi importado para Contact
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, placeId])
+  @@index([tenantId, imported])
+  @@index([tenantId, query])
 }

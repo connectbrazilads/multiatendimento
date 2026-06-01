@@ -147,6 +147,13 @@ export const deleteEquipment = (id) => api.delete(`/os/equipments/${id}`);
 export const createOS = (data) => api.post('/os', data);
 export const getOSList = (filters) => api.get('/os', { params: filters });
 
+// Leads / Prospecção
+export const searchLeads = (data) => api.post('/leads/search', data);
+export const getLeads = (params) => api.get('/leads', { params });
+export const deleteLead = (id) => api.delete(`/leads/${id}`);
+export const deleteAllLeads = () => api.delete('/leads/all');
+export const sendToLeads = (data) => api.post('/leads/send', data);
+
 export const deleteContact = (id) => api.delete(`/contacts/${id}`);
 
 export default api;

@@ -20,6 +20,7 @@ const Campaigns = lazy(() => import('./pages/Campaigns'));
 const ServiceOrders = lazy(() => import('./pages/ServiceOrders'));
 const QuickResponses = lazy(() => import('./pages/QuickResponses'));
 const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
+const LeadScraper = lazy(() => import('./pages/LeadScraper'));
 
 // Interceptor global para tratar erros de autenticacao (401)
 api.interceptors.response.use(
@@ -146,6 +147,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/os" element={<ServiceOrders />} />
             <Route path="/quick-responses" element={<QuickResponses />} />
             <Route path="/superadmin" element={<SuperAdmin />} />
+            <Route path="/leads" element={<LeadScraper />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

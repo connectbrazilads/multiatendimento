@@ -19,6 +19,7 @@ import {
   Zap,
   Bell,
   ChevronDown,
+  Radar,
 } from 'lucide-react';
 import { getMe, getMediaUrl } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -141,6 +142,7 @@ export default function Layout() {
     { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexoes', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/contacts', icon: <Users size={18} />, label: 'Clientes / CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rapidas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/os', icon: <FileText size={18} />, label: 'O.S. / CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', roles: ['admin', 'agent', 'superadmin'] },
