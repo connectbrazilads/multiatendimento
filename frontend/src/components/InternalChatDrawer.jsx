@@ -321,6 +321,8 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
+    userSelect: 'text',
+    WebkitUserSelect: 'text',
   },
   bubbleWrap: {
     display: 'flex',
@@ -332,6 +334,9 @@ const s = {
     fontSize: '0.9rem',
     boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
     lineHeight: 1.5,
+    userSelect: 'text',
+    WebkitUserSelect: 'text',
+    cursor: 'text',
   },
   bubbleFromMe: {
     background: 'var(--accent)',
