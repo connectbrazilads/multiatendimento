@@ -470,7 +470,7 @@ async function handleWebhook(req, res) {
       // Se o ticket já existia mas estava resolvido, REABRE ele para evitar duplicação na lista
       ticket = await prisma.ticket.update({
         where: { id: ticket.id },
-        data: { status: tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date(), unreadCount: { increment: 1 } }
+        data: { status: tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date(), lastMessageAt: new Date(), unreadCount: { increment: 1 } }
       });
       if (io) io.to(tenant.id).emit('ticket_updated', ticket);
       console.log(`[webhook] Ticket ${ticket.id} reaberto para evitar duplicação.`);
@@ -478,7 +478,14 @@ async function handleWebhook(req, res) {
       // Incrementa unreadCount para mensagens de clientes em tickets já abertos
       ticket = await prisma.ticket.update({
         where: { id: ticket.id },
-        data: { unreadCount: { increment: 1 }, updatedAt: new Date() }
+        data: { unreadCount: { increment: 1 }, updatedAt: new Date(), lastMessageAt: new Date() }
+      });
+      if (io) io.to(tenant.id).emit('ticket_updated', ticket);
+    } else {
+      // Mensagem enviada pelo agente (ex: pelo celular)
+      ticket = await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { updatedAt: new Date(), lastMessageAt: new Date() }
       });
       if (io) io.to(tenant.id).emit('ticket_updated', ticket);
     }

@@ -237,7 +237,7 @@ async function list(req, res) {
       team: true,
       instance: { select: { instanceName: true } }
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
     take: 200,
   });
 
@@ -604,7 +604,7 @@ async function sendMessage(req, res) {
     if (ticket.status !== 'open' || !ticket.agentId) {
       await prisma.ticket.update({
         where: { id },
-        data: { status: 'open', agentId: req.user.userId }
+        data: { status: 'open', agentId: req.user.userId, lastMessageAt: new Date() }
       });
       if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
     }
@@ -620,6 +620,9 @@ async function sendMessage(req, res) {
     const message = await prisma.message.create({
       data: { ticketId: id, agentId: req.user.userId, body, fromMe: true, externalId, quotedMsgId, quotedMsgBody },
     });
+
+    // Atualiza lastMessageAt para ordenação da lista
+    await prisma.ticket.update({ where: { id }, data: { lastMessageAt: new Date() } });
     res.json(message);
   } catch (err) {
     console.error('[sendMessage] erro:', err.response?.data || err.message);
@@ -709,7 +712,7 @@ async function sendMediaMessage(req, res) {
     if (ticket.status !== 'open' || !ticket.agentId) {
       await prisma.ticket.update({
         where: { id },
-        data: { status: 'open', agentId: req.user.userId }
+        data: { status: 'open', agentId: req.user.userId, lastMessageAt: new Date() }
       });
       if (io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
     }
@@ -728,6 +731,9 @@ async function sendMediaMessage(req, res) {
         quotedMsgBody
       },
     });
+
+    // Atualiza lastMessageAt para ordenação da lista
+    await prisma.ticket.update({ where: { id }, data: { lastMessageAt: new Date() } });
 
     if (mediaType === 'audio' && settings?.geminiKey) {
       (async () => {

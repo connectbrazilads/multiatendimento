@@ -196,6 +196,7 @@ model Ticket {
   slaDueAt             DateTime?
   firstResponseAt      DateTime?
   lastCustomerMessageAt DateTime?
+  lastMessageAt          DateTime?  @default(now()) // Para ordenação estável da lista
 
   // Avaliação do Atendimento (CSAT)
   rating               Int?
