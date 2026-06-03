@@ -930,13 +930,13 @@ async function forwardMessage(req, res) {
 
   try {
     const originalMsg = await prisma.message.findUnique({
-      where: { id: parseInt(messageId) },
+      where: { id: messageId },
       include: { ticket: { include: { contact: true, instance: true } } }
     });
 
     if (!originalMsg) return res.status(404).json({ error: 'Mensagem original não encontrada' });
 
-    const contact = await prisma.contact.findUnique({ where: { id: parseInt(contactId) } });
+    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact) return res.status(404).json({ error: 'Contato de destino não encontrado' });
 
     // Encontra ou cria um ticket aberto para o contato
@@ -946,7 +946,7 @@ async function forwardMessage(req, res) {
     });
 
     if (!ticket) {
-      const instanceId = originalMsg.ticket?.instanceId || (await prisma.instance.findFirst({ where: { tenantId, status: 'connected' } }))?.id;
+      const instanceId = originalMsg.ticket?.instanceId || (await prisma.waInstance.findFirst({ where: { tenantId, status: 'connected' } }))?.id;
       if (!instanceId) return res.status(400).json({ error: 'Nenhuma instância disponível' });
 
       ticket = await prisma.ticket.create({
