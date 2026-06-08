@@ -6,9 +6,21 @@ const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+function sanitizeUrl(url) {
+  let baseUrl = String(url || '').trim();
+  if (!baseUrl || baseUrl === 'undefined' || baseUrl === 'null') {
+    throw new Error('Evolution API URL não configurada ou inválida');
+  }
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  return baseUrl.replace(/\/+$/, '');
+}
+
 function getClient(url, key) {
+  const baseUrl = sanitizeUrl(url);
   return axios.create({
-    baseURL: url,
+    baseURL: baseUrl,
     headers: { apikey: key, 'Content-Type': 'application/json' },
     maxContentLength: 100 * 1024 * 1024, // 100MB
     maxBodyLength: 100 * 1024 * 1024,    // 100MB
@@ -49,7 +61,7 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
 }
 
 async function sendMediaMultipart(url, key, instanceName, phone, { mediatype, mimetype, filename, caption, quoted, filePath }) {
-  const endpointBase = url.replace(/\/+$/, '');
+  const endpointBase = sanitizeUrl(url);
   const form = new FormData();
   form.append('number', phone);
   form.append('mediatype', mediatype);

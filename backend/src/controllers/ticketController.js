@@ -584,7 +584,10 @@ async function sendMessage(req, res) {
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
-    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+    const evolutionUrl = settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+    const evolutionKey = settings?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+
+    if (!evolutionUrl || !evolutionKey) {
       return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
     }
 
@@ -633,7 +636,7 @@ async function sendMessage(req, res) {
       });
     }
 
-    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, finalBody, quotedMsgId);
+    const result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody, quotedMsgId);
     const externalId = result?.key?.id || result?.message?.key?.id;
 
     // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -682,7 +685,10 @@ async function sendMediaMessage(req, res) {
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
-    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+    const evolutionUrl = settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+    const evolutionKey = settings?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+
+    if (!evolutionUrl || !evolutionKey) {
       return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
     }
 
@@ -741,7 +747,7 @@ async function sendMediaMessage(req, res) {
     let result;
     if (mime.startsWith('image/')) {
       mediaType = 'image';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
+      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
         mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else if (mime.startsWith('audio/')) {
@@ -753,21 +759,21 @@ async function sendMediaMessage(req, res) {
         const newFilename = path.basename(newPath);
         mediaUrl = `/uploads/media/${newFilename}`;
         const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, oggBase64, quotedMsgId);
+        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, oggBase64, quotedMsgId);
       } catch (err) {
         console.error('[audioConvert] erro:', err.message);
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, base64, quotedMsgId);
+        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64, quotedMsgId);
       }
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
+      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
         mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else {
       mediaType = 'document';
       // Para documentos, se não houver legenda extra, mandamos sem legenda para evitar erros na API
       const docCaption = caption ? finalCaption : undefined;
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
+      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
         mediatype: 'document', 
         media: base64, 
         mimetype: mime,
@@ -1033,7 +1039,10 @@ async function forwardMessage(req, res) {
     }
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
-    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+    const evolutionUrl = settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+    const evolutionKey = settings?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+
+    if (!evolutionUrl || !evolutionKey) {
       return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
     }
 
@@ -1088,9 +1097,9 @@ async function forwardMessage(req, res) {
         const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
 
         if (mediaType === 'audio') {
-           result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, base64);
+           result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64);
         } else {
-           result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
+           result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
              mediatype: mediaType === 'document' ? 'document' : mediaType, 
              media: base64,
              mimetype,
@@ -1104,7 +1113,7 @@ async function forwardMessage(req, res) {
       }
     } else {
       const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body}`;
-      result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, finalBody);
+      result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody);
     }
 
     const externalId = result?.key?.id || result?.message?.key?.id;
