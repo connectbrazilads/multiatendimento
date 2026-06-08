@@ -138,6 +138,36 @@ server.listen(PORT, () => {
   console.log(`[server] rodando na porta ${PORT}`);
   console.log(`[server] boot=${new Date(bootAt).toISOString()} pid=${process.pid}`);
   scheduleProcessor.start();
+
+  // Auto-correção de URLs da Evolution inválidas (ex: contendo '@' ou emails)
+  (async () => {
+    try {
+      const prisma = require('./lib/prisma');
+      const badSettings = await prisma.tenantSettings.findMany({
+        where: {
+          OR: [
+            { evolutionUrl: { contains: '@' } },
+            { evolutionUrl: { equals: 'diego@lcddigital.com.br' } }
+          ]
+        }
+      });
+      if (badSettings.length > 0) {
+        console.log(`[startup-fix] Encontrados ${badSettings.length} registros de configurações com URL inválida (contendo '@'). Corrigindo...`);
+        for (const s of badSettings) {
+          await prisma.tenantSettings.update({
+            where: { id: s.id },
+            data: {
+              evolutionUrl: 'https://marketing-ai-evolution-api.oi0gat.easypanel.host',
+              evolutionKey: '429683C4C977415CAAFCCE10F7D57E11'
+            }
+          });
+          console.log(`[startup-fix] Tenant ${s.tenantId} corrigido com sucesso.`);
+        }
+      }
+    } catch (err) {
+      console.error('[startup-fix] Erro ao executar auto-correção:', err.message);
+    }
+  })();
 });
 
 process.on('uncaughtException', (err) => {
