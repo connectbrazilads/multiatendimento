@@ -140,6 +140,10 @@ export const deleteTag = (id) => api.delete(`/tags/${id}`);
 // Dashboard
 export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getRevenueStats = () => api.get('/revenue/stats');
+export const getRevenueBenchmark = () => api.get('/revenue/benchmark');
+export const getRevenueDetective = () => api.get('/revenue/detective');
+export const getAuditedTickets = () => api.get('/revenue/audit');
+export const auditTicket = (ticketId) => api.post(`/revenue/audit/${ticketId}`);
 
 // OS & Equipments
 export const getEquipments = (contactId) => api.get(`/os/contacts/${contactId}/equipments`);

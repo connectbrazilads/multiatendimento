@@ -208,6 +208,11 @@ model Ticket {
   ratingAt             DateTime?
   ratingFeedback       String?
 
+  // Auditoria por IA
+  auditScore           Int?
+  auditResult          String?    @db.Text
+  auditedAt            DateTime?
+
   messages   Message[]
   events     TicketEvent[]
   agent      User?      @relation(fields: [agentId], references: [id])
