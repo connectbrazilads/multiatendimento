@@ -51,7 +51,10 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
   try {
     const payload = { number: phone, text };
     if (quoted) payload.quoted = buildQuotedPayload(quoted);
-    const { data } = await client.post(`/message/sendText/${instanceName}`, payload);
+    const targetPath = `/message/sendText/${instanceName}`;
+    const sanitizedUrl = sanitizeUrl(url);
+    console.log(`[evolutionService] Attempting sendText to URL: ${sanitizedUrl}${targetPath} (key prefix: ${(key || '').slice(0, 5)}...)`);
+    const { data } = await client.post(targetPath, payload);
     console.log(`[evolutionService] sendText OK:`, data?.key?.id || 'id-não-retornado');
     return ensureAccepted(data, 'sendText');
   } catch (err) {
