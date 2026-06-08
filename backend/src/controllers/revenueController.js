@@ -58,8 +58,7 @@ async function getRevenueDashboard(req, res) {
       by: ['equipmentId'],
       where: { 
         tenantId, 
-        createdAt: { gte: thirtyDaysAgo },
-        equipmentId: { not: null }
+        createdAt: { gte: thirtyDaysAgo }
       },
       _count: { id: true }
     });
