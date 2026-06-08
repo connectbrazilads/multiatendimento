@@ -584,8 +584,13 @@ async function sendMessage(req, res) {
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
+    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+      return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
+    }
+
     const evolutionService = require('../services/evolutionService');
     const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!agent) return res.status(400).json({ error: 'Usuário/Agente não encontrado' });
     const finalBody = `*${agent.name}*\n${body}`;
     
     let quotedMsgBody = null;
@@ -597,7 +602,38 @@ async function sendMessage(req, res) {
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
     const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
 
-    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, finalBody, quotedMsgId);
+    let instanceName = ticket.instance?.instanceName;
+    let targetInstanceId = ticket.instanceId;
+
+    if (!instanceName) {
+      const fallbackInstance = await prisma.waInstance.findFirst({
+        where: { tenantId: req.user.tenantId, status: 'connected' }
+      });
+      instanceName = fallbackInstance?.instanceName;
+      targetInstanceId = fallbackInstance?.id;
+    }
+
+    if (!instanceName) {
+      const anyInstance = await prisma.waInstance.findFirst({
+        where: { tenantId: req.user.tenantId }
+      });
+      instanceName = anyInstance?.instanceName;
+      targetInstanceId = anyInstance?.id;
+    }
+
+    if (!instanceName) {
+      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
+    }
+
+    // Se o ticket não tinha uma instância associada, vincula a que encontramos
+    if (!ticket.instanceId && targetInstanceId) {
+      await prisma.ticket.update({
+        where: { id },
+        data: { instanceId: targetInstanceId }
+      });
+    }
+
+    const result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, finalBody, quotedMsgId);
     const externalId = result?.key?.id || result?.message?.key?.id;
 
     // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -646,6 +682,10 @@ async function sendMediaMessage(req, res) {
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
+    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+      return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
+    }
+
     const evolutionService = require('../services/evolutionService');
 
     const base64 = (await fs.promises.readFile(file.path)).toString('base64');
@@ -653,6 +693,37 @@ async function sendMediaMessage(req, res) {
 
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
     const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
+
+    let instanceName = ticket.instance?.instanceName;
+    let targetInstanceId = ticket.instanceId;
+
+    if (!instanceName) {
+      const fallbackInstance = await prisma.waInstance.findFirst({
+        where: { tenantId: req.user.tenantId, status: 'connected' }
+      });
+      instanceName = fallbackInstance?.instanceName;
+      targetInstanceId = fallbackInstance?.id;
+    }
+
+    if (!instanceName) {
+      const anyInstance = await prisma.waInstance.findFirst({
+        where: { tenantId: req.user.tenantId }
+      });
+      instanceName = anyInstance?.instanceName;
+      targetInstanceId = anyInstance?.id;
+    }
+
+    if (!instanceName) {
+      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
+    }
+
+    // Se o ticket não tinha uma instância associada, vincula a que encontramos
+    if (!ticket.instanceId && targetInstanceId) {
+      await prisma.ticket.update({
+        where: { id },
+        data: { instanceId: targetInstanceId }
+      });
+    }
 
     let mediaUrl = `/uploads/media/${file.filename}`;
     let mediaType = 'document';
@@ -670,7 +741,7 @@ async function sendMediaMessage(req, res) {
     let result;
     if (mime.startsWith('image/')) {
       mediaType = 'image';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
         mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else if (mime.startsWith('audio/')) {
@@ -682,21 +753,21 @@ async function sendMediaMessage(req, res) {
         const newFilename = path.basename(newPath);
         mediaUrl = `/uploads/media/${newFilename}`;
         const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, oggBase64, quotedMsgId);
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, oggBase64, quotedMsgId);
       } catch (err) {
         console.error('[audioConvert] erro:', err.message);
-        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, base64, quotedMsgId);
+        result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, base64, quotedMsgId);
       }
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
         mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
       });
     } else {
       mediaType = 'document';
       // Para documentos, se não houver legenda extra, mandamos sem legenda para evitar erros na API
       const docCaption = caption ? finalCaption : undefined;
-      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
+      result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
         mediatype: 'document', 
         media: base64, 
         mimetype: mime,
@@ -962,10 +1033,46 @@ async function forwardMessage(req, res) {
     }
 
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+    if (!settings?.evolutionUrl || !settings?.evolutionKey) {
+      return res.status(400).json({ error: 'Integração com o WhatsApp (Evolution API) não configurada para esta empresa' });
+    }
+
     const evolutionService = require('../services/evolutionService');
     const agent = await prisma.user.findUnique({ where: { id: req.user.userId } });
 
     const phone = evolutionService.normalizePhoneNumber(contact.phone || '');
+
+    let instanceName = ticket.instance?.instanceName;
+    let targetInstanceId = ticket.instanceId;
+
+    if (!instanceName) {
+      const fallbackInstance = await prisma.waInstance.findFirst({
+        where: { tenantId, status: 'connected' }
+      });
+      instanceName = fallbackInstance?.instanceName;
+      targetInstanceId = fallbackInstance?.id;
+    }
+
+    if (!instanceName) {
+      const anyInstance = await prisma.waInstance.findFirst({
+        where: { tenantId }
+      });
+      instanceName = anyInstance?.instanceName;
+      targetInstanceId = anyInstance?.id;
+    }
+
+    if (!instanceName) {
+      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
+    }
+
+    // Se o ticket não tinha uma instância associada, vincula a que encontramos
+    if (!ticket.instanceId && targetInstanceId) {
+      ticket = await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { instanceId: targetInstanceId },
+        include: { instance: true }
+      });
+    }
 
     let result;
     const body = originalMsg.body;
@@ -981,9 +1088,9 @@ async function forwardMessage(req, res) {
         const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
 
         if (mediaType === 'audio') {
-           result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, base64);
+           result = await evolutionService.sendAudio(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, base64);
         } else {
-           result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, {
+           result = await evolutionService.sendMedia(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, {
              mediatype: mediaType === 'document' ? 'document' : mediaType, 
              media: base64,
              mimetype,
@@ -997,7 +1104,7 @@ async function forwardMessage(req, res) {
       }
     } else {
       const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body}`;
-      result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, ticket.instance?.instanceName, phone, finalBody);
+      result = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, instanceName, phone, finalBody);
     }
 
     const externalId = result?.key?.id || result?.message?.key?.id;

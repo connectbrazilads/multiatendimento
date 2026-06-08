@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, {
   getTickets,
   getMessages,
@@ -177,7 +177,7 @@ export default function Inbox() {
         try {
           await sendAudioMessage(selectedId, blob);
           loadMessages();
-        } catch (e) { toast.error('Erro ao enviar audio'); }
+        } catch (e) { toast.error('Erro ao enviar áudio: ' + (e.response?.data?.error || e.message)); }
         stream.getTracks().forEach(t => t.stop());
       };
       recorder.start();
@@ -367,7 +367,7 @@ export default function Inbox() {
             }
           } catch (e) {
             console.error('Erro ao enviar arquivo:', currentFiles[i].name, e);
-            toast.error(`Falha ao enviar ${currentFiles[i].name}`);
+            toast.error(`Falha ao enviar ${currentFiles[i].name}: ` + (e.response?.data?.error || e.message));
           }
         }
         await loadMessages();
@@ -391,7 +391,7 @@ export default function Inbox() {
         await sendMessage(tId, body, qId);
       }
       loadMessages();
-    } catch (e) { toast.error('Erro ao enviar mensagem'); }
+    } catch (e) { toast.error('Erro ao enviar mensagem: ' + (e.response?.data?.error || e.message)); }
   }
 
   async function handleTransfer(agentId, teamId) {
@@ -401,7 +401,7 @@ export default function Inbox() {
       setSelectedId(null);
       loadTickets();
       toast.success('Atendimento transferido!');
-    } catch (e) { toast.error('Erro ao transferir'); }
+    } catch (e) { toast.error('Erro ao transferir: ' + (e.response?.data?.error || e.message)); }
   }
 
   async function handleResolve() {
@@ -411,7 +411,7 @@ export default function Inbox() {
         setSelectedId(null);
         loadTickets();
         toast.success('Atendimento encerrado!');
-      } catch (e) { toast.error('Erro ao encerrar'); }
+      } catch (e) { toast.error('Erro ao encerrar: ' + (e.response?.data?.error || e.message)); }
     });
   }
 
@@ -422,7 +422,7 @@ export default function Inbox() {
         setSelectedId(data.id);
         loadTickets();
         toast.success('Atendimento reaberto!');
-      } catch (e) { toast.error('Erro ao reabrir'); }
+      } catch (e) { toast.error('Erro ao reabrir: ' + (e.response?.data?.error || e.message)); }
     });
   }
 
@@ -431,7 +431,7 @@ export default function Inbox() {
     try {
       const { data } = await summarizeTicket(selectedId);
       setSummary(data.summary);
-    } catch (e) { toast.error('Erro ao gerar resumo IA'); } finally { setSummarizing(false); }
+    } catch (e) { toast.error('Erro ao gerar resumo IA: ' + (e.response?.data?.error || e.message)); } finally { setSummarizing(false); }
   }
 
   async function handleSchedule() {
@@ -442,7 +442,7 @@ export default function Inbox() {
       toast.success('Mensagem agendada com sucesso!');
       setShowScheduling(false);
       setScheduleData({ body: '', sendAt: '' });
-    } catch (e) { toast.error('Erro ao agendar'); }
+    } catch (e) { toast.error('Erro ao agendar: ' + (e.response?.data?.error || e.message)); }
   }
 
   const handleInput = (v) => {
