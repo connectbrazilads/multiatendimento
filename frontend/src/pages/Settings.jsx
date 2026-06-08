@@ -19,7 +19,7 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'Minha conta'];
+const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta'];
 const DAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 export default function Settings() {
@@ -48,6 +48,9 @@ export default function Settings() {
     companyCity: '',
     companyState: '',
     serpApiKey: '',
+    kpiContractValue: 1200.0,
+    kpiServiceValue: 350.0,
+    kpiSlaLimitHours: 24,
   });
   const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
@@ -683,6 +686,57 @@ export default function Settings() {
       )}
 
       {tab === 7 && (
+        <div style={s.sections}>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>Configurações de KPIs do RevGuard AI</h2>
+            <form onSubmit={handleSave} style={s.form}>
+              <div style={s.field}>
+                <label style={s.label}>Valor do Contrato de Locação (R$/mês)</label>
+                <input
+                  style={s.input}
+                  type="number"
+                  step="0.01"
+                  value={form.kpiContractValue}
+                  onChange={(e) => setForm({ ...form, kpiContractValue: e.target.value })}
+                  placeholder="1200.00"
+                />
+                <p style={s.hint}>Valor médio mensal estimado do contrato de locação por cliente.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Valor Médio de Serviço Avulso (R$)</label>
+                <input
+                  style={s.input}
+                  type="number"
+                  step="0.01"
+                  value={form.kpiServiceValue}
+                  onChange={(e) => setForm({ ...form, kpiServiceValue: e.target.value })}
+                  placeholder="350.00"
+                />
+                <p style={s.hint}>Valor médio faturado por cada ordem de serviço avulsa executada.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Tempo Limite de SLA de Chamados (Horas)</label>
+                <input
+                  style={s.input}
+                  type="number"
+                  value={form.kpiSlaLimitHours}
+                  onChange={(e) => setForm({ ...form, kpiSlaLimitHours: e.target.value })}
+                  placeholder="24"
+                />
+                <p style={s.hint}>Horas sem atendimento técnico antes do chamado ser classificado em risco de SLA.</p>
+              </div>
+
+              <button style={s.saveBtn} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar configurações do RevGuard'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {tab === 8 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={s.sectionHeading}>Minha conta</h3>

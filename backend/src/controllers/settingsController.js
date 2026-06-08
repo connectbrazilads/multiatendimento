@@ -28,8 +28,13 @@ async function saveSettings(req, res) {
     ratingEnabled, ratingMessage, notificationPhone,
     companyName, companyCnpj, companyIE, companyAddress, companyBairro, companyCep, companyPhone,
     companyCity, companyState,
-    serpApiKey
+    serpApiKey,
+    kpiContractValue, kpiServiceValue, kpiSlaLimitHours
   } = req.body;
+
+  const parsedContractValue = kpiContractValue !== undefined && kpiContractValue !== '' ? parseFloat(kpiContractValue) : null;
+  const parsedServiceValue = kpiServiceValue !== undefined && kpiServiceValue !== '' ? parseFloat(kpiServiceValue) : null;
+  const parsedSlaLimitHours = kpiSlaLimitHours !== undefined && kpiSlaLimitHours !== '' ? parseInt(kpiSlaLimitHours) : null;
 
   const settings = await prisma.tenantSettings.upsert({
     where: { tenantId: req.user.tenantId },
@@ -55,7 +60,10 @@ async function saveSettings(req, res) {
       companyPhone,
       companyCity,
       companyState,
-      serpApiKey
+      serpApiKey,
+      kpiContractValue: parsedContractValue,
+      kpiServiceValue: parsedServiceValue,
+      kpiSlaLimitHours: parsedSlaLimitHours
     },
     create: { 
       tenantId: req.user.tenantId, 
@@ -80,7 +88,10 @@ async function saveSettings(req, res) {
       companyPhone,
       companyCity,
       companyState,
-      serpApiKey
+      serpApiKey,
+      kpiContractValue: parsedContractValue,
+      kpiServiceValue: parsedServiceValue,
+      kpiSlaLimitHours: parsedSlaLimitHours
     },
   });
 

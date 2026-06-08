@@ -68,6 +68,11 @@ model TenantSettings {
   // SerpAPI para Prospecção de Leads
   serpApiKey         String?
 
+  // Configurações de KPI do RevGuard AI
+  kpiContractValue   Float?   @default(1200.0)
+  kpiServiceValue    Float?   @default(350.0)
+  kpiSlaLimitHours   Int?     @default(24)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
 }

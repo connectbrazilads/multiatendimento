@@ -20,6 +20,7 @@ import {
   Bell,
   ChevronDown,
   Radar,
+  Coins,
 } from 'lucide-react';
 import { getMe, getMediaUrl } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -146,6 +147,7 @@ export default function Layout() {
     { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rapidas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/os', icon: <FileText size={18} />, label: 'O.S. / CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/revenue', icon: <Coins size={18} />, label: 'RevGuard AI', roles: ['admin', 'superadmin'] },
     { to: '/settings', icon: <Settings size={18} />, label: 'Ajustes', roles: ['admin', 'superadmin'] },
     { to: '/superadmin', icon: <ShieldCheck size={18} />, label: 'Painel Admin', roles: ['superadmin'] },
   ];

@@ -139,6 +139,7 @@ export const deleteTag = (id) => api.delete(`/tags/${id}`);
 
 // Dashboard
 export const getDashboardStats = () => api.get('/dashboard/stats');
+export const getRevenueStats = () => api.get('/revenue/stats');
 
 // OS & Equipments
 export const getEquipments = (contactId) => api.get(`/os/contacts/${contactId}/equipments`);
