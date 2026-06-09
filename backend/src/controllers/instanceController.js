@@ -68,9 +68,19 @@ async function create(req, res) {
     try {
       await evolution.createInstance(evolutionUrl, evolutionKey, instanceName);
     } catch (err) {
-      console.error(`[instanceController] Erro ao criar na Evolution:`, err.response?.data || err.message);
-      const errorMsg = err.response?.data?.message || err.message;
-      return res.status(400).json({ error: `Erro na Evolution API: ${errorMsg}` });
+      const responseData = err.response?.data;
+      const responseMsg = responseData?.response?.message;
+      const isAlreadyInUse = Array.isArray(responseMsg)
+        ? responseMsg.some(msg => String(msg).includes('already in use'))
+        : String(responseMsg || '').includes('already in use');
+
+      if (isAlreadyInUse) {
+        console.log(`[instanceController] Instância "${instanceName}" já existe na Evolution. Prosseguindo com o vínculo no banco de dados.`);
+      } else {
+        console.error(`[instanceController] Erro ao criar na Evolution:`, responseData || err.message);
+        const errorMsg = responseData?.message || err.message;
+        return res.status(400).json({ error: `Erro na Evolution API: ${errorMsg}` });
+      }
     }
 
     // Salva no banco
