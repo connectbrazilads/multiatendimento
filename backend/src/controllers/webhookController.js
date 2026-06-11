@@ -289,10 +289,12 @@ async function handleWebhook(req, res) {
     if (existing) return;
 
     const remoteJid = msg.key?.remoteJid || '';
-    if (remoteJid.includes('@g.us')) return;
     if (remoteJid === 'status@broadcast') return;
 
-    const phone = evolutionService.normalizePhoneNumber(remoteJid.replace('@s.whatsapp.net', ''));
+    const isGroup = evolutionService.isGroupJid(remoteJid);
+    const phone = isGroup
+      ? evolutionService.normalizePhoneNumber(remoteJid)
+      : evolutionService.normalizePhoneNumber(remoteJid.replace('@s.whatsapp.net', ''));
 
     const media = extractMedia(msg);
     const mContent = getMessageContent(msg.message);
@@ -322,6 +324,14 @@ async function handleWebhook(req, res) {
       } else if (mContent?.locationMessage) {
         body = mContent.locationMessage.name ? `📍 Localização: ${mContent.locationMessage.name}` : `📍 Localização`;
       }
+    }
+
+    if (isGroup && !fromMe && body) {
+      const participant = msg.key?.participant || msg.participant || '';
+      const senderLabel = msg.pushName
+        || evolutionService.normalizePhoneNumber(participant.replace('@s.whatsapp.net', ''))
+        || 'Participante';
+      body = `${senderLabel}: ${body}`;
     }
 
     const contextInfo = mContent?.extendedTextMessage?.contextInfo 
@@ -381,7 +391,7 @@ async function handleWebhook(req, res) {
 
     let contact;
     if (matchedContact) {
-      const shouldUpdateName = !fromMe && msg.pushName && (!matchedContact.name || matchedContact.name === '.');
+      const shouldUpdateName = !isGroup && !fromMe && msg.pushName && (!matchedContact.name || matchedContact.name === '.');
       const nextContactData = {
         ...(matchedContact.phone !== phone ? { phone } : {}),
         ...(matchedContact.instanceId !== waInstance.id ? { instanceId: waInstance.id } : {}),
@@ -400,7 +410,7 @@ async function handleWebhook(req, res) {
           tenantId: tenant.id,
           instanceId: waInstance.id,
           phone,
-          name: fromMe ? null : (msg.pushName || null),
+          name: isGroup ? `Grupo ${phone.split('@')[0]}` : (fromMe ? null : (msg.pushName || null)),
         },
       });
     }
@@ -417,7 +427,7 @@ async function handleWebhook(req, res) {
     // --- Lógica de Avaliação de Atendimento (CSAT) ---
     const bodyTrim = (body || '').trim();
     const isRating = /^[1-5]$/.test(bodyTrim);
-    if (isRating) {
+    if (!isGroup && isRating) {
       const lastResolved = await prisma.ticket.findFirst({
         where: { 
           contactId: contact.id, 
@@ -455,7 +465,7 @@ async function handleWebhook(req, res) {
           tenantId: tenant.id,
           instanceId: waInstance.id,
           contactId: contact.id,
-          status: fromMe ? 'open' : (tenant.settings?.botEnabled ? 'bot' : 'pending'),
+          status: fromMe ? 'open' : (!isGroup && tenant.settings?.botEnabled ? 'bot' : 'pending'),
         }
       });
       if (io) io.to(tenant.id).emit('new_ticket', ticket);
@@ -470,7 +480,7 @@ async function handleWebhook(req, res) {
       // Se o ticket já existia mas estava resolvido, REABRE ele para evitar duplicação na lista
       ticket = await prisma.ticket.update({
         where: { id: ticket.id },
-        data: { status: tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date(), lastMessageAt: new Date(), unreadCount: { increment: 1 } }
+        data: { status: !isGroup && tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date(), lastMessageAt: new Date(), unreadCount: { increment: 1 } }
       });
       if (io) io.to(tenant.id).emit('ticket_updated', ticket);
       console.log(`[webhook] Ticket ${ticket.id} reaberto para evitar duplicação.`);
@@ -522,7 +532,7 @@ async function handleWebhook(req, res) {
 
     // --- Lógica de Horário de Atendimento ---
     const isWorking = await businessHourService.isWithinBusinessHours(tenant.id);
-    if (!isWorking && !fromMe && tenant.settings?.outOfOfficeMessage) {
+    if (!isGroup && !isWorking && !fromMe && tenant.settings?.outOfOfficeMessage) {
        // Se o ticket for novo (criado agora) ou se o status for 'bot', enviamos o aviso
        const lastOooEvent = await prisma.ticketEvent.findFirst({
          where: { ticketId: ticket.id, type: 'ooo_message' },
@@ -625,7 +635,7 @@ async function handleWebhook(req, res) {
       // Busca o ticket atualizado para garantir que o status e dados batam com o banco
       const freshTicket = await prisma.ticket.findUnique({ 
         where: { id: ticket.id },
-        include: { contact: true, agent: { select: { name: true } } }
+        include: { contact: true, agent: { select: { name: true } }, instance: { select: { instanceName: true } } }
       });
       console.log(`[socket] emitindo new_message para tenant ${tenant.id} | Ticket: ${freshTicket.id} | Status: ${freshTicket.status}`);
       io.to(tenant.id).emit('new_message', { ticket: freshTicket, message, contact });

@@ -277,6 +277,9 @@ async function createInstance(url, key, instanceName) {
 
 function normalizePhoneNumber(phone) {
   if (typeof phone !== 'string' && typeof phone !== 'number') return '';
+  const rawValue = String(phone).trim();
+  if (isGroupJid(rawValue)) return rawValue.toLowerCase();
+
   let digits = String(phone).replace(/\D/g, '');
   if (!digits) return '';
 
@@ -301,7 +304,15 @@ function normalizePhoneNumber(phone) {
   return digits;
 }
 
+function isGroupJid(value) {
+  return typeof value === 'string' && value.trim().toLowerCase().endsWith('@g.us');
+}
+
 function buildPhoneLookupCandidates(phone) {
+  if (isGroupJid(String(phone || ''))) {
+    return [normalizePhoneNumber(phone)];
+  }
+
   const rawDigits = typeof phone === 'string' || typeof phone === 'number'
     ? String(phone).replace(/\D/g, '')
     : '';
@@ -414,5 +425,5 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
 module.exports = {
   sendText, sendMedia, sendAudio, sendMessage, getMediaBase64, saveMediaFile,
   getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage,
-  normalizePhoneNumber, buildPhoneLookupCandidates
+  normalizePhoneNumber, buildPhoneLookupCandidates, isGroupJid
 };
