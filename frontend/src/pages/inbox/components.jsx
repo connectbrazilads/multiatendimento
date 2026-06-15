@@ -456,6 +456,8 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   const [linkedCrm, setLinkedCrm] = useState(null);
   const [panelTab, setPanelTab] = useState('overview');
   const [profileModal, setProfileModal] = useState(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState(contact.name || '');
   const statusMeta = getStatusMeta(ticket.status);
   const priorityMeta = getPriorityMeta(priority);
 
@@ -490,10 +492,22 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
 
   useEffect(() => {
     setPanelTab('overview');
-  }, [contact.id]);
+    setIsEditingName(false);
+    setNewName(contact.name || '');
+  }, [contact.id, contact.name]);
 
   async function saveContact() {
     await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state });
+    onUpdate();
+  }
+
+  async function handleSaveName() {
+    if (!newName.trim()) {
+      setIsEditingName(false);
+      return;
+    }
+    await updateContact(contact.id, { name: newName });
+    setIsEditingName(false);
     onUpdate();
   }
 
@@ -766,7 +780,29 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           >
             <Avatar name={contactName} src={contact.avatarUrl} size={80} />
           </button>
-          <h4 style={styles.infoName}>{contactName}</h4>
+          {isEditingName ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, width: '100%', padding: '0 10px' }}>
+              <input 
+                style={{ ...styles.modalInput, flex: 1, margin: 0, padding: '8px', fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }} 
+                value={newName} 
+                onChange={e => setNewName(e.target.value)}
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                placeholder="Nome do cliente"
+              />
+              <button 
+                onClick={handleSaveName} 
+                style={{ ...styles.infoActionBtn, padding: '8px 16px', minHeight: 0, height: 'auto', background: 'var(--accent)', color: '#0b1020', border: 'none', fontWeight: 700 }}
+              >
+                Salvar
+              </button>
+            </div>
+          ) : (
+            <h4 style={{ ...styles.infoName, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onClick={() => { setIsEditingName(true); setNewName(contact.name || ''); }} title="Clique para editar o nome">
+              {contactName}
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            </h4>
+          )}
           {linkedCrm ? (
             <button
               type="button"
