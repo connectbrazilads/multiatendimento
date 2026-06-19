@@ -353,7 +353,7 @@ class FirebirdRepository:
         sql = """
             select
                 CDCLIENTE, NMCLIENTE, FANTASIA, CPF, CNPJ, CIDADE, UF, CEP,
-                ENDERECO, COMPLEMENTO, BAIRRO, DDD, FONE1, FONE2, CELULAR, FAX, EMAIL, CONTATO,
+                ENDERECO, NUM, COMPLEMENTO, BAIRRO, DDD, FONE1, FONE2, CELULAR, FAX, EMAIL, CONTATO,
                 INCLUSAO, ATUALIZADO
             from ICLIENTES
             where CDCLIENTE > ?
@@ -365,7 +365,7 @@ class FirebirdRepository:
         sql = """
             select
                 eq.CDEQUIPAMENTO, eq.CDCLIENTE, eq.CDPRODUTO, eq.SERIE, eq.MODELO, eq.FABRICANTE,
-                eq.ENDERECO, eq.LOCALINSTAL, eq.DEPARTAMENTO, eq.CONTATO, eq.FONE, eq.DDD, eq.CIDADE, eq.UF,
+                eq.ENDERECO, eq.NUM, eq.BAIRRO, eq.COMPLEMENTO, eq.LOCALINSTAL, eq.DEPARTAMENTO, eq.CONTATO, eq.FONE, eq.DDD, eq.CIDADE, eq.UF,
                 eq.INCLUSAO, eq.ATUALIZADO,
                 p.NMPRODUTO as PRODUCT_NAME
             from IXLEQUIPAMENTO eq
@@ -416,6 +416,28 @@ def normalize_contact(record: dict[str, Any]) -> dict[str, Any]:
         record.get("fone2"),
     ) or f"FB-{external_id}"
 
+    # Format full address: "Street, Number - Complement - Neighborhood"
+    street = first_non_empty(record.get("endereco"))
+    num = first_non_empty(record.get("num"))
+    complement = first_non_empty(record.get("complemento"))
+    bairro = first_non_empty(record.get("bairro"))
+
+    addr_parts = []
+    if street:
+        if num:
+            addr_parts.append(f"{street}, {num}")
+        else:
+            addr_parts.append(street)
+    elif num:
+        addr_parts.append(num)
+
+    if complement:
+        addr_parts.append(complement)
+    if bairro:
+        addr_parts.append(bairro)
+
+    address_str = " - ".join(addr_parts) if addr_parts else None
+
     return {
         "externalId": external_id,
         "cdCliente": external_id,
@@ -424,8 +446,8 @@ def normalize_contact(record: dict[str, Any]) -> dict[str, Any]:
         "phone": phone,
         "email": first_non_empty(record.get("email")),
         "cpfCnpj": first_non_empty(record.get("cpf"), record.get("cnpj")),
-        "address": first_non_empty(record.get("endereco"), record.get("complemento")),
-        "neighborhood": first_non_empty(record.get("bairro")),
+        "address": address_str,
+        "neighborhood": bairro,
         "city": first_non_empty(record.get("cidade")),
         "state": first_non_empty(record.get("uf")),
         "zipCode": first_non_empty(record.get("cep")),
@@ -440,6 +462,28 @@ def normalize_equipment(record: dict[str, Any]) -> dict[str, Any]:
     external_id = str(record["cdequipamento"]).strip()
     client_external_id = str(record["cdcliente"]).strip() if record.get("cdcliente") is not None else None
 
+    # Format full address: "Street, Number - Complement - Neighborhood"
+    street = first_non_empty(record.get("endereco"))
+    num = first_non_empty(record.get("num"))
+    complement = first_non_empty(record.get("complemento"))
+    bairro = first_non_empty(record.get("bairro"))
+
+    addr_parts = []
+    if street:
+        if num:
+            addr_parts.append(f"{street}, {num}")
+        else:
+            addr_parts.append(street)
+    elif num:
+        addr_parts.append(num)
+
+    if complement:
+        addr_parts.append(complement)
+    if bairro:
+        addr_parts.append(bairro)
+
+    address_str = " - ".join(addr_parts) if addr_parts else None
+
     return {
         "externalId": external_id,
         "clientExternalId": client_external_id,
@@ -451,7 +495,7 @@ def normalize_equipment(record: dict[str, Any]) -> dict[str, Any]:
         "type": first_non_empty(record.get("product_name"), record.get("cdproduto")),
         "sector": first_non_empty(record.get("departamento"), record.get("localinstal")),
         "installLocation": first_non_empty(record.get("localinstal")),
-        "address": first_non_empty(record.get("endereco")),
+        "address": address_str,
         "city": first_non_empty(record.get("cidade")),
         "state": first_non_empty(record.get("uf")),
         "contact": first_non_empty(record.get("contato")),

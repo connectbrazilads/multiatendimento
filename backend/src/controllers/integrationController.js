@@ -49,6 +49,34 @@ async function testFirebirdConnection(req, res) {
       where: { tenantId: req.user.tenantId },
     });
 
+    // Se possui Token do Agent configurado mas não tem URL de API (modo Agent local)
+    if (settings?.firebirdClientToken && !settings?.firebirdApiUrl) {
+      if (!settings.firebirdLastSyncAt) {
+        return res.json({
+          ok: true,
+          agentMode: true,
+          message: 'Modo Agent configurado. Aguardando o primeiro envio de dados do Agent para confirmar a conexão.',
+        });
+      }
+
+      const diffMs = new Date() - new Date(settings.firebirdLastSyncAt);
+      const diffMinutes = Math.floor(diffMs / 1000 / 60);
+
+      if (diffMinutes <= 15) {
+        return res.json({
+          ok: true,
+          agentMode: true,
+          message: `Conexão com o Agent ativa. Último envio recebido há ${diffMinutes} minutos.`,
+        });
+      } else {
+        return res.json({
+          ok: true,
+          agentMode: true,
+          message: `O Agent está configurado, mas não envia dados há mais de 15 minutos (último envio: ${new Date(settings.firebirdLastSyncAt).toLocaleString('pt-BR')}). Verifique se o agent está rodando no servidor local.`,
+        });
+      }
+    }
+
     if (!settings?.firebirdApiUrl) {
       return res.status(400).json({ error: 'Configure a URL da API da empresa antes de testar a conexao.' });
     }

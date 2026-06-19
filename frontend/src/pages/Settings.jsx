@@ -77,6 +77,7 @@ export default function Settings() {
   const [newTag, setNewTag] = useState({ name: '', color: '#D4AF37' });
   const [testingIntegration, setTestingIntegration] = useState(false);
   const [syncingIntegration, setSyncingIntegration] = useState(false);
+  const [showToken, setShowToken] = useState(false);
 
   useEffect(() => {
     load();
@@ -247,6 +248,15 @@ export default function Settings() {
     const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
     setForm((current) => ({ ...current, firebirdClientToken: token }));
     toast.success('Token do agent gerado. Salve a integracao para ativar.');
+  }
+
+  function handleCopyToken() {
+    if (!form.firebirdClientToken) {
+      toast.info('Nenhum token para copiar');
+      return;
+    }
+    navigator.clipboard.writeText(form.firebirdClientToken);
+    toast.success('Token copiado para a área de transferência!');
   }
 
   async function handleDeleteTag(id) {
@@ -859,11 +869,25 @@ export default function Settings() {
                 <div style={{ display: 'flex', gap: '0.75rem', flexDirection: isMobile ? 'column' : 'row' }}>
                   <input
                     style={{ ...s.input, flex: 1 }}
-                    type="password"
+                    type={showToken ? "text" : "password"}
                     value={form.firebirdClientToken}
                     onChange={(e) => setForm({ ...form, firebirdClientToken: e.target.value })}
                     placeholder="Gere um token e salve a integracao"
                   />
+                  <button
+                    type="button"
+                    style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                    onClick={() => setShowToken(!showToken)}
+                  >
+                    {showToken ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                    onClick={handleCopyToken}
+                  >
+                    Copiar
+                  </button>
                   <button type="button" style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap' }} onClick={generateFirebirdClientToken}>
                     Gerar token
                   </button>
