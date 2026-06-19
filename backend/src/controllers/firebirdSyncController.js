@@ -546,8 +546,13 @@ async function getPendingCommands(req, res) {
         externalId: null,
       },
       include: {
-        contact: true,
+        contact: {
+          include: {
+            crmCustomer: true,
+          },
+        },
         equipment: true,
+        user: true,
       },
     });
 
@@ -555,18 +560,23 @@ async function getPendingCommands(req, res) {
       id: os.id,
       type: 'CREATE_OS',
       payload: {
-        cdCliente: os.contact.externalId,
+        cdCliente: os.contact.externalId || os.contact.crmCustomer?.externalId || null,
         cdEquipamento: os.equipment.externalId,
         cdOstp: os.cdOstp || '02',
         nmsuportet: os.nmsuportet || '',
         defect: os.defect || '',
+        attendantName: os.user?.name || '',
         // duplicados do cliente
-        nmCliente: os.contact.name || '',
-        endereco: os.contact.address || '',
-        city: os.contact.city || '',
-        state: os.contact.state || '',
-        zipCode: os.contact.zipCode || '',
-        phone: os.contact.phone || '',
+        nmCliente: os.contact.crmCustomer?.name || os.contact.name || '',
+        endereco: os.contact.crmCustomer?.address || os.contact.address || '',
+        bairro: os.contact.crmCustomer?.neighborhood || os.contact.neighborhood || '',
+        complemento: os.contact.crmCustomer?.raw?.['complemento'] || '',
+        city: os.contact.crmCustomer?.city || os.contact.city || '',
+        state: os.contact.crmCustomer?.state || os.contact.state || '',
+        zipCode: os.contact.crmCustomer?.zipCode || os.contact.zipCode || '',
+        phone: os.contact.crmCustomer?.phone || os.contact.phone || '',
+        email: os.contact.crmCustomer?.email || os.contact.email || '',
+        contato: os.contact.crmCustomer?.contactName || os.contact.name || '',
         // duplicados do equipamento
         departamento: os.equipment.sector || '',
         localInstal: os.equipment.installLocation || '',
