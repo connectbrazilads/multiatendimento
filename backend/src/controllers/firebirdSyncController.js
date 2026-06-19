@@ -556,7 +556,18 @@ async function getPendingCommands(req, res) {
       },
     });
 
-    const commands = pendingOS.map((os) => ({
+    const equipmentExternalIds = pendingOS.map(os => os.equipment.externalId).filter(Boolean);
+    const crmEquipments = await prisma.crmEquipment.findMany({
+      where: {
+        tenantId: tenant.id,
+        externalId: { in: equipmentExternalIds }
+      }
+    });
+    const crmEquipMap = new Map(crmEquipments.map(e => [e.externalId, e]));
+
+    const commands = pendingOS.map((os) => {
+      const crmEq = crmEquipMap.get(os.equipment.externalId);
+      return {
       id: os.id,
       type: 'CREATE_OS',
       payload: {
@@ -569,19 +580,23 @@ async function getPendingCommands(req, res) {
         // duplicados do cliente
         nmCliente: os.contact.crmCustomer?.name || os.contact.name || '',
         endereco: os.contact.crmCustomer?.address || os.contact.address || '',
+        num: os.contact.crmCustomer?.raw?.['num'] || os.contact.crmCustomer?.raw?.['NUM'] || '',
         bairro: os.contact.crmCustomer?.neighborhood || os.contact.neighborhood || '',
-        complemento: os.contact.crmCustomer?.raw?.['complemento'] || '',
+        complemento: os.contact.crmCustomer?.raw?.['complemento'] || os.contact.crmCustomer?.raw?.['COMPLEMENTO'] || '',
         city: os.contact.crmCustomer?.city || os.contact.city || '',
         state: os.contact.crmCustomer?.state || os.contact.state || '',
         zipCode: os.contact.crmCustomer?.zipCode || os.contact.zipCode || '',
+        ddd: os.contact.crmCustomer?.raw?.['ddd'] || os.contact.crmCustomer?.raw?.['DDD'] || '',
         phone: os.contact.crmCustomer?.phone || os.contact.phone || '',
+        celular: os.contact.crmCustomer?.raw?.['celular'] || os.contact.crmCustomer?.raw?.['CELULAR'] || '',
         email: os.contact.crmCustomer?.email || os.contact.email || '',
         contato: os.contact.crmCustomer?.contactName || os.contact.name || '',
         // duplicados do equipamento
-        departamento: os.equipment.sector || '',
-        localInstal: os.equipment.installLocation || '',
+        departamento: crmEq?.raw?.['departamento'] || crmEq?.raw?.['DEPARTAMENTO'] || os.equipment.sector || '',
+        localInstal: crmEq?.raw?.['localinstal'] || crmEq?.raw?.['LOCALINSTAL'] || crmEq?.installLocation || '',
       },
-    }));
+    };
+    });
 
     res.json(commands);
   } catch (err) {
