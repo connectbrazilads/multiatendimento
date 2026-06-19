@@ -38,6 +38,8 @@ model Tenant {
   syncRecords    ExternalSyncRecord[]
   crmCustomers   CrmCustomer[]
   crmEquipments  CrmEquipment[]
+  crmOsTypes     CrmOsType[]
+  crmTechnicians CrmTechnician[]
 }
 
 model TenantSettings {
@@ -407,6 +409,8 @@ model ServiceOrder {
   externalId     String?
   externalUpdatedAt DateTime?
   ticketId       String?
+  cdOstp         String?
+  nmsuportet     String?
   defect         String?    // Descrição do defeito relatado
   status         String     @default("PENDENTE") // PENDENTE, EM_ATENDIMENTO, AGUARDANDO_RETORNO, FINALIZADA
   technicalNotes String?    // Notas do técnico (peças trocadas, pendências)
@@ -534,4 +538,29 @@ model Lead {
   @@index([tenantId, imported])
   @@index([tenantId, query])
   @@index([tenantId, sentAt])
+}
+
+model CrmOsType {
+  id        String   @id @default(cuid())
+  tenantId  String
+  code      String   // CDOSTP
+  name      String   // NMOSTP
+  createdAt DateTime @default(now())
+  
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+}
+
+model CrmTechnician {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String   // NMSUPORTE
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
 }

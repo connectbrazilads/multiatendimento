@@ -121,20 +121,58 @@ async function getOSList(req, res) {
 }
 
 async function createOS(req, res) {
-  const { contactId, equipmentId, ticketId, defect, status } = req.body;
-  const os = await prisma.serviceOrder.create({
-    data: {
-      tenantId: req.user.tenantId,
-      userId: req.user.id,
-      contactId,
-      equipmentId,
-      ticketId,
-      defect,
-      status: status || 'PENDENTE'
-    },
-    include: { contact: true, equipment: true }
-  });
-  res.json(os);
+  const { contactId, equipmentId, ticketId, defect, status, cdOstp, nmsuportet } = req.body;
+  const { tenantId } = req.user;
+
+  try {
+    const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId } });
+    const isFirebird = equipment?.externalSource === 'firebird';
+
+    const os = await prisma.serviceOrder.create({
+      data: {
+        tenantId,
+        userId: req.user.id,
+        contactId,
+        equipmentId,
+        ticketId,
+        defect,
+        status: status || 'PENDENTE',
+        cdOstp,
+        nmsuportet,
+        externalSource: isFirebird ? 'firebird' : 'manual',
+        externalId: null
+      },
+      include: { contact: true, equipment: true }
+    });
+    res.json(os);
+  } catch (err) {
+    console.error('[createOS] erro:', err.message);
+    res.status(500).json({ error: 'Erro ao criar ordem de serviço.' });
+  }
+}
+
+async function getOSTypes(req, res) {
+  try {
+    const types = await prisma.crmOsType.findMany({
+      where: { tenantId: req.user.tenantId },
+      orderBy: { code: 'asc' }
+    });
+    res.json(types);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getOSTechnicians(req, res) {
+  try {
+    const techs = await prisma.crmTechnician.findMany({
+      where: { tenantId: req.user.tenantId, isActive: true },
+      orderBy: { name: 'asc' }
+    });
+    res.json(techs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 async function updateOS(req, res) {
@@ -587,4 +625,4 @@ async function draftOS(req, res) {
   }
 }
 
-module.exports = { getEquipments, addEquipment, updateEquipment, deleteEquipment, getOSList, createOS, updateOS, generatePdf, draftOS };
+module.exports = { getEquipments, addEquipment, updateEquipment, deleteEquipment, getOSList, createOS, updateOS, generatePdf, draftOS, getOSTypes, getOSTechnicians };

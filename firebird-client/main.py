@@ -236,6 +236,54 @@ class CRMClient:
         response.raise_for_status()
         return response.json()
 
+    def process_pending_commands(self, repo: FirebirdRepository) -> None:
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/pending-commands"
+        try:
+            response = self.session.get(
+                url,
+                params={"tenantSlug": self.config.crm_tenant_slug},
+                timeout=30
+            )
+            response.raise_for_status()
+            commands = response.json()
+            if not commands:
+                return
+
+            logging.info("Recebidos %s comandos pendentes do CRM", len(commands))
+            for cmd in commands:
+                cmd_id = cmd["id"]
+                cmd_type = cmd["type"]
+                payload = cmd["payload"]
+
+                try:
+                    if cmd_type == "CREATE_OS":
+                        seq_os = repo.create_service_order(payload)
+                        self.report_command_result(cmd_id, success=True, result={"seqOs": seq_os})
+                        logging.info("O.S. criada no Firebird com sucesso. SEQOS: %s", seq_os)
+                    else:
+                        logging.warning("Tipo de comando desconhecido: %s", cmd_type)
+                except Exception as e:
+                    logging.exception("Erro ao processar comando %s:", cmd_id)
+                    self.report_command_result(cmd_id, success=False, error=str(e))
+        except Exception as e:
+            logging.error("Falha ao buscar ou processar comandos do CRM: %s", e)
+
+    def report_command_result(self, command_id: str, success: bool, result: dict | None = None, error: str | None = None) -> None:
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/pending-commands/{command_id}/callback"
+        try:
+            self.session.post(
+                url,
+                json={
+                    "tenantSlug": self.config.crm_tenant_slug,
+                    "success": success,
+                    "result": result,
+                    "error": error
+                },
+                timeout=30
+            )
+        except Exception as e:
+            logging.error("Falha ao reportar resultado do comando %s: %s", command_id, e)
+
 
 class FirebirdRepository:
     def __init__(self, config: AppConfig):
@@ -405,6 +453,93 @@ class FirebirdRepository:
         """
         yield from self._rows(sql, (cursor,))
 
+    def fetch_os_types(self) -> Iterator[dict[str, Any]]:
+        sql = "select CDOSTP, NMOSTP from IXLOSTP"
+        yield from self._rows(sql, ())
+
+    def fetch_technicians(self) -> Iterator[dict[str, Any]]:
+        sql = "select NMSUPORTE, TFATIVO from IXLOSSUPORTE"
+        yield from self._rows(sql, ())
+
+    def create_service_order(self, data: dict[str, Any]) -> int:
+        cd_cliente = int(data["cdCliente"]) if data.get("cdCliente") else None
+        cd_equipamento = int(data["cdEquipamento"]) if data.get("cdEquipamento") else None
+        cd_ostp = str(data.get("cdOstp", "02")).strip()
+
+        now = datetime.now()
+        dt_inclusao = now.strftime("%Y-%m-%d")
+        hr_inclusao = now.strftime("%H:%M")
+
+        status = "A"  # Aberto
+        cd_status = "ABERTO"
+
+        defect = str(data.get("defect", "")).strip()
+        nmsuportet = str(data.get("nmsuportet", "")).strip()
+
+        num = None
+        if data.get("num"):
+            try:
+                num = int(data["num"])
+            except ValueError:
+                pass
+
+        params = (
+            cd_cliente,
+            cd_equipamento,
+            cd_ostp,
+            dt_inclusao,
+            hr_inclusao,
+            status,
+            cd_status,
+            defect,
+            nmsuportet if nmsuportet else None,
+
+            str(data.get("nmCliente", ""))[:50],
+            str(data.get("endereco", ""))[:50],
+            num,
+            str(data.get("complemento", ""))[:30],
+            str(data.get("bairro", ""))[:30],
+            str(data.get("city", ""))[:40],
+            str(data.get("state", ""))[:2],
+            str(data.get("zipCode", ""))[:8],
+            str(data.get("ddd", ""))[:10],
+            str(data.get("phone", ""))[:15],
+            str(data.get("celular", ""))[:15],
+            str(data.get("email", ""))[:50],
+            str(data.get("contato", ""))[:20],
+
+            str(data.get("departamento", ""))[:45],
+            str(data.get("localInstal", ""))[:50]
+        )
+
+        sql = """
+            insert into IXLOS (
+                CDCLIENTE, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET,
+                NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
+                DEPARTAMENTO, LOCALINSTAL, CDEMPRESA
+            ) values (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, 1
+            ) returning SEQOS
+        """
+
+        con = self.connect()
+        try:
+            cur = con.cursor()
+            cur.execute(sql, params)
+            seq_os = cur.fetchone()[0]
+            con.commit()
+            return int(seq_os)
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            try:
+                con.close()
+            except Exception:
+                pass
+
 
 def normalize_contact(record: dict[str, Any]) -> dict[str, Any]:
     external_id = str(record["cdcliente"]).strip()
@@ -556,6 +691,37 @@ def normalize_service_order(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_os_type(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "code": str(record["cdostp"]).strip(),
+        "name": str(record["nmostp"]).strip()
+    }
+
+
+def normalize_technician(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": str(record["nmsuporte"]).strip(),
+        "inactive": record.get("tfativo") == "N"
+    }
+
+
+def sync_static_entities(repo: FirebirdRepository, crm: CRMClient) -> None:
+    try:
+        logging.info("Sincronizando tipos de O.S...")
+        os_types = [normalize_os_type(row) for row in repo.fetch_os_types()]
+        if os_types:
+            crm.push("osTypes", os_types)
+            logging.info("Sincronizados %s tipos de O.S.", len(os_types))
+
+        logging.info("Sincronizando técnicos...")
+        techs = [normalize_technician(row) for row in repo.fetch_technicians()]
+        if techs:
+            crm.push("technicians", techs)
+            logging.info("Sincronizados %s técnicos.", len(techs))
+    except Exception as e:
+        logging.error("Falha ao sincronizar entidades estáticas (tipos/técnicos): %s", e)
+
+
 def sync_entity(repo: FirebirdRepository, crm: CRMClient, state: StateStore, entity: str, batch_size: int) -> None:
     cursor_key = entity
     cursor = state.get_cursor(cursor_key)
@@ -612,16 +778,25 @@ def run_cycle(config: AppConfig, state: StateStore, full: bool = False) -> None:
 
     if full:
         state.data["cursors"] = {
-            "contacts": 0,
-            "equipments": 0,
+            "cursors": {
+                "contacts": 0,
+                "equipments": 0,
+            }
         }
         state.save()
 
     state.data["batch_size"] = config.batch_size
 
+    # Sync static support metadata
+    sync_static_entities(repo, crm)
+
     for entity in ["contacts", "equipments"]:
         logging.info("Iniciando sincronização de %s", entity)
         sync_entity(repo, crm, state, entity, config.batch_size)
+
+    # Process pending commands from CRM (like opening an O.S.)
+    logging.info("Buscando comandos pendentes do CRM...")
+    crm.process_pending_commands(repo)
 
 
 def inspect_schema(config: AppConfig) -> Path:

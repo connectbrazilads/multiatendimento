@@ -431,7 +431,12 @@ async function pushBatch(req, res) {
           record.cdequipamento,
           record.seqOs,
           record.idAtendimento,
-          record.id_atendimento
+          record.id_atendimento,
+          record.code,
+          record.cdOstp,
+          record.name,
+          record.nmSuporte,
+          record.nmsuporte
         ) || crypto.randomUUID();
 
         await upsertRawRecord(tenant.id, source, entity, externalId, record);
@@ -443,6 +448,10 @@ async function pushBatch(req, res) {
         } else if (entity === 'equipments') {
           await upsertCrmEquipment(tenant, record);
           stats.crmEquipments += 1;
+        } else if (entity === 'osTypes') {
+          await upsertCrmOsType(tenant, record);
+        } else if (entity === 'technicians') {
+          await upsertCrmTechnician(tenant, record);
         } else if (entity === 'serviceOrders') {
           stats.skipped += 1;
         } else {
@@ -474,6 +483,135 @@ async function pushBatch(req, res) {
   }
 }
 
+async function upsertCrmOsType(tenant, data) {
+  const code = pick(data.code, data.cdOstp, data.cdostp);
+  const name = pick(data.name, data.nmOstp, data.nmostp);
+  if (!code || !name) {
+    throw new Error('Tipo de O.S. sem código ou descrição.');
+  }
+
+  return prisma.crmOsType.upsert({
+    where: {
+      tenantId_code: {
+        tenantId: tenant.id,
+        code,
+      },
+    },
+    update: { name },
+    create: {
+      tenantId: tenant.id,
+      code,
+      name,
+    },
+  });
+}
+
+async function upsertCrmTechnician(tenant, data) {
+  const name = pick(data.name, data.nmSuporte, data.nmsuporte);
+  if (!name) {
+    throw new Error('Técnico sem nome.');
+  }
+
+  const isActive = !['S', 'SIM', 'TRUE', '1'].includes(String(pick(data.inactive, data.tfinativo, data.tfativo === 'N') || '').toUpperCase());
+
+  return prisma.crmTechnician.upsert({
+    where: {
+      tenantId_name: {
+        tenantId: tenant.id,
+        name,
+      },
+    },
+    update: { isActive },
+    create: {
+      tenantId: tenant.id,
+      name,
+      isActive,
+    },
+  });
+}
+
+async function getPendingCommands(req, res) {
+  try {
+    const { tenantSlug } = req.query;
+    if (!tenantSlug) {
+      return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
+    }
+    const { tenant } = await resolveTenantContext(tenantSlug);
+    assertToken(req, tenant);
+
+    const pendingOS = await prisma.serviceOrder.findMany({
+      where: {
+        tenantId: tenant.id,
+        externalSource: 'firebird',
+        externalId: null,
+      },
+      include: {
+        contact: true,
+        equipment: true,
+      },
+    });
+
+    const commands = pendingOS.map((os) => ({
+      id: os.id,
+      type: 'CREATE_OS',
+      payload: {
+        cdCliente: os.contact.externalId,
+        cdEquipamento: os.equipment.externalId,
+        cdOstp: os.cdOstp || '02',
+        nmsuportet: os.nmsuportet || '',
+        defect: os.defect || '',
+        // duplicados do cliente
+        nmCliente: os.contact.name || '',
+        endereco: os.contact.address || '',
+        city: os.contact.city || '',
+        state: os.contact.state || '',
+        zipCode: os.contact.zipCode || '',
+        phone: os.contact.phone || '',
+        // duplicados do equipamento
+        departamento: os.equipment.sector || '',
+        localInstal: os.equipment.installLocation || '',
+      },
+    }));
+
+    res.json(commands);
+  } catch (err) {
+    console.error('[pending-commands] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function commandCallback(req, res) {
+  try {
+    const { id } = req.params;
+    const { tenantSlug, success, result, error } = req.body || {};
+
+    if (!tenantSlug) {
+      return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
+    }
+    const { tenant } = await resolveTenantContext(tenantSlug);
+    assertToken(req, tenant);
+
+    if (success && result?.seqOs) {
+      await prisma.serviceOrder.update({
+        where: { id, tenantId: tenant.id },
+        data: {
+          externalId: String(result.seqOs),
+        },
+      });
+      console.log(`[pending-commands] OS ${id} associada ao SEQOS ${result.seqOs} com sucesso.`);
+    } else {
+      console.warn(`[pending-commands] Falha ao processar comando OS ${id}:`, error);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[pending-commands-callback] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   pushBatch,
+  getPendingCommands,
+  commandCallback,
 };

@@ -4,9 +4,11 @@ import { FileText, Wand2 } from 'lucide-react';
 
 export default function CreateOsModal({ ticket, onClose, onCreated }) {
   const [equipments, setEquipments] = useState([]);
+  const [osTypes, setOsTypes] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drafting, setDrafting] = useState(false);
-  const [formData, setFormData] = useState({ equipmentId: '', defect: '' });
+  const [formData, setFormData] = useState({ equipmentId: '', defect: '', cdOstp: '', nmsuportet: '' });
 
   useEffect(() => {
     loadData();
@@ -20,8 +22,16 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
         onClose();
         return;
       }
-      const resEquips = await getEquipments(contactId);
+      
+      const [resEquips, resTypes, resTechs] = await Promise.all([
+        getEquipments(contactId),
+        api.get('/os/types'),
+        api.get('/os/technicians')
+      ]);
+
       setEquipments(resEquips.data);
+      setOsTypes(resTypes.data);
+      setTechnicians(resTechs.data);
       
       // Auto-draft with AI
       setDrafting(true);
@@ -30,7 +40,9 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
       const { defect, equipmentId } = resDraft.data;
       setFormData({
         defect: defect || '',
-        equipmentId: equipmentId || (resEquips.data.length === 1 ? resEquips.data[0].id : '')
+        equipmentId: equipmentId || (resEquips.data.length === 1 ? resEquips.data[0].id : ''),
+        cdOstp: resTypes.data.find(t => t.code === '02') ? '02' : (resTypes.data[0]?.code || ''),
+        nmsuportet: ''
       });
     } catch (e) {
       console.error(e);
@@ -42,6 +54,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
 
   async function handleSave() {
     if (!formData.equipmentId) return alert('Selecione um equipamento');
+    if (!formData.cdOstp) return alert('Selecione o tipo de O.S.');
     if (!formData.defect) return alert('Informe o defeito reportado');
     try {
       const res = await api.post('/os', {
@@ -49,7 +62,9 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
         equipmentId: formData.equipmentId,
         ticketId: ticket.id,
         defect: formData.defect,
-        status: 'PENDENTE'
+        status: 'PENDENTE',
+        cdOstp: formData.cdOstp,
+        nmsuportet: formData.nmsuportet
       });
       
       onCreated(res.data);
@@ -90,6 +105,30 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
               <option value="">Selecione um equipamento...</option>
               {equipments.map(e => (
                 <option key={e.id} value={e.id}>{e.model} (Série: {e.serialNumber || 'S/N'})</option>
+              ))}
+            </select>
+
+            <label style={s.label}>TIPO DE O.S. / SERVIÇO</label>
+            <select 
+              style={s.input} 
+              value={formData.cdOstp} 
+              onChange={e => setFormData({...formData, cdOstp: e.target.value})}
+            >
+              <option value="">Selecione o tipo...</option>
+              {osTypes.map(t => (
+                <option key={t.id} value={t.code}>{t.name} ({t.code})</option>
+              ))}
+            </select>
+
+            <label style={s.label}>TÉCNICO DESIGNADO (OPCIONAL)</label>
+            <select 
+              style={s.input} 
+              value={formData.nmsuportet} 
+              onChange={e => setFormData({...formData, nmsuportet: e.target.value})}
+            >
+              <option value="">Nenhum / Aberto</option>
+              {technicians.map(t => (
+                <option key={t.id} value={t.name}>{t.name}</option>
               ))}
             </select>
 
