@@ -546,29 +546,73 @@ class FirebirdRepository:
             except Exception as e:
                 logging.warning("Erro ao buscar gerador via trigger: %s", e)
 
-            # 2. Se falhar, tenta adivinhar com base nos geradores cadastrados
+            # 2. Se falhar, tenta buscar comparando os valores dos geradores com o MAX(SEQOS) de IXLOS
+            if seq_os is None:
+                try:
+                    cur.execute("select max(SEQOS) from IXLOS")
+                    max_os = cur.fetchone()[0]
+                    if max_os:
+                        max_os = int(max_os)
+                        logging.info("MAX(SEQOS) atual na tabela IXLOS: %d", max_os)
+                        cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
+                        generators = [r[0].strip() for r in cur.fetchall()]
+                        
+                        candidates_by_val = []
+                        for gen in generators:
+                            try:
+                                cur.execute(f"select gen_id({gen}, 0) from rdb$database")
+                                val = int(cur.fetchone()[0])
+                                diff = abs(val - max_os)
+                                # Se a diferença for menor que 100, consideramos um candidato forte
+                                if diff < 100:
+                                    candidates_by_val.append((gen, diff, val))
+                            except Exception:
+                                continue
+                        
+                        # Ordena pela menor diferença
+                        candidates_by_val.sort(key=lambda x: x[1])
+                        logging.info("Geradores com valores próximos a MAX(SEQOS): %s", candidates_by_val)
+                        
+                        for gen, diff, val in candidates_by_val:
+                            # Ignora geradores conhecidos de outras finalidades se houver alternativas melhores
+                            if "OBS_INTERNA" in gen.upper() or "ATENDIMENTO" in gen.upper() or "SUPRI" in gen.upper():
+                                if len(candidates_by_val) > 1 and diff > 0:
+                                    continue
+                            try:
+                                logging.info("Tentando gerador selecionado por valor: %s (valor atual: %d)", gen, val)
+                                cur.execute(f"select gen_id({gen}, 1) from rdb$database")
+                                seq_os = int(cur.fetchone()[0])
+                                break
+                            except Exception as ex:
+                                logging.warning("Erro ao ler do gerador %s: %s", gen, ex)
+                                continue
+                except Exception as e:
+                    logging.warning("Erro ao buscar gerador por proximidade de valor: %s", e)
+
+            # 3. Se ainda assim falhar, tenta adivinhar com base nos nomes conhecidos
             if seq_os is None:
                 try:
                     cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
                     generators = [r[0].strip() for r in cur.fetchall()]
-                    logging.info("Geradores cadastrados no banco de dados local: %s", generators)
                     candidates = ["GEN_IXLOS", "GENIXLOS", "GEN_IXLOS_SEQOS", "GEN_SEQOS", "SEQOS", "IXLOS_SEQOS", "IXLOS"]
                     for gen in generators:
                         if "IXLOS" in gen.upper() or "SEQOS" in gen.upper():
+                            if "OBS_INTERNA" in gen.upper():
+                                continue
                             if gen not in candidates:
                                 candidates.append(gen)
                                 
                     for gen in candidates:
                         if gen in generators:
                             try:
-                                logging.info("Tentando gerador candidato: %s", gen)
+                                logging.info("Tentando gerador candidato de backup: %s", gen)
                                 cur.execute(f"select gen_id({gen}, 1) from rdb$database")
                                 seq_os = int(cur.fetchone()[0])
                                 break
                             except Exception:
                                 continue
                 except Exception as e:
-                    logging.warning("Erro ao adivinhar gerador: %s", e)
+                    logging.warning("Erro ao adivinhar gerador de backup: %s", e)
         finally:
             con.close()
 
