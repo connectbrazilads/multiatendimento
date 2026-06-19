@@ -554,7 +554,7 @@ class FirebirdRepository:
                     if max_os:
                         max_os = int(max_os)
                         logging.info("MAX(SEQOS) atual na tabela IXLOS: %d", max_os)
-                        cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
+                        cur.execute("select rdb$generator_name from rdb$generators where rdb$generator_name not starting with 'RDB$'")
                         generators = [r[0].strip() for r in cur.fetchall()]
                         
                         candidates_by_val = []
@@ -592,7 +592,7 @@ class FirebirdRepository:
             # 3. Se ainda assim falhar, tenta adivinhar com base nos nomes conhecidos
             if seq_os is None:
                 try:
-                    cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
+                    cur.execute("select rdb$generator_name from rdb$generators where rdb$generator_name not starting with 'RDB$'")
                     generators = [r[0].strip() for r in cur.fetchall()]
                     candidates = ["GEN_IXLOS", "GENIXLOS", "GEN_IXLOS_SEQOS", "GEN_SEQOS", "SEQOS", "IXLOS_SEQOS", "IXLOS"]
                     for gen in generators:
