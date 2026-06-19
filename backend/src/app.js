@@ -29,6 +29,9 @@ const uploadRoutes = require('./routes/upload');
 const osRoutes = require('./routes/osRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const revenueRoutes = require('./routes/revenue');
+const crmRoutes = require('./routes/crm');
+const integrationRoutes = require('./routes/integrations');
+const firebirdSyncRoutes = require('./routes/firebirdSync');
 
 const app = express();
 app.use('/api/report', require('./routes/report'));
@@ -100,6 +103,9 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/os', osRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/revenue', revenueRoutes);
+app.use('/api/crm', crmRoutes);
+app.use('/api/integrations/firebird', firebirdSyncRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 const jwt = require('jsonwebtoken');
 

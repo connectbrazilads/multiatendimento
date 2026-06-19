@@ -10,17 +10,25 @@ export default function Login() {
   const [tenantInfo, setTenantInfo] = useState(null);
   const navigate = useNavigate();
   const { slug } = useParams();
+  const routeSlug = slug || window.location.pathname.split('/').filter(Boolean)[0] || '';
 
   useEffect(() => {
-    if (slug) {
+    if (routeSlug) {
       loadTenant();
     }
-  }, [slug]);
+  }, [routeSlug]);
 
   async function loadTenant() {
     try {
-      const { data } = await getTenantBySlug(slug);
-      setTenantInfo(data);
+      const { data } = await getTenantBySlug(routeSlug);
+      const resolvedTenant = data?.tenant || data || null;
+      if (resolvedTenant) {
+        setTenantInfo({
+          ...resolvedTenant,
+          name: resolvedTenant.name || routeSlug || 'LCD Digital',
+          slug: resolvedTenant.slug || routeSlug,
+        });
+      }
     } catch (e) {
       console.error('Tenant not found');
     }
@@ -31,7 +39,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await login(email, password, slug);
+      const { data } = await login(email, password, routeSlug);
       localStorage.setItem('token', data.token);
       localStorage.setItem('tenantId', data.tenant?.id || '');
       localStorage.setItem('userId', data.user.id);
@@ -45,6 +53,7 @@ export default function Login() {
   }
 
   const primaryColor = tenantInfo?.primaryColor || '#D4AF37';
+  const displayName = tenantInfo?.name || (routeSlug ? routeSlug.toUpperCase() : 'Multiatendimento');
 
   return (
     <div style={s.container}>
@@ -60,13 +69,15 @@ export default function Login() {
           {tenantInfo?.logoUrl ? (
             <img src={getMediaUrl(tenantInfo.logoUrl)} alt={tenantInfo.name} style={{ height: '60px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           ) : (
-            <div style={{ ...s.logoIcon, filter: `drop-shadow(0 0 10px ${primaryColor}44)` }}>✨</div>
+            <div style={{ ...s.logoIcon, filter: `drop-shadow(0 0 10px ${primaryColor}44)` }}>
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
           )}
           <h1 style={s.title}>
-            {tenantInfo ? tenantInfo.name : 'Multiatendimento'} <span style={{ ...s.pro, color: primaryColor }}>PRO</span>
+            {displayName} <span style={{ ...s.pro, color: primaryColor }}>PRO</span>
           </h1>
           <p style={s.subtitle}>
-            {tenantInfo ? `Portal de acesso para ${tenantInfo.name}` : 'Acesse seu ecossistema de atendimento premium'}
+            {tenantInfo?.name ? `Portal de acesso para ${tenantInfo.name}` : 'Acesse seu ecossistema de atendimento premium'}
           </p>
         </div>
 

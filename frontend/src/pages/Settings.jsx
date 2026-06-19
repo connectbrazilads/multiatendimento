@@ -15,11 +15,13 @@ import {
   deleteTag,
   uploadLogo,
   getMediaUrl,
+  testFirebirdConnection,
+  syncFirebirdContacts,
 } from '../services/api';
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta'];
+const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Integração API'];
 const DAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 export default function Settings() {
@@ -48,6 +50,16 @@ export default function Settings() {
     companyCity: '',
     companyState: '',
     serpApiKey: '',
+    firebirdClientToken: '',
+    firebirdApiUrl: '',
+    firebirdApiKey: '',
+    firebirdAuthMode: 'bearer',
+    firebirdHealthPath: '/health',
+    firebirdContactsPath: '/contacts',
+    firebirdSyncEnabled: false,
+    firebirdLastSyncAt: '',
+    firebirdLastSyncStatus: 'idle',
+    firebirdLastSyncError: '',
     kpiContractValue: 1200.0,
     kpiServiceValue: 350.0,
     kpiSlaLimitHours: 24,
@@ -63,6 +75,8 @@ export default function Settings() {
   const [newQuick, setNewQuick] = useState({ shortcut: '', message: '' });
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState({ name: '', color: '#D4AF37' });
+  const [testingIntegration, setTestingIntegration] = useState(false);
+  const [syncingIntegration, setSyncingIntegration] = useState(false);
 
   useEffect(() => {
     load();
@@ -197,6 +211,44 @@ export default function Settings() {
     }
   }
 
+  async function handleTestIntegration() {
+    setTestingIntegration(true);
+    try {
+      const { data } = await testFirebirdConnection();
+      toast.success(data?.message || 'Conexao com a API da empresa confirmada');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao testar a conexao');
+    } finally {
+      setTestingIntegration(false);
+    }
+  }
+
+  async function handleSyncIntegration() {
+    setSyncingIntegration(true);
+    try {
+      const { data } = await syncFirebirdContacts({ force: true });
+      toast.success(`Sincronizacao concluida: ${data.created || 0} novos, ${data.updated || 0} atualizados.`);
+      setForm((current) => ({
+        ...current,
+        firebirdLastSyncAt: new Date().toISOString(),
+        firebirdLastSyncStatus: data.errors?.length ? 'partial' : 'ok',
+        firebirdLastSyncError: data.errors?.length ? data.errors.join('\n') : '',
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao sincronizar');
+    } finally {
+      setSyncingIntegration(false);
+    }
+  }
+
+  function generateFirebirdClientToken() {
+    const bytes = new Uint8Array(32);
+    window.crypto.getRandomValues(bytes);
+    const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    setForm((current) => ({ ...current, firebirdClientToken: token }));
+    toast.success('Token do agent gerado. Salve a integracao para ativar.');
+  }
+
   async function handleDeleteTag(id) {
     toast.confirm('Excluir esta etiqueta?', async () => {
       try {
@@ -208,6 +260,24 @@ export default function Settings() {
       }
     });
   }
+
+  const firebirdEnvPreview = [
+    'FIREBIRD_HOST=127.0.0.1',
+    'FIREBIRD_PORT=3050',
+    'FIREBIRD_DATABASE=C:\\ILUX\\dados\\ILUXBASE.FDB',
+    'FIREBIRD_USER=SYSDBA',
+    'FIREBIRD_PASSWORD=preencha_a_senha_do_firebird',
+    'FIREBIRD_CHARSET=WIN1252',
+    '',
+    'CRM_BASE_URL=https://api-crm.lcddigital.com.br',
+    `CRM_TENANT_SLUG=${tenant?.slug || 'lcddigital'}`,
+    `CRM_SYNC_TOKEN=${form.firebirdClientToken || 'gere_um_token_no_crm_e_salve'}`,
+    'SYNC_INTERVAL_SECONDS=300',
+    'BATCH_SIZE=250',
+    'STATE_FILE=state.json',
+    'LOG_DIR=logs',
+    'LOG_FILE=logs/client.log',
+  ].join('\n');
 
   return (
     <div className="settings-container" style={s.container}>
@@ -771,6 +841,162 @@ export default function Settings() {
           </div>
         </section>
       )}
+
+      {tab === 9 && (
+        <div style={s.sections}>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>Integracao Firebird</h2>
+            <div style={s.form}>
+              <div style={s.integrationGuide}>
+                <strong style={s.integrationGuideTitle}>Modo recomendado: agent instalado no servidor da empresa</strong>
+                <p style={s.hint}>
+                  O agent le o Firebird localmente e envia os dados para a VPS por HTTPS. Nao precisa abrir o banco nem manter VPN pelo seu PC.
+                </p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Token do agent</label>
+                <div style={{ display: 'flex', gap: '0.75rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                  <input
+                    style={{ ...s.input, flex: 1 }}
+                    type="password"
+                    value={form.firebirdClientToken}
+                    onChange={(e) => setForm({ ...form, firebirdClientToken: e.target.value })}
+                    placeholder="Gere um token e salve a integracao"
+                  />
+                  <button type="button" style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap' }} onClick={generateFirebirdClientToken}>
+                    Gerar token
+                  </button>
+                </div>
+                <p style={s.hint}>Esse mesmo valor deve ir no arquivo .env do agent como CRM_SYNC_TOKEN.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Modelo de .env para o agent</label>
+                <textarea style={{ ...s.input, ...s.codeArea }} value={firebirdEnvPreview} readOnly />
+                <p style={s.hint}>No servidor da empresa, ajuste principalmente FIREBIRD_DATABASE e FIREBIRD_PASSWORD.</p>
+              </div>
+
+              <div style={s.integrationGuide}>
+                <strong style={s.integrationGuideTitle}>Modo alternativo: CRM puxando uma API interna</strong>
+                <p style={s.hint}>
+                  Use esta parte somente se a empresa tiver uma API propria publicada para o CRM consultar. Para o nosso agent, deixe esses campos em branco.
+                </p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>URL da API interna da empresa</label>
+                <input
+                  style={s.input}
+                  value={form.firebirdApiUrl}
+                  onChange={(e) => setForm({ ...form, firebirdApiUrl: e.target.value })}
+                  placeholder="https://api.empresa.com.br"
+                />
+                <p style={s.hint}>Opcional. Nao e usado pelo agent de envio.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Token da API</label>
+                <input
+                  style={s.input}
+                  type="password"
+                  value={form.firebirdApiKey}
+                  onChange={(e) => setForm({ ...form, firebirdApiKey: e.target.value })}
+                  placeholder="Token ou chave de acesso"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                <div style={{ ...s.field, flex: 1 }}>
+                  <label style={s.label}>Modo de autenticação</label>
+                  <select
+                    style={s.input}
+                    value={form.firebirdAuthMode || 'bearer'}
+                    onChange={(e) => setForm({ ...form, firebirdAuthMode: e.target.value })}
+                  >
+                    <option value="bearer">Bearer token</option>
+                    <option value="x-api-key">X-API-Key</option>
+                    <option value="none">Sem autenticação</option>
+                  </select>
+                </div>
+                <div style={{ ...s.field, flex: 1 }}>
+                  <label style={s.label}>Sincronização automática</label>
+                  <div style={s.toggleCard}>
+                    <div style={s.toggleInfo}>
+                      <span style={{ ...s.toggleStatus, color: form.firebirdSyncEnabled ? 'var(--accent)' : 'var(--text-dim)' }}>
+                        {form.firebirdSyncEnabled ? 'Ativa' : 'Desativada'}
+                      </span>
+                      <p style={s.toggleHint}>Quando ligada, o CRM pode puxar dados da API em rotinas automáticas.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      style={s.switch}
+                      checked={form.firebirdSyncEnabled}
+                      onChange={(e) => setForm({ ...form, firebirdSyncEnabled: e.target.checked })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                <div style={{ ...s.field, flex: 1 }}>
+                  <label style={s.label}>Rota de health check</label>
+                  <input
+                    style={s.input}
+                    value={form.firebirdHealthPath}
+                    onChange={(e) => setForm({ ...form, firebirdHealthPath: e.target.value })}
+                    placeholder="/health"
+                  />
+                </div>
+                <div style={{ ...s.field, flex: 1 }}>
+                  <label style={s.label}>Rota de clientes</label>
+                  <input
+                    style={s.input}
+                    value={form.firebirdContactsPath}
+                    onChange={(e) => setForm({ ...form, firebirdContactsPath: e.target.value })}
+                    placeholder="/contacts"
+                  />
+                </div>
+              </div>
+
+              <div style={s.integrationMeta}>
+                <div>
+                  <div style={s.integrationMetaLabel}>Ultima sincronizacao</div>
+                  <div style={s.integrationMetaValue}>
+                    {form.firebirdLastSyncAt ? new Date(form.firebirdLastSyncAt).toLocaleString('pt-BR') : 'Nunca'}
+                  </div>
+                </div>
+                <div>
+                  <div style={s.integrationMetaLabel}>Status</div>
+                  <div style={s.integrationMetaValue}>
+                    {form.firebirdLastSyncStatus || 'idle'}
+                  </div>
+                </div>
+              </div>
+
+              {form.firebirdLastSyncError ? (
+                <div style={s.errorBox}>
+                  <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Ultimo erro registrado</strong>
+                  <pre style={s.errorText}>{form.firebirdLastSyncError}</pre>
+                </div>
+              ) : null}
+
+              <div style={s.integrationActions}>
+                <button type="button" style={s.saveBtn} onClick={handleTestIntegration} disabled={testingIntegration}>
+                  {testingIntegration ? 'Testando...' : 'Testar conexao'}
+                </button>
+                <button type="button" style={s.saveBtn} onClick={handleSyncIntegration} disabled={syncingIntegration}>
+                  {syncingIntegration ? 'Sincronizando...' : 'Sincronizar clientes agora'}
+                </button>
+              </div>
+
+              <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar integração'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -844,6 +1070,68 @@ const s = {
     fontSize: '0.9rem',
   },
   hint: { fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px', lineHeight: 1.5 },
+  integrationMeta: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '1rem',
+    padding: '1rem 1.1rem',
+    borderRadius: '14px',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-color)',
+  },
+  integrationMetaLabel: {
+    fontSize: '0.7rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    marginBottom: '0.35rem',
+  },
+  integrationMetaValue: {
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    color: 'var(--text-main)',
+    wordBreak: 'break-word',
+  },
+  errorBox: {
+    padding: '1rem 1.1rem',
+    borderRadius: '14px',
+    border: '1px solid rgba(220, 38, 38, 0.35)',
+    background: 'rgba(220, 38, 38, 0.08)',
+    color: '#fecaca',
+  },
+  errorText: {
+    margin: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    fontSize: '0.78rem',
+    lineHeight: 1.5,
+  },
+  integrationActions: {
+    display: 'flex',
+    gap: '0.85rem',
+    flexWrap: 'wrap',
+  },
+  integrationGuide: {
+    padding: '1rem 1.1rem',
+    borderRadius: '14px',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-color)',
+  },
+  integrationGuideTitle: {
+    display: 'block',
+    color: 'var(--text-main)',
+    fontSize: '0.92rem',
+    marginBottom: '0.35rem',
+  },
+  codeArea: {
+    minHeight: '260px',
+    fontFamily: 'Consolas, monospace',
+    fontSize: '0.82rem',
+    lineHeight: 1.55,
+    resize: 'vertical',
+    whiteSpace: 'pre',
+  },
   saveBtn: {
     background: 'var(--accent)',
     color: 'var(--text-inverse)',

@@ -476,19 +476,12 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       // noop
     }
 
-    try {
-      const response = await api.get(`/contacts?search=${encodeURIComponent(contactPhone)}`);
-      const list = response.data.contacts || response.data || [];
-      const crm = list.find((item) => item.id !== contact.id && item.whatsapp === contactPhone);
-      setLinkedCrm(crm || null);
-    } catch {
-      setLinkedCrm(null);
-    }
+    setLinkedCrm(contact.crmCustomer || null);
   }
 
   useEffect(() => {
     loadPanelContext();
-  }, [contact.id, contactPhone]);
+  }, [contact.id, contactPhone, contact.crmCustomer]);
 
   useEffect(() => {
     setPanelTab('overview');
@@ -560,7 +553,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
     setProfileModal({ contact: targetContact, initialTab, initialEquipment });
   }
 
-  const equipmentOwner = linkedCrm || contact;
+  const equipmentOwner = contact;
 
   const overviewTab = (
     <>
@@ -806,9 +799,9 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           {linkedCrm ? (
             <button
               type="button"
-              onClick={() => openProfileModal(linkedCrm, 'dados')}
+              onClick={() => window.location.assign('/crm')}
               style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 800, marginBottom: 12, padding: '6px 16px', background: 'rgba(212,175,55,0.1)', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.2)', display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              title="Abrir empresa vinculada"
+              title="Abrir aba CRM"
             >
               CRM {linkedCrm.fantasyName || linkedCrm.name}
             </button>

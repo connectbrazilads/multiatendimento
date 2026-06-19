@@ -12,6 +12,10 @@ async function getEquipments(req, res) {
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact) return res.json([]);
 
+    // Sincroniza os equipamentos do CRM para o contato
+    const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
+    await syncCrmEquipmentsToEquipment(tenantId, contactId);
+
     // Filtros dinâmicos para evitar erro de 'null' em campos obrigatórios do Prisma
     const orFilters = [{ contactId }];
     
@@ -561,6 +565,10 @@ async function draftOS(req, res) {
 
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact) return res.status(404).json({ error: 'Contato não encontrado' });
+
+    // Sincroniza os equipamentos do CRM para o contato
+    const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
+    await syncCrmEquipmentsToEquipment(tenantId, contactId);
 
     // Busca equipamentos vinculados diretamente ou por telefone (CRM link)
     const orFilters = [{ contactId }];

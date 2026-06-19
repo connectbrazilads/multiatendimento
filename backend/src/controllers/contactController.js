@@ -4,14 +4,30 @@ const evolutionService = require('../services/evolutionService');
 
 async function list(req, res) {
   const q = req.query.q || req.query.search;
+  const withoutDocument = ['1', 'true', 'yes'].includes(String(req.query.withoutDocument || '').toLowerCase());
   console.log(`[Contacts] Buscando por: "${q}" | Tenant: ${req.user.tenantId}`);
   const where = { tenantId: req.user.tenantId };
+  if (withoutDocument) {
+    where.OR = [
+      { cpfCnpj: null },
+      { cpfCnpj: '' },
+    ];
+  }
   if (q) where.OR = [
-    { name: { contains: q, mode: 'insensitive' } },
-    { fantasyName: { contains: q, mode: 'insensitive' } },
-    { cpfCnpj: { contains: q, mode: 'insensitive' } },
-    { phone: { contains: q } },
-    { whatsapp: { contains: q } },
+    {
+      AND: [
+        ...(withoutDocument ? [{ OR: [{ cpfCnpj: null }, { cpfCnpj: '' }] }] : []),
+        {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { fantasyName: { contains: q, mode: 'insensitive' } },
+            ...(withoutDocument ? [] : [{ cpfCnpj: { contains: q, mode: 'insensitive' } }]),
+            { phone: { contains: q } },
+            { whatsapp: { contains: q } },
+          ],
+        },
+      ],
+    },
   ];
 
   const contacts = await prisma.contact.findMany({

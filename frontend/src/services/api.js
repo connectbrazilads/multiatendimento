@@ -2,7 +2,11 @@ import axios from 'axios';
 
 // Em produção usa a URL do backend via variável de ambiente
 // Em desenvolvimento usa proxy do Vite (/api → localhost:3002)
-export const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+const DEFAULT_PRODUCTION_API_URL = 'https://api-crm.lcddigital.com.br';
+const isProductionCrm =
+  typeof window !== 'undefined' && window.location.hostname === 'crm.lcddigital.com.br';
+
+export const BACKEND_URL = import.meta.env.VITE_API_URL || (isProductionCrm ? DEFAULT_PRODUCTION_API_URL : '');
 const BASE_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 const api = axios.create({ baseURL: BASE_URL });
 
@@ -53,6 +57,8 @@ export const uploadLogo = (file) => {
   formData.append('file', file);
   return api.post('/settings/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
+export const testFirebirdConnection = () => api.post('/integrations/firebird/test');
+export const syncFirebirdContacts = (data = {}) => api.post('/integrations/firebird/sync/contacts', data);
 
 // Instance
 export const getInstances = () => api.get('/instance/list');
@@ -61,7 +67,7 @@ export const createInstance = (name) => api.post('/instance/create', { name });
 export const deleteInstance = (id) => api.delete(`/instance/${id}`);
 
 // Contacts
-export const getContacts = (q) => api.get('/contacts', { params: q ? { q } : {} });
+export const getContacts = (q, params = {}) => api.get('/contacts', { params: { ...params, ...(q ? { q } : {}) } });
 export const createContact = (data) => api.post('/contacts', data);
 export const getContactTags = () => api.get('/contacts/tags');
 export const getContactHistory = (id) => api.get(`/contacts/${id}/history`);
@@ -160,5 +166,11 @@ export const deleteAllLeads = () => api.delete('/leads/all');
 export const sendToLeads = (data) => api.post('/leads/send', data);
 
 export const deleteContact = (id) => api.delete(`/contacts/${id}`);
+
+// CRM Firebird
+export const getCrmSummary = () => api.get('/crm/summary');
+export const getCrmCustomers = (params = {}) => api.get('/crm/customers', { params });
+export const getCrmCustomer = (id) => api.get(`/crm/customers/${id}`);
+export const getCrmEquipments = (params = {}) => api.get('/crm/equipments', { params });
 
 export default api;

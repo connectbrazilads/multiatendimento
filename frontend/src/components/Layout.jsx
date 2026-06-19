@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Settings,
   Users,
+  Database,
   Link as LinkIcon,
   HelpCircle,
   Megaphone,
@@ -141,7 +142,8 @@ export default function Layout() {
     { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', roles: ['admin', 'agent', 'superadmin'] },
     { action: () => setIsChatOpen(true), icon: <MessageCircle size={18} />, label: 'Chat Interno', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexoes', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/contacts', icon: <Users size={18} />, label: 'Clientes / CRM', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/contacts', icon: <Users size={18} />, label: 'Clientes WhatsApp', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/crm', icon: <Database size={18} />, label: 'CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rapidas', roles: ['admin', 'agent', 'superadmin'] },
@@ -153,7 +155,7 @@ export default function Layout() {
   ];
 
   const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
-  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/connections', '/contacts', '/campaigns'];
+  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/connections', '/contacts', '/crm', '/campaigns'];
   const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryDesktopRoutes.includes(link.to) || link.label === 'Chat Interno');
   const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryDesktopRoutes.includes(link.to) && link.label !== 'Chat Interno');
   const secondaryMenuActive = secondaryDesktopLinks.some((link) => location.pathname === link.to);
@@ -161,7 +163,7 @@ export default function Layout() {
   const mobileLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
     { to: '/inbox', icon: <MessageSquare size={22} />, label: 'Chat' },
-    { to: '/contacts', icon: <Users size={22} />, label: 'Clientes' },
+    { to: '/crm', icon: <Database size={22} />, label: 'CRM' },
     { to: '/settings', icon: <Settings size={22} />, label: 'Ajustes' },
   ];
 

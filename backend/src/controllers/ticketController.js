@@ -232,7 +232,7 @@ async function list(req, res) {
   let tickets = await prisma.ticket.findMany({
     where,
     include: { 
-      contact: true, 
+      contact: { include: { crmCustomer: true } }, 
       agent: { select: { id: true, name: true } }, 
       team: true,
       instance: { select: { instanceName: true } }
@@ -839,7 +839,7 @@ async function sendMediaMessage(req, res) {
 }
 
 async function reopen(req, res) {
-  const { contactId } = req.body;
+  const { contactId, crmCustomerId } = req.body;
   if (!contactId) return res.status(400).json({ error: 'contactId obrigatório' });
 
   const contact = await prisma.contact.findFirst({
@@ -882,7 +882,7 @@ async function summarize(req, res) {
     where: { id, tenantId: req.user.tenantId },
     include: {
       messages: { orderBy: { createdAt: 'asc' }, take: 100 },
-      contact: true,
+        contact: { include: { crmCustomer: true } },
     },
   });
 
@@ -951,18 +951,59 @@ async function deleteMessage(req, res) {
 
 async function linkContact(req, res) {
   const { id } = req.params;
-  const { contactId } = req.body;
+  const { contactId, crmCustomerId } = req.body;
   const { tenantId } = req.user;
 
   try {
     const ticket = await prisma.ticket.findFirst({ where: { id, tenantId }, include: { contact: true } });
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
 
+    var sourceContactId = ticket.contactId;
+    var whatsapp = ticket.contact.phone;
+
+    if (crmCustomerId) {
+      const targetCustomer = await prisma.crmCustomer.findFirst({ where: { id: crmCustomerId, tenantId } });
+      if (!targetCustomer) return res.status(404).json({ error: 'Cliente CRM nao encontrado' });
+
+      await prisma.contact.update({
+        where: { id: sourceContactId },
+        data: { crmCustomerId }
+      });
+
+      // Sincroniza os equipamentos do CRM para o contato imediatamente
+      const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
+      await syncCrmEquipmentsToEquipment(tenantId, sourceContactId);
+
+      const updatedTicket = await prisma.ticket.findUnique({
+        where: { id },
+        include: {
+          contact: { include: { crmCustomer: true } },
+          agent: { select: { name: true } },
+          team: true,
+          instance: { select: { instanceName: true } }
+        }
+      });
+
+      await historyService.logEvent({
+        ticketId: id,
+        tenantId,
+        userId: req.user.userId,
+        type: 'crm_customer_linked',
+        payload: { contactId: sourceContactId, crmCustomerId, whatsapp }
+      });
+
+      if (io) {
+        io.to(tenantId).emit('ticket_updated', { ticketId: id, ticket: updatedTicket });
+      }
+
+      return res.json(updatedTicket);
+    }
+
     const targetContact = await prisma.contact.findFirst({ where: { id: contactId, tenantId } });
     if (!targetContact) return res.status(404).json({ error: 'Contato de destino não encontrado' });
 
-    const sourceContactId = ticket.contactId;
-    const whatsapp = ticket.contact.phone; // O número atual do ticket
+    var sourceContactId = ticket.contactId;
+    var whatsapp = ticket.contact.phone; // O número atual do ticket
 
     // 1. NÃO reatribui o ticket para o contato do CRM. 
     // Em vez disso, mantemos o contato original do WhatsApp, mas vinculamos ele via telefone no CRM.
@@ -984,7 +1025,7 @@ async function linkContact(req, res) {
     // Retorna o ticket atualizado (sem mudar o contactId)
     const updatedTicket = await prisma.ticket.findUnique({
       where: { id },
-      include: { contact: true, agent: { select: { name: true } }, team: true, instance: { select: { instanceName: true } } }
+      include: { contact: { include: { crmCustomer: true } }, agent: { select: { name: true } }, team: true, instance: { select: { instanceName: true } } }
     });
 
     // 3. Log de evento

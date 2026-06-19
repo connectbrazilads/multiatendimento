@@ -741,6 +741,10 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   // 3. SYSTEM PROMPT (Prioridade absoluta para o que o usuário escreveu no painel)
   const userPrompt = settings.botSystemPrompt || 'Você é um Assistente de Atendimento cordial.';
 
+  // Sincroniza os equipamentos do CRM para o contato antes de buscar
+  const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
+  await syncCrmEquipmentsToEquipment(tenant.id, contact.id);
+
   // 4. CONTEXTO TÉCNICO (Equipamentos e Notas)
   const equipments = await prisma.equipment.findMany({
     where: {

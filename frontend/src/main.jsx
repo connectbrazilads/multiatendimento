@@ -11,6 +11,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Contacts = lazy(() => import('./pages/Contacts'));
+const CRM = lazy(() => import('./pages/CRM'));
 const Users = lazy(() => import('./pages/Users'));
 const Teams = lazy(() => import('./pages/Teams'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -60,6 +61,26 @@ function RouteFallback() {
   );
 }
 
+async function hardReloadApplication() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if (window.caches?.keys) {
+      const cacheKeys = await window.caches.keys();
+      await Promise.all(cacheKeys.map((key) => window.caches.delete(key)));
+    }
+  } catch (error) {
+    console.warn('[frontend] falha ao limpar cache de recuperacao:', error);
+  } finally {
+    const url = new URL(window.location.href);
+    url.searchParams.set('__reload', Date.now().toString());
+    window.location.replace(url.toString());
+  }
+}
+
 class AppErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -97,7 +118,7 @@ class AppErrorBoundary extends React.Component {
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={hardReloadApplication}
             style={{
               background: 'var(--accent)',
               color: 'var(--text-inverse)',
@@ -139,6 +160,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route index element={<Dashboard />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/contacts" element={<Contacts />} />
+            <Route path="/crm" element={<CRM />} />
             <Route path="/users" element={<Users />} />
             <Route path="/teams" element={<Teams />} />
             <Route path="/settings" element={<Settings />} />

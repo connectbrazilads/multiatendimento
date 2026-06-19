@@ -43,7 +43,7 @@ export default function Contacts() {
 
   async function loadContacts() {
     try {
-      const response = await getContacts(search);
+      const response = await getContacts(search, { withoutDocument: true });
       setContacts(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error('Erro ao carregar contatos:', err);
@@ -131,11 +131,11 @@ export default function Contacts() {
     <div style={s.container}>
       <PageHeader
         kicker="Relacionamento"
-        title="Clientes / CRM"
+        title="Clientes WhatsApp"
         subtitle={
           contacts.length > 0
-            ? `Gerencie sua base de clientes e equipamentos (${contacts.length} clientes).`
-            : 'Gerencie sua base de clientes e equipamentos.'
+            ? `Gerencie apenas contatos do WhatsApp sem CNPJ/CPF (${contacts.length} clientes).`
+            : 'Gerencie apenas contatos do WhatsApp sem CNPJ/CPF. Clientes com documento ficam na aba CRM.'
         }
         actions={
           <div style={s.actionsRow}>

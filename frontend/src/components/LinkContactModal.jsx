@@ -19,8 +19,8 @@ export default function LinkContactModal({ onClose, onLink }) {
   async function handleSearch() {
     setLoading(true);
     try {
-      const res = await api.get(`/contacts?search=${search}`);
-      setContacts(res.data.contacts || res.data || []);
+      const res = await api.get('/crm/customers', { params: { q: search, limit: 30 } });
+      setContacts(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -50,13 +50,13 @@ export default function LinkContactModal({ onClose, onLink }) {
     <div style={s.overlay} onClick={onClose}>
       <div style={s.modal} onClick={e => e.stopPropagation()}>
         <h2 style={s.title}><Link2 size={24} color="var(--accent)"/> Vincular ao CRM</h2>
-        <p style={s.sub}>Pesquise o cliente cadastrado para vincular este WhatsApp ao seu perfil.</p>
+        <p style={s.sub}>Pesquise na base ILUX/CRM para vincular este WhatsApp ao cliente oficial.</p>
 
         <div style={s.searchBox}>
           <Search style={s.searchIcon} size={18} />
           <input 
             style={s.input} 
-            placeholder="Nome, Telefone ou CPF/CNPJ..." 
+            placeholder="Nome, fantasia, telefone, cidade ou CNPJ..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
             autoFocus
@@ -70,8 +70,9 @@ export default function LinkContactModal({ onClose, onLink }) {
             contacts.map(c => (
               <div key={c.id} style={s.item} onClick={() => onLink(c.id)}>
                 <div>
-                  <div style={s.name}>{c.name}</div>
+                  <div style={s.name}>{c.fantasyName || c.name}</div>
                   <div style={s.phone}>{c.phone} {c.cpfCnpj ? `· ${c.cpfCnpj}` : ''}</div>
+                  <div style={s.phone}>{c._count?.equipments || 0} equipamento(s) no CRM</div>
                 </div>
                 <button style={s.linkBtn}>Vincular</button>
               </div>

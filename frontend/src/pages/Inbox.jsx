@@ -744,7 +744,7 @@ export default function Inbox() {
           onClose={() => setLinkModal(false)}
           onLink={async (targetId) => {
             try {
-              const res = await api.patch(`/tickets/${selectedTicket.id}/link-contact`, { contactId: targetId });
+              const res = await api.patch(`/tickets/${selectedTicket.id}/link-contact`, { crmCustomerId: targetId });
               loadTickets(); 
               setUpdateTrigger(prev => prev + 1);
               setLinkModal(false);

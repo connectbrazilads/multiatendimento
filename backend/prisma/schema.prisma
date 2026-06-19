@@ -35,6 +35,9 @@ model Tenant {
   equipments     Equipment[]
   serviceOrders  ServiceOrder[]
   leads          Lead[]
+  syncRecords    ExternalSyncRecord[]
+  crmCustomers   CrmCustomer[]
+  crmEquipments  CrmEquipment[]
 }
 
 model TenantSettings {
@@ -67,6 +70,18 @@ model TenantSettings {
 
   // SerpAPI para Prospecção de Leads
   serpApiKey         String?
+
+  // IntegraÃ§Ã£o com API client da empresa / Firebird
+  firebirdApiUrl     String?
+  firebirdApiKey     String?
+  firebirdClientToken String?
+  firebirdAuthMode   String?  @default("bearer")
+  firebirdHealthPath String?  @default("/health")
+  firebirdContactsPath String? @default("/contacts")
+  firebirdSyncEnabled Boolean  @default(false)
+  firebirdLastSyncAt  DateTime?
+  firebirdLastSyncStatus String? @default("idle")
+  firebirdLastSyncError String? @db.Text
 
   // Configurações de KPI do RevGuard AI
   kpiContractValue   Float?   @default(1200.0)
@@ -153,6 +168,10 @@ model Contact {
   id         String     @id @default(cuid())
   tenantId   String
   instanceId String
+  crmCustomerId String?
+  externalSource String? @default("manual")
+  externalId  String?
+  externalUpdatedAt DateTime?
   phone      String
   name       String?
   fantasyName String?
@@ -172,13 +191,16 @@ model Contact {
 
   instance   WaInstance @relation(fields: [instanceId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  crmCustomer CrmCustomer? @relation(fields: [crmCustomerId], references: [id], onDelete: SetNull)
   tickets    Ticket[]
   scheduledMessages ScheduledMessage[]
   equipments Equipment[]
   serviceOrders ServiceOrder[]
 
   @@unique([tenantId, instanceId, phone])
+  @@unique([tenantId, externalSource, externalId])
   @@index([tenantId, phone])
+  @@index([tenantId, crmCustomerId])
 }
 
 model Ticket {
@@ -356,6 +378,9 @@ model Equipment {
   id           String     @id @default(cuid())
   tenantId     String
   contactId    String
+  externalSource String? @default("manual")
+  externalId   String?
+  externalUpdatedAt DateTime?
   model        String
   manufacturer String?
   type         String?
@@ -369,6 +394,8 @@ model Equipment {
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   serviceOrders ServiceOrder[]
+
+  @@unique([tenantId, externalSource, externalId])
 }
 
 model ServiceOrder {
@@ -376,6 +403,9 @@ model ServiceOrder {
   tenantId       String
   contactId      String
   equipmentId    String
+  externalSource String? @default("manual")
+  externalId     String?
+  externalUpdatedAt DateTime?
   ticketId       String?
   defect         String?    // Descrição do defeito relatado
   status         String     @default("PENDENTE") // PENDENTE, EM_ATENDIMENTO, AGUARDANDO_RETORNO, FINALIZADA
@@ -396,6 +426,88 @@ model ServiceOrder {
   contact        Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   equipment      Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   ticket         Ticket?    @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, externalSource, externalId])
+}
+
+model ExternalSyncRecord {
+  id         String   @id @default(cuid())
+  tenantId   String
+  source     String
+  entity     String
+  externalId String?
+  payload    Json
+  receivedAt DateTime @default(now())
+  syncedAt   DateTime?
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, source, entity, externalId])
+  @@index([tenantId, source, entity])
+}
+
+model CrmCustomer {
+  id                String   @id @default(cuid())
+  tenantId          String
+  externalSource    String   @default("firebird")
+  externalId        String
+  externalUpdatedAt DateTime?
+  name              String
+  fantasyName       String?
+  cpfCnpj           String?
+  email             String?
+  phone             String?
+  address           String?
+  neighborhood      String?
+  city              String?
+  state             String?
+  zipCode           String?
+  contactName       String?
+  notes             String?  @db.Text
+  raw               Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  equipments        CrmEquipment[]
+  whatsappContacts  Contact[]
+
+  @@unique([tenantId, externalSource, externalId])
+  @@index([tenantId, name])
+  @@index([tenantId, cpfCnpj])
+  @@index([tenantId, phone])
+}
+
+model CrmEquipment {
+  id                String       @id @default(cuid())
+  tenantId          String
+  customerId        String?
+  externalSource    String       @default("firebird")
+  externalId        String
+  externalUpdatedAt DateTime?
+  model             String
+  manufacturer      String?
+  type              String?
+  serialNumber      String?
+  assetTag          String?
+  sector            String?
+  installLocation   String?
+  address           String?
+  city              String?
+  state             String?
+  phone             String?
+  contractExternalId String?
+  isActive          Boolean      @default(true)
+  raw               Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  tenant            Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer          CrmCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, externalSource, externalId])
+  @@index([tenantId, model])
+  @@index([tenantId, serialNumber])
+  @@index([tenantId, customerId])
 }
 
 model Lead {
