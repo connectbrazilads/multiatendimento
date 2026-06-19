@@ -16,22 +16,11 @@ async function getEquipments(req, res) {
     const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
     await syncCrmEquipmentsToEquipment(tenantId, contactId);
 
-    // Filtros dinâmicos para evitar erro de 'null' em campos obrigatórios do Prisma
-    const orFilters = [{ contactId }];
-    
-    if (contact.phone) {
-      orFilters.push({ contact: { whatsapp: contact.phone } });
-    }
-    
-    if (contact.whatsapp) {
-      orFilters.push({ contact: { phone: contact.whatsapp } });
-    }
-
     const equipments = await prisma.equipment.findMany({
       where: {
         tenantId,
         isActive: true,
-        OR: orFilters
+        contactId
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -570,16 +559,11 @@ async function draftOS(req, res) {
     const { syncCrmEquipmentsToEquipment } = require('../services/crmSyncService');
     await syncCrmEquipmentsToEquipment(tenantId, contactId);
 
-    // Busca equipamentos vinculados diretamente ou por telefone (CRM link)
-    const orFilters = [{ contactId }];
-    if (contact.phone) orFilters.push({ contact: { whatsapp: contact.phone } });
-    if (contact.whatsapp) orFilters.push({ contact: { phone: contact.whatsapp } });
-
     const equipments = await prisma.equipment.findMany({ 
       where: { 
         tenantId, 
         isActive: true,
-        OR: orFilters
+        contactId
       } 
     });
 

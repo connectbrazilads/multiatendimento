@@ -750,11 +750,7 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     where: {
       tenantId: tenant.id,
       isActive: true,
-      OR: [
-        { contactId: contact.id },
-        { contact: { phone: contact.phone } },
-        { contact: { whatsapp: contact.phone } }
-      ]
+      contactId: contact.id
     }
   });
 

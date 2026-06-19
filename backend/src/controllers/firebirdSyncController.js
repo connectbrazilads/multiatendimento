@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const evolutionService = require('../services/evolutionService');
+const { mapEquipmentType } = require('../utils/equipmentMapper');
 
 function pick(...values) {
   for (const value of values) {
@@ -234,7 +235,7 @@ async function upsertCrmEquipment(tenant, data) {
     externalUpdatedAt: normalizeDate(pick(data.updatedAt, data.atualizado, data.inclusao)),
     model: pick(data.model, data.modelo, data.equipmentModel) || `Equipamento ${externalId}`,
     manufacturer: pick(data.manufacturer, data.fabricante),
-    type: pick(data.type, data.tipo, data.cdProduto),
+    type: mapEquipmentType(pick(data.type, data.tipo, data.cdProduto), pick(data.model, data.modelo, data.equipmentModel)),
     serialNumber: pick(data.serialNumber, data.serie, data.sn),
     assetTag: pick(data.assetTag, data.patrimonio),
     sector: pick(data.sector, data.departamento),
@@ -287,7 +288,7 @@ async function findOrCreateEquipment(tenant, instance, data) {
     manufacturer: pick(data.manufacturer, data.fabricante),
     model: pick(data.model, data.modelo) || `Equipamento ${externalId}`,
     serialNumber: pick(data.serialNumber, data.serie, data.sn),
-    type: pick(data.type, data.tipo, data.cdProduto),
+    type: mapEquipmentType(pick(data.type, data.tipo, data.cdProduto), pick(data.model, data.modelo)),
     sector: pick(data.sector, data.departamento, data.localInstal),
     address: pick(data.address, data.endereco),
   };

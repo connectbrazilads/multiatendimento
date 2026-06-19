@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { mapEquipmentType } = require('../utils/equipmentMapper');
 
 async function syncCrmEquipmentsToEquipment(tenantId, contactId) {
   try {
@@ -11,9 +12,8 @@ async function syncCrmEquipmentsToEquipment(tenantId, contactId) {
       return;
     }
 
-    console.log(`[crmSyncService] Iniciando sincronização de equipamentos do CRM Customer ${contact.crmCustomerId} para Contact ${contactId}`);
+    console.log(`[crmSyncService] Sincronizando equipamentos para contato ${contactId}`);
 
-    // Busca equipamentos CRM ativos
     const crmEquipments = await prisma.crmEquipment.findMany({
       where: {
         tenantId,
@@ -21,8 +21,6 @@ async function syncCrmEquipmentsToEquipment(tenantId, contactId) {
         isActive: true
       }
     });
-
-    console.log(`[crmSyncService] Encontrados ${crmEquipments.length} equipamentos no CRM.`);
 
     for (const crmEquip of crmEquipments) {
       const externalSource = crmEquip.externalSource || 'firebird';
@@ -40,7 +38,7 @@ async function syncCrmEquipmentsToEquipment(tenantId, contactId) {
           contactId: contact.id,
           model: crmEquip.model,
           manufacturer: crmEquip.manufacturer,
-          type: crmEquip.type,
+          type: mapEquipmentType(crmEquip.type, crmEquip.model),
           serialNumber: crmEquip.serialNumber,
           sector: crmEquip.sector || crmEquip.installLocation || 'Geral',
           address: crmEquip.address,
@@ -53,7 +51,7 @@ async function syncCrmEquipmentsToEquipment(tenantId, contactId) {
           externalId,
           model: crmEquip.model,
           manufacturer: crmEquip.manufacturer,
-          type: crmEquip.type,
+          type: mapEquipmentType(crmEquip.type, crmEquip.model),
           serialNumber: crmEquip.serialNumber,
           sector: crmEquip.sector || crmEquip.installLocation || 'Geral',
           address: crmEquip.address,
