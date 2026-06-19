@@ -131,7 +131,7 @@ async function createOS(req, res) {
     const os = await prisma.serviceOrder.create({
       data: {
         tenantId,
-        userId: req.user.id,
+        userId: req.user.userId,
         contactId,
         equipmentId,
         ticketId,
@@ -178,7 +178,7 @@ async function getOSTechnicians(req, res) {
 async function updateOS(req, res) {
   const { id } = req.params;
   const { status, technicalNotes, meters } = req.body;
-  const { tenantId, id: userId } = req.user;
+  const { tenantId, userId } = req.user;
 
   // Trava de segurança: Exigir relatório para finalizar ou arquivar
   if ((status === 'FINALIZADA' || status === 'ARQUIVADA') && (!technicalNotes || technicalNotes.trim().length < 5)) {
