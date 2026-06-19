@@ -435,7 +435,7 @@ export function MediaContent({ message, onImageClick, styles }) {
   return null;
 }
 
-export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM, styles }) {
+export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile, onLinkCRM, onUnlinkCRM, styles }) {
   const contact = ticket.contact;
   const contactName = getContactDisplayName(contact);
   const contactPhone = getContactPhone(contact);
@@ -849,9 +849,15 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
             <button type="button" onClick={() => copyText(buildContactSnapshot(), 'Ficha copiada')} style={styles.infoActionBtn}>
               Copiar ficha
             </button>
-            <button onClick={onLinkCRM} style={{ ...styles.infoActionBtn, ...styles.infoActionBtnPrimary }}>
-              Vincular CRM
-            </button>
+            {linkedCrm ? (
+              <button type="button" onClick={onUnlinkCRM} style={{ ...styles.infoActionBtn, backgroundColor: '#e53e3e', color: '#ffffff', border: '1px solid #e53e3e' }}>
+                Desvincular CRM
+              </button>
+            ) : (
+              <button type="button" onClick={onLinkCRM} style={{ ...styles.infoActionBtn, ...styles.infoActionBtnPrimary }}>
+                Vincular CRM
+              </button>
+            )}
           </div>
         </div>
 

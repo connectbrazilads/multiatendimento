@@ -961,6 +961,45 @@ async function linkContact(req, res) {
     var sourceContactId = ticket.contactId;
     var whatsapp = ticket.contact.phone;
 
+    if (req.body.unlinkCrm === true) {
+      await prisma.contact.update({
+        where: { id: sourceContactId },
+        data: { crmCustomerId: null }
+      });
+
+      // Remove os equipamentos sincronizados do CRM do contato
+      await prisma.equipment.deleteMany({
+        where: {
+          contactId: sourceContactId,
+          externalSource: 'firebird'
+        }
+      });
+
+      const updatedTicket = await prisma.ticket.findUnique({
+        where: { id },
+        include: {
+          contact: { include: { crmCustomer: true } },
+          agent: { select: { name: true } },
+          team: true,
+          instance: { select: { instanceName: true } }
+        }
+      });
+
+      await historyService.logEvent({
+        ticketId: id,
+        tenantId,
+        userId: req.user.userId,
+        type: 'crm_customer_unlinked',
+        payload: { contactId: sourceContactId }
+      });
+
+      if (io) {
+        io.to(tenantId).emit('ticket_updated', { ticketId: id, ticket: updatedTicket });
+      }
+
+      return res.json(updatedTicket);
+    }
+
     if (crmCustomerId) {
       const targetCustomer = await prisma.crmCustomer.findFirst({ where: { id: crmCustomerId, tenantId } });
       if (!targetCustomer) return res.status(404).json({ error: 'Cliente CRM nao encontrado' });

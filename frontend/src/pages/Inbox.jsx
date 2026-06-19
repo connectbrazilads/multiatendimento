@@ -434,6 +434,19 @@ export default function Inbox() {
     } catch (e) { toast.error('Erro ao gerar resumo IA: ' + (e.response?.data?.error || e.message)); } finally { setSummarizing(false); }
   }
 
+  async function handleUnlinkCRM() {
+    toast.confirm('Deseja desvincular o cliente do CRM?', async () => {
+      try {
+        await api.patch(`/tickets/${selectedId}/link-contact`, { unlinkCrm: true });
+        loadTickets();
+        setUpdateTrigger(prev => prev + 1);
+        toast.success('Cliente desvinculado do CRM com sucesso!');
+      } catch (e) {
+        toast.error('Erro ao desvincular cliente: ' + (e.response?.data?.error || e.message));
+      }
+    });
+  }
+
   async function handleSchedule() {
     if (!scheduleData.body || !scheduleData.sendAt) return toast.error('Preencha a mensagem e o horario');
     try {
@@ -636,6 +649,7 @@ export default function Inbox() {
             onImageClick={openPreviewImage}
             isMobile={isMobile}
             onLinkCRM={() => setLinkModal(true)}
+            onUnlinkCRM={handleUnlinkCRM}
             styles={s}
           />
         </InboxSectionErrorBoundary>
