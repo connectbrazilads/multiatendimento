@@ -569,23 +569,28 @@ class FirebirdRepository:
                             except Exception:
                                 continue
                         
-                        # Ordena pela menor diferença
-                        candidates_by_val.sort(key=lambda x: x[1])
-                        logging.info("Geradores com valores próximos a MAX(SEQOS): %s", candidates_by_val)
-                        
+                        # Só aceitamos o gerador se a diferença de valor for muito pequena (ex: <= 2)
+                        found_gen = False
                         for gen, diff, val in candidates_by_val:
-                            # Ignora geradores conhecidos de outras finalidades se houver alternativas melhores
-                            if "OBS_INTERNA" in gen.upper() or "ATENDIMENTO" in gen.upper() or "SUPRI" in gen.upper():
-                                if len(candidates_by_val) > 1 and diff > 0:
+                            if diff <= 2:
+                                # Ignora geradores conhecidos de outras finalidades
+                                if "OBS_INTERNA" in gen.upper() or "ATENDIMENTO" in gen.upper() or "SUPRI" in gen.upper():
                                     continue
-                            try:
-                                logging.info("Tentando gerador selecionado por valor: %s (valor atual: %d)", gen, val)
-                                cur.execute(f"select gen_id({gen}, 1) from rdb$database")
-                                seq_os = int(cur.fetchone()[0])
-                                break
-                            except Exception as ex:
-                                logging.warning("Erro ao ler do gerador %s: %s", gen, ex)
-                                continue
+                                try:
+                                    logging.info("Gerador confiável encontrado por valor: %s (valor atual: %d, diff: %d)", gen, val, diff)
+                                    cur.execute(f"select gen_id({gen}, 1) from rdb$database")
+                                    seq_os = int(cur.fetchone()[0])
+                                    found_gen = True
+                                    break
+                                except Exception as ex:
+                                    logging.warning("Erro ao ler do gerador %s: %s", gen, ex)
+                                    continue
+                        
+                        if not found_gen:
+                            # Se nenhum gerador é confiável (diff <= 2), usamos MAX(SEQOS) + 1.
+                            # Isso é comum em ERPs Delphi antigos que incrementam o ID via código cliente.
+                            seq_os = max_os + 1
+                            logging.info("Nenhum gerador confiável próximo ao MAX(SEQOS) foi detectado. Usando MAX(SEQOS) + 1: %d", seq_os)
                 except Exception as e:
                     logging.warning("Erro ao buscar gerador por proximidade de valor: %s", e)
 
