@@ -17,7 +17,17 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.png', '.jpg', '.jpeg'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens nos formatos PNG, JPG ou JPEG são permitidas.'));
+    }
+  }
+});
 
 router.use(authenticate);
 router.get('/', getSettings);

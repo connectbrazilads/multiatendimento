@@ -323,7 +323,9 @@ async function generatePdf(req, res) {
                       if (os.tenant.logoUrl) {
                         const logoFilename = os.tenant.logoUrl.split('/').pop();
                         const logoPath = path.resolve(__dirname, '..', '..', 'uploads', logoFilename);
-                        if (fs.existsSync(logoPath)) {
+                        const ext = path.extname(logoFilename).toLowerCase();
+                        const allowed = ['.png', '.jpg', '.jpeg'];
+                        if (allowed.includes(ext) && fs.existsSync(logoPath)) {
                           return [{ image: logoPath, width: 100, alignment: 'center', margin: [0, 5, 0, 5] }];
                         }
                       }
