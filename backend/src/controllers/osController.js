@@ -483,28 +483,28 @@ async function generatePdf(req, res) {
                 {}
               ],
               [
-                { text: [{ text: 'Endereço: ', style: 'label' }, { text: clientData.address || 'N/A', style: 'value' }], border: [true, false, true, true] },
-                { text: [{ text: 'Equipamento: ', style: 'label' }, { text: os.equipment.externalId ? `${os.equipment.externalId} - ${os.equipment.id.substring(os.equipment.id.length - 3).toUpperCase()}` : 'N/A', style: 'value' }] }
+                { text: [{ text: 'Endereço: ', style: 'label' }, { text: crmCustomer?.address || clientData.address || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Equipamento: ', style: 'label' }, { text: os.equipment.externalId ? `${os.equipment.externalId} - ${os.equipment.model || 'N/A'}` : 'N/A', style: 'value' }] }
               ],
               [
                 { text: [{ text: 'Bairro: ', style: 'label' }, { text: crmCustomer?.neighborhood || 'N/A', style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Modelo: ', style: 'label' }, { text: os.equipment.model || 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'Cidade: ', style: 'label' }, { text: clientData.city ? `${clientData.city} (${clientData.state || 'RS'})` : 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Cidade: ', style: 'label' }, { text: crmCustomer?.city ? `${crmCustomer.city} (${crmCustomer.state || 'RS'})` : (clientData.city ? `${clientData.city} (${clientData.state || 'RS'})` : 'N/A'), style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Série: ', style: 'label' }, { text: os.equipment.serialNumber || 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'CNPJ/CPF: ', style: 'label' }, { text: clientData.cpfCnpj || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'CNPJ/CPF: ', style: 'label' }, { text: crmCustomer?.cpfCnpj || clientData.cpfCnpj || 'N/A', style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Tipo de Contrato: ', style: 'label' }, { text: crmEquipment?.contractExternalId || 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'Contato: ', style: 'label' }, { text: solicitante || 'N/A', style: 'value' }], border: [true, false, true, true] },
-                { text: [{ text: 'Departamento: ', style: 'label' }, { text: os.equipment.sector || 'N/A', style: 'value' }] }
+                { text: [{ text: 'Contato: ', style: 'label' }, { text: crmCustomer?.contactName || solicitante || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Departamento: ', style: 'label' }, { text: crmEquipment?.raw?.['departamento'] || crmEquipment?.raw?.['DEPARTAMENTO'] || os.equipment.sector || 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'Fone: ', style: 'label' }, { text: os.contact.phone || 'N/A', style: 'value' }], border: [true, false, true, true] },
-                { text: [{ text: 'Local Instalação: ', style: 'label' }, { text: crmEquipment?.installLocation || os.equipment.sector || 'N/A', style: 'value' }] }
+                { text: [{ text: 'Fone: ', style: 'label' }, { text: crmCustomer?.phone || os.contact.phone || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Local Instalação: ', style: 'label' }, { text: crmEquipment?.installLocation || crmEquipment?.raw?.['localinstal'] || crmEquipment?.raw?.['LOCALINSTAL'] || os.equipment.sector || 'N/A', style: 'value' }] }
               ]
             ]
           },

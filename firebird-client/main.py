@@ -469,6 +469,9 @@ class FirebirdRepository:
         now = datetime.now()
         dt_inclusao = now.strftime("%Y-%m-%d")
         hr_inclusao = now.strftime("%H:%M")
+        
+        from datetime import timedelta
+        data_prev_entrega = (now + timedelta(days=3)).strftime("%Y-%m-%d 00:00:00")
 
         status = "E"  # Despachado
         cd_status = "E1"  # Despachado
@@ -483,37 +486,6 @@ class FirebirdRepository:
                 num = int(data["num"])
             except ValueError:
                 pass
-
-        params = (
-            cd_cliente,
-            cd_cliente, # CDCLIENTEENT
-            cd_equipamento,
-            cd_ostp,
-            dt_inclusao,
-            hr_inclusao,
-            status,
-            cd_status,
-            defect,
-            nmsuportet if nmsuportet else None,
-            attendant_name if attendant_name else None,
-
-            str(data.get("nmCliente", ""))[:50],
-            str(data.get("endereco", ""))[:50],
-            num,
-            str(data.get("complemento", ""))[:30],
-            str(data.get("bairro", ""))[:30],
-            str(data.get("city", ""))[:40],
-            str(data.get("state", ""))[:2],
-            str(data.get("zipCode", ""))[:8],
-            str(data.get("ddd", ""))[:10],
-            str(data.get("phone", ""))[:15],
-            str(data.get("celular", ""))[:15],
-            str(data.get("email", ""))[:50],
-            str(data.get("contato", ""))[:20],
-
-            str(data.get("departamento", ""))[:45],
-            str(data.get("localInstal", ""))[:50]
-        )
 
         # Tenta descobrir o gerador de SEQOS para evitar erro de validação (Null)
         seq_os = None
@@ -630,11 +602,13 @@ class FirebirdRepository:
                 insert into IXLOS (
                     SEQOS, CDCLIENTE, CDCLIENTEENT, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET, NMSUPORTEA,
                     NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
-                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP
+                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
+                    SEQOSORIGEM, TIPO_OS, TFLIBERADO
                 ) values (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0'
+                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
+                    -1, '1', 'S'
                 )
             """
             insert_params = (seq_os,) + params
@@ -644,11 +618,13 @@ class FirebirdRepository:
                 insert into IXLOS (
                     CDCLIENTE, CDCLIENTEENT, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET, NMSUPORTEA,
                     NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
-                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP
+                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
+                    SEQOSORIGEM, TIPO_OS, TFLIBERADO
                 ) values (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0'
+                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
+                    -1, '1', 'S'
                 ) returning SEQOS
             """
             insert_params = params
