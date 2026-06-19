@@ -102,6 +102,7 @@ model User {
   password    String
   role        String       @default("agent")
   phone       String?
+  firebirdSupportName String?
   active      Boolean      @default(true)
   createdAt   DateTime     @default(now())
   messages    Message[]

@@ -471,7 +471,7 @@ class FirebirdRepository:
         hr_inclusao = now.strftime("%H:%M")
         
         from datetime import timedelta
-        data_prev_entrega = (now + timedelta(days=3)).strftime("%Y-%m-%d 00:00:00")
+        data_prev_entrega = (now + timedelta(days=3)).strftime("%Y-%m-%d")
 
         status = "E"  # Despachado
         cd_status = "E1"  # Despachado
@@ -487,112 +487,74 @@ class FirebirdRepository:
             except ValueError:
                 pass
 
+        cd_cliente_ent = cd_cliente
+
+        params = (
+            cd_cliente,
+            cd_cliente_ent,
+            cd_equipamento,
+            cd_ostp,
+            dt_inclusao,
+            hr_inclusao,
+            status,
+            cd_status,
+            defect,
+            nmsuportet if nmsuportet else attendant_name,
+            attendant_name,
+
+            str(data.get("nmCliente", ""))[:50],
+            str(data.get("endereco", ""))[:50],
+            num,
+            str(data.get("complemento", ""))[:30],
+            str(data.get("bairro", ""))[:30],
+            str(data.get("cidade", ""))[:40],
+            str(data.get("uf", ""))[:2],
+            str(data.get("cep", ""))[:9],
+            str(data.get("ddd", ""))[:3],
+            str(data.get("fone", ""))[:15],
+            str(data.get("celular", ""))[:15],
+            str(data.get("email", ""))[:50],
+            str(data.get("contato", ""))[:30],
+
+            str(data.get("departamento", ""))[:30],
+            str(data.get("localinstal", ""))[:30],
+            data_prev_entrega,
+            hr_inclusao
+        )
+
         # Tenta descobrir o gerador de SEQOS para evitar erro de validação (Null)
         seq_os = None
         con = self.connect()
         try:
             cur = con.cursor()
-            # 1. Tenta buscar da trigger ativa da tabela IXLOS
+            
+            # 1. Tenta buscar da tabela de controle IXLCONTROLESEQ (Padrão ILUX)
             try:
-                cur.execute("""
-                    select rdb$trigger_name, rdb$trigger_source 
-                    from rdb$triggers 
-                    where trim(rdb$relation_name) = 'IXLOS' 
-                      and rdb$trigger_source is not null
-                """)
-                triggers = cur.fetchall()
-                logging.info("Encontradas %d triggers com source para IXLOS", len(triggers))
-                for row in triggers:
-                    t_name = row[0].strip() if row[0] else "UNKNOWN"
-                    src = str(row[1])
-                    logging.info("Trigger %s source: %s", t_name, src)
-                    
-                    # Tenta encontrar GEN_ID(nome_gerador, 1) ou NEXT VALUE FOR nome_gerador
-                    match = re.search(r"GEN_ID\s*\(\s*([a-zA-Z0-9_\$]+)", src, re.IGNORECASE)
-                    if not match:
-                        match = re.search(r"NEXT\s+VALUE\s+FOR\s+([a-zA-Z0-9_\$]+)", src, re.IGNORECASE)
-                        
-                    if match:
-                        gen_name = match.group(1)
-                        logging.info("Gerador de SEQOS descoberto via trigger: %s", gen_name)
-                        cur.execute(f"select gen_id({gen_name}, 1) from rdb$database")
-                        seq_os = int(cur.fetchone()[0])
-                        break
+                cur.execute("select SEQUENCIAL from IXLCONTROLESEQ where TABELA = 'ORDEMSERVICO'")
+                row = cur.fetchone()
+                if row:
+                    seq_os = (row[0] or 0) + 1
+                    cur.execute("update IXLCONTROLESEQ set SEQUENCIAL = ? where TABELA = 'ORDEMSERVICO'", (seq_os,))
+                    con.commit()
+                    logging.info("SEQOS obtido via IXLCONTROLESEQ: %d", seq_os)
             except Exception as e:
-                logging.warning("Erro ao buscar gerador via trigger: %s", e)
+                logging.warning(f"Erro ao obter SEQUENCIAL da IXLCONTROLESEQ: {e}")
 
-            # 2. Se falhar, tenta buscar comparando os valores dos geradores com o MAX(SEQOS) de IXLOS
-            if seq_os is None:
+            # 2. Se falhou, pega o max SEQOS e atualiza a IXLCONTROLESEQ
+            if not seq_os:
                 try:
                     cur.execute("select max(SEQOS) from IXLOS")
-                    max_os = cur.fetchone()[0]
-                    if max_os:
-                        max_os = int(max_os)
-                        logging.info("MAX(SEQOS) atual na tabela IXLOS: %d", max_os)
-                        cur.execute("select rdb$generator_name from rdb$generators where rdb$generator_name not starting with 'RDB$'")
-                        generators = [r[0].strip() for r in cur.fetchall()]
-                        
-                        candidates_by_val = []
-                        for gen in generators:
-                            try:
-                                cur.execute(f"select gen_id({gen}, 0) from rdb$database")
-                                val = int(cur.fetchone()[0])
-                                diff = abs(val - max_os)
-                                # Se a diferença for menor que 100, consideramos um candidato forte
-                                if diff < 100:
-                                    candidates_by_val.append((gen, diff, val))
-                            except Exception:
-                                continue
-                        
-                        # Só aceitamos o gerador se a diferença de valor for muito pequena (ex: <= 2)
-                        found_gen = False
-                        for gen, diff, val in candidates_by_val:
-                            if diff <= 2:
-                                # Ignora geradores conhecidos de outras finalidades
-                                if "OBS_INTERNA" in gen.upper() or "ATENDIMENTO" in gen.upper() or "SUPRI" in gen.upper():
-                                    continue
-                                try:
-                                    logging.info("Gerador confiável encontrado por valor: %s (valor atual: %d, diff: %d)", gen, val, diff)
-                                    cur.execute(f"select gen_id({gen}, 1) from rdb$database")
-                                    seq_os = int(cur.fetchone()[0])
-                                    found_gen = True
-                                    break
-                                except Exception as ex:
-                                    logging.warning("Erro ao ler do gerador %s: %s", gen, ex)
-                                    continue
-                        
-                        if not found_gen:
-                            # Se nenhum gerador é confiável (diff <= 2), usamos MAX(SEQOS) + 1.
-                            # Isso é comum em ERPs Delphi antigos que incrementam o ID via código cliente.
-                            seq_os = max_os + 1
-                            logging.info("Nenhum gerador confiável próximo ao MAX(SEQOS) foi detectado. Usando MAX(SEQOS) + 1: %d", seq_os)
+                    row = cur.fetchone()
+                    seq_os = (row[0] or 0) + 1
+                    logging.info("SEQOS obtido via MAX(SEQOS): %d", seq_os)
+                    try:
+                        cur.execute("update IXLCONTROLESEQ set SEQUENCIAL = ? where TABELA = 'ORDEMSERVICO'", (seq_os,))
+                        con.commit()
+                    except Exception as e2:
+                        logging.warning(f"Erro ao atualizar IXLCONTROLESEQ apos MAX: {e2}")
                 except Exception as e:
-                    logging.warning("Erro ao buscar gerador por proximidade de valor: %s", e)
+                    logging.warning(f"Erro ao obter MAX(SEQOS): {e}")
 
-            # 3. Se ainda assim falhar, tenta adivinhar com base nos nomes conhecidos
-            if seq_os is None:
-                try:
-                    cur.execute("select rdb$generator_name from rdb$generators where rdb$generator_name not starting with 'RDB$'")
-                    generators = [r[0].strip() for r in cur.fetchall()]
-                    candidates = ["GEN_IXLOS", "GENIXLOS", "GEN_IXLOS_SEQOS", "GEN_SEQOS", "SEQOS", "IXLOS_SEQOS", "IXLOS"]
-                    for gen in generators:
-                        if "IXLOS" in gen.upper() or "SEQOS" in gen.upper():
-                            if "OBS_INTERNA" in gen.upper():
-                                continue
-                            if gen not in candidates:
-                                candidates.append(gen)
-                                
-                    for gen in candidates:
-                        if gen in generators:
-                            try:
-                                logging.info("Tentando gerador candidato de backup: %s", gen)
-                                cur.execute(f"select gen_id({gen}, 1) from rdb$database")
-                                seq_os = int(cur.fetchone()[0])
-                                break
-                            except Exception:
-                                continue
-                except Exception as e:
-                    logging.warning("Erro ao adivinhar gerador de backup: %s", e)
         finally:
             con.close()
 
@@ -602,12 +564,12 @@ class FirebirdRepository:
                 insert into IXLOS (
                     SEQOS, CDCLIENTE, CDCLIENTEENT, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET, NMSUPORTEA,
                     NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
-                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
+                    DEPARTAMENTO, LOCALINSTAL, DTPREVENTREGA, HRPREVENTREGA, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
                     SEQOSORIGEM, TIPO_OS, TFLIBERADO
                 ) values (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
+                    ?, ?, ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
                     -1, '1', 'S'
                 )
             """
@@ -618,12 +580,12 @@ class FirebirdRepository:
                 insert into IXLOS (
                     CDCLIENTE, CDCLIENTEENT, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET, NMSUPORTEA,
                     NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
-                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
+                    DEPARTAMENTO, LOCALINSTAL, DTPREVENTREGA, HRPREVENTREGA, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
                     SEQOSORIGEM, TIPO_OS, TFLIBERADO
                 ) values (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
+                    ?, ?, ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
                     -1, '1', 'S'
                 ) returning SEQOS
             """

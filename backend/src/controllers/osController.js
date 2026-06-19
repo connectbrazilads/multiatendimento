@@ -354,13 +354,13 @@ async function generatePdf(req, res) {
     };
 
     // Identificação do atendente com fallback para o usuário atual que está gerando o documento
-    let attendantName = os.user ? os.user.name : 'N/A';
+    let attendantName = os.user ? (os.user.firebirdSupportName || os.user.name) : 'N/A';
     if ((attendantName === 'N/A' || !os.user) && req.user?.userId) {
       const activeUser = await prisma.user.findUnique({
         where: { id: req.user.userId }
       });
       if (activeUser) {
-        attendantName = activeUser.name;
+        attendantName = activeUser.firebirdSupportName || activeUser.name;
       }
     }
 

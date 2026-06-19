@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { BadgeCheck, Pencil, Plus, Search, Shield, Trash2, UserRound, UserX } from 'lucide-react';
 import { toast } from '../utils/toast';
-import { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
+import api, { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [, setTeams] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'agent', active: true });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -20,9 +21,14 @@ export default function Users() {
   async function load() {
     setLoading(true);
     try {
-      const [{ data: uData }, { data: tData }] = await Promise.all([getUsers(), getTeams()]);
+      const [{ data: uData }, { data: tData }, { data: techsData }] = await Promise.all([
+        getUsers(), 
+        getTeams(),
+        api.get('/os/technicians').catch(() => ({ data: [] }))
+      ]);
       setUsers(uData);
       setTeams(tData);
+      setTechnicians(techsData);
     } catch (err) {
       toast.info('Erro ao carregar dados');
     } finally {
@@ -33,12 +39,12 @@ export default function Users() {
   function openModal(user = null) {
     if (user) {
       setModal(user);
-      setForm({ name: user.name, email: user.email, password: '', role: user.role, active: user.active });
+      setForm({ name: user.name, email: user.email, password: '', role: user.role, active: user.active, firebirdSupportName: user.firebirdSupportName || '' });
       return;
     }
 
     setModal('new');
-    setForm({ name: '', email: '', password: '', role: 'agent', active: true });
+    setForm({ name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '' });
   }
 
   async function handleSave(e) {
@@ -257,6 +263,16 @@ export default function Users() {
                   <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
                     <option value="agent">Operador (acesso aos chats)</option>
                     <option value="admin">Administrador (acesso total)</option>
+                  </select>
+                </div>
+
+                <div style={s.field}>
+                  <label style={s.label}>Atendente ILUX (Nome Exato)</label>
+                  <select style={s.input} value={form.firebirdSupportName} onChange={(e) => setForm({ ...form, firebirdSupportName: e.target.value })}>
+                    <option value="">Nenhum / Mesmo do sistema</option>
+                    {technicians.map(t => (
+                      <option key={t.id} value={t.name}>{t.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>

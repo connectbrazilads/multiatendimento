@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
+    "build": "prisma generate",
     "dedupe:contacts": "node scripts/dedupeContacts.js"
   },
   "dependencies": {

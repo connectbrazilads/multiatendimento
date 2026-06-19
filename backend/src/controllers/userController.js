@@ -6,7 +6,7 @@ async function list(req, res) {
 
   const users = await prisma.user.findMany({
     where: { tenantId: req.user.tenantId },
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true, firebirdSupportName: true },
     orderBy: { name: 'asc' },
   });
   res.json(users);
@@ -14,7 +14,7 @@ async function list(req, res) {
 
 async function create(req, res) {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, firebirdSupportName } = req.body;
 
   const tenant = await prisma.tenant.findUnique({ where: { id: req.user.tenantId } });
   const count = await prisma.user.count({ where: { tenantId: req.user.tenantId } });
@@ -36,8 +36,9 @@ async function create(req, res) {
       email,
       password: hash,
       role: role || 'agent',
+      firebirdSupportName,
     },
-    select: { id: true, name: true, email: true, role: true, active: true },
+    select: { id: true, name: true, email: true, role: true, active: true, firebirdSupportName: true },
   });
   res.json(user);
 }
@@ -45,13 +46,14 @@ async function create(req, res) {
 async function update(req, res) {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { id } = req.params;
-  const { name, email, password, role, active } = req.body;
+  const { name, email, password, role, active, firebirdSupportName } = req.body;
 
   const data = {
     ...(name && { name }),
     ...(email && { email }),
     ...(role && { role }),
     ...(active !== undefined && { active }),
+    ...(firebirdSupportName !== undefined && { firebirdSupportName }),
   };
 
   if (password) {
@@ -64,7 +66,7 @@ async function update(req, res) {
   const user = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, name: true, email: true, role: true, active: true },
+    select: { id: true, name: true, email: true, role: true, active: true, firebirdSupportName: true },
   });
   res.json(user);
 }

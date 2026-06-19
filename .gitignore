@@ -65,3 +65,10 @@ desktop.ini
 tmp/
 temp/
 *.tmp
+ 
+scratch/
+backend/scratch/
+.codex-artifacts/
+
+ 
+.playwright-cli/
