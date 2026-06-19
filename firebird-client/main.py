@@ -512,25 +512,97 @@ class FirebirdRepository:
             str(data.get("localInstal", ""))[:50]
         )
 
-        sql = """
-            insert into IXLOS (
-                CDCLIENTE, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET,
-                NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
-                DEPARTAMENTO, LOCALINSTAL, CDEMPRESA
-            ) values (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, 1
-            ) returning SEQOS
-        """
+        # Tenta descobrir o gerador de SEQOS para evitar erro de validação (Null)
+        seq_os = None
+        con = self.connect()
+        try:
+            cur = con.cursor()
+            # 1. Tenta buscar da trigger ativa da tabela IXLOS
+            try:
+                cur.execute("""
+                    select rdb$trigger_source 
+                    from rdb$triggers 
+                    where rdb$relation_name = 'IXLOS' 
+                      and rdb$trigger_source is not null
+                """)
+                triggers = cur.fetchall()
+                for row in triggers:
+                    src = str(row[0])
+                    match = re.search(r"GEN_ID\s*\(\s*([a-zA-Z0-9_\$]+)", src, re.IGNORECASE)
+                    if match:
+                        gen_name = match.group(1)
+                        logging.info("Gerador de SEQOS descoberto via trigger: %s", gen_name)
+                        cur.execute(f"select gen_id({gen_name}, 1) from rdb$database")
+                        seq_os = int(cur.fetchone()[0])
+                        break
+            except Exception as e:
+                logging.warning("Erro ao buscar gerador via trigger: %s", e)
+
+            # 2. Se falhar, tenta adivinhar com base nos geradores cadastrados
+            if seq_os is None:
+                try:
+                    cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
+                    generators = [r[0].strip() for r in cur.fetchall()]
+                    candidates = ["GEN_IXLOS", "GENIXLOS", "GEN_IXLOS_SEQOS", "GEN_SEQOS", "SEQOS", "IXLOS_SEQOS", "IXLOS"]
+                    for gen in generators:
+                        if "IXLOS" in gen.upper() or "SEQOS" in gen.upper():
+                            if gen not in candidates:
+                                candidates.append(gen)
+                                
+                    for gen in candidates:
+                        if gen in generators:
+                            try:
+                                logging.info("Tentando gerador candidato: %s", gen)
+                                cur.execute(f"select gen_id({gen}, 1) from rdb$database")
+                                seq_os = int(cur.fetchone()[0])
+                                break
+                            except Exception:
+                                continue
+                except Exception as e:
+                    logging.warning("Erro ao adivinhar gerador: %s", e)
+        finally:
+            con.close()
+
+        if seq_os is not None:
+            logging.info("Inserindo com SEQOS gerado manualmente: %s", seq_os)
+            sql = """
+                insert into IXLOS (
+                    SEQOS, CDCLIENTE, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET,
+                    NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
+                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA
+                ) values (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, 1
+                )
+            """
+            insert_params = (seq_os,) + params
+        else:
+            logging.warning("Nenhum gerador encontrado. Tentando inserção padrão...")
+            sql = """
+                insert into IXLOS (
+                    CDCLIENTE, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET,
+                    NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
+                    DEPARTAMENTO, LOCALINSTAL, CDEMPRESA
+                ) values (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, 1
+                ) returning SEQOS
+            """
+            insert_params = params
 
         con = self.connect()
         try:
             cur = con.cursor()
-            cur.execute(sql, params)
-            seq_os = cur.fetchone()[0]
-            con.commit()
-            return int(seq_os)
+            cur.execute(sql, insert_params)
+            if seq_os is not None:
+                con.commit()
+                return seq_os
+            else:
+                generated_id = cur.fetchone()[0]
+                con.commit()
+                return int(generated_id)
         except Exception:
             con.rollback()
             raise
