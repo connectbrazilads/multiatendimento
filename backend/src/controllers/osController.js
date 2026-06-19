@@ -275,6 +275,27 @@ async function generatePdf(req, res) {
         }
       });
     }
+    // Fallback 1: Buscar por CPF/CNPJ se o externalId não estiver associado no contato
+    if (!crmCustomer && clientData.cpfCnpj) {
+      crmCustomer = await prisma.crmCustomer.findFirst({
+        where: {
+          tenantId: req.user.tenantId,
+          externalSource: 'firebird',
+          cpfCnpj: clientData.cpfCnpj
+        }
+      });
+    }
+    // Fallback 2: Buscar por nome aproximado
+    if (!crmCustomer && clientData.name) {
+      crmCustomer = await prisma.crmCustomer.findFirst({
+        where: {
+          tenantId: req.user.tenantId,
+          externalSource: 'firebird',
+          name: { contains: clientData.name.trim(), mode: 'insensitive' }
+        }
+      });
+    }
+
     if (os.equipment.externalId) {
       crmEquipment = await prisma.crmEquipment.findFirst({
         where: {
@@ -600,9 +621,9 @@ async function generatePdf(req, res) {
             body: [
               [
                 {
-                  text: os.technicalNotes || '\n\n\n\n',
+                  text: os.technicalNotes || '\n\n\n\n\n\n\n\n',
                   style: 'boxContent',
-                  minHeight: 60,
+                  minHeight: 120,
                   border: [true, false, true, true]
                 }
               ]
