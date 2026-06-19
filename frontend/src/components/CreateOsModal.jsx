@@ -38,11 +38,20 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
       const resDraft = await api.post('/os/draft', { contactId, ticketId: ticket.id });
       
       const { defect, equipmentId } = resDraft.data;
+      
+      const foundType = resTypes.data.find(t => t.code === '01')
+        || resTypes.data.find(t => t.name.toUpperCase().includes('CONTRAT'))
+        || resTypes.data.find(t => t.code === '02')
+        || resTypes.data[0];
+
+      const foundTech = resTechs.data.find(t => t.name.toUpperCase().includes('ROBSON'))
+        || null;
+
       setFormData({
         defect: defect || '',
         equipmentId: equipmentId || (resEquips.data.length === 1 ? resEquips.data[0].id : ''),
-        cdOstp: resTypes.data.find(t => t.code === '02') ? '02' : (resTypes.data[0]?.code || ''),
-        nmsuportet: ''
+        cdOstp: foundType ? foundType.code : '',
+        nmsuportet: foundTech ? foundTech.name : ''
       });
     } catch (e) {
       console.error(e);
