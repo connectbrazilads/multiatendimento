@@ -520,15 +520,23 @@ class FirebirdRepository:
             # 1. Tenta buscar da trigger ativa da tabela IXLOS
             try:
                 cur.execute("""
-                    select rdb$trigger_source 
+                    select rdb$trigger_name, rdb$trigger_source 
                     from rdb$triggers 
-                    where rdb$relation_name = 'IXLOS' 
+                    where trim(rdb$relation_name) = 'IXLOS' 
                       and rdb$trigger_source is not null
                 """)
                 triggers = cur.fetchall()
+                logging.info("Encontradas %d triggers com source para IXLOS", len(triggers))
                 for row in triggers:
-                    src = str(row[0])
+                    t_name = row[0].strip() if row[0] else "UNKNOWN"
+                    src = str(row[1])
+                    logging.info("Trigger %s source: %s", t_name, src)
+                    
+                    # Tenta encontrar GEN_ID(nome_gerador, 1) ou NEXT VALUE FOR nome_gerador
                     match = re.search(r"GEN_ID\s*\(\s*([a-zA-Z0-9_\$]+)", src, re.IGNORECASE)
+                    if not match:
+                        match = re.search(r"NEXT\s+VALUE\s+FOR\s+([a-zA-Z0-9_\$]+)", src, re.IGNORECASE)
+                        
                     if match:
                         gen_name = match.group(1)
                         logging.info("Gerador de SEQOS descoberto via trigger: %s", gen_name)
@@ -543,6 +551,7 @@ class FirebirdRepository:
                 try:
                     cur.execute("select rdb$generator_name from rdb$generators where rdb$system_flag = 0")
                     generators = [r[0].strip() for r in cur.fetchall()]
+                    logging.info("Geradores cadastrados no banco de dados local: %s", generators)
                     candidates = ["GEN_IXLOS", "GENIXLOS", "GEN_IXLOS_SEQOS", "GEN_SEQOS", "SEQOS", "IXLOS_SEQOS", "IXLOS"]
                     for gen in generators:
                         if "IXLOS" in gen.upper() or "SEQOS" in gen.upper():
