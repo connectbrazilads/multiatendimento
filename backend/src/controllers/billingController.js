@@ -30,12 +30,34 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
   const cleanQuery = String(queryCpfCnpj || '').replace(/\D/g, '');
   if (!cleanQuery) return null;
 
-  // Busca todos os contatos do tenant
+  // 1. Tenta buscar o CrmCustomer pelo CPF/CNPJ primeiro
+  const crmCustomer = await prisma.crmCustomer.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { cpfCnpj: cleanQuery },
+        { cpfCnpj: queryCpfCnpj }
+      ]
+    },
+    include: {
+      whatsappContacts: true
+    }
+  });
+
+  // Se o CrmCustomer foi encontrado e possui contatos vinculados
+  if (crmCustomer && crmCustomer.whatsappContacts.length > 0) {
+    // Prioriza o contato do WhatsApp real (ex: vinculado manualmente, que não seja externalSource = 'firebird')
+    const realContact = crmCustomer.whatsappContacts.find(c => c.externalSource !== 'firebird');
+    if (realContact) return realContact;
+    return crmCustomer.whatsappContacts[0];
+  }
+
+  // Fallback: Busca todos os contatos do tenant
   const contacts = await prisma.contact.findMany({
     where: { tenantId }
   });
 
-  // 1. Tenta correspondência exata (limpando ambos os lados)
+  // 2. Tenta correspondência exata de CPF/CNPJ no próprio Contact
   let matched = contacts.find(c => {
     if (c.cpfCnpj) {
       const cleanDb = c.cpfCnpj.replace(/\D/g, '');
@@ -46,7 +68,7 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
 
   if (matched) return matched;
 
-  // 2. Tenta por raiz do CNPJ (primeiros 8 dígitos) no nome (padrão do Marcos Rossato)
+  // 3. Tenta por raiz do CNPJ (primeiros 8 dígitos) no nome (padrão do Marcos Rossato)
   if (cleanQuery.length === 14) {
     const rootCnpj = cleanQuery.slice(0, 8); // ex: '35882354'
     const rootCnpjFormatted = `${rootCnpj.slice(0, 2)}.${rootCnpj.slice(2, 5)}.${rootCnpj.slice(5, 8)}`; // '35.882.354'
@@ -59,7 +81,7 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
     if (matched) return matched;
   }
 
-  // 3. Tenta por CPF completo formatado ou limpo no nome
+  // 4. Tenta por CPF completo formatado ou limpo no nome
   if (cleanQuery.length === 11) {
     const cpfFormatted = `${cleanQuery.slice(0, 3)}.${cleanQuery.slice(3, 6)}.${cleanQuery.slice(6, 9)}-${cleanQuery.slice(9, 11)}`;
     matched = contacts.find(c => {

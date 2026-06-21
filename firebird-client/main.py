@@ -408,10 +408,11 @@ class CRMClient:
                     'cpfCnpj': customer_id
                 }
                 headers = {
-                    'x-firebird-token': self.config.crm_sync_token,
-                    'Content-Type': None
+                    'x-firebird-token': self.config.crm_sync_token
                 }
-                response = self.session.post(url, files=files_payload, data=data, headers=headers, timeout=120)
+                # Usa requests.post diretamente para evitar que o Content-Type: application/json da sessão
+                # interfira na geração dos boundaries do multipart/form-data.
+                response = requests.post(url, files=files_payload, data=data, headers=headers, timeout=120)
                 response.raise_for_status()
                 
                 # Fechar arquivos antes de mover
