@@ -154,6 +154,7 @@ class AgentGUI(ctk.CTk):
                 
         # Setup logging redirect
         logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
         gui_handler = TextBoxLogHandler(self)
         logger.addHandler(gui_handler)
         
