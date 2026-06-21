@@ -23,7 +23,7 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Integração API'];
+const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Integração API', 'Envio de Faturas'];
 const DAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 export default function Settings() {
@@ -1039,8 +1039,30 @@ export default function Settings() {
                 </div>
               ) : null}
 
+              <div style={s.integrationActions}>
+                <button type="button" style={s.saveBtn} onClick={handleTestIntegration} disabled={testingIntegration}>
+                  {testingIntegration ? 'Testando...' : 'Testar conexao'}
+                </button>
+                <button type="button" style={s.saveBtn} onClick={handleSyncIntegration} disabled={syncingIntegration}>
+                  {syncingIntegration ? 'Sincronizando...' : 'Sincronizar clientes agora'}
+                </button>
+              </div>
+
+              <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar integração'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 10 && (
+        <div style={s.sections}>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>Automação de Envio de Cobranças</h2>
+            <div style={s.form}>
               <div style={s.integrationGuide}>
-                <strong style={s.integrationGuideTitle}>Automação de Envio de Cobranças</strong>
+                <strong style={s.integrationGuideTitle}>Envio Automático de Faturas</strong>
                 <p style={s.hint}>
                   O client local monitora e processa os PDFs de boletos/faturas da pasta configurada, enviando-os automaticamente para o WhatsApp do cliente.
                 </p>
@@ -1102,16 +1124,10 @@ export default function Settings() {
                 <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
                   {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
                 </button>
-                <button type="button" style={s.saveBtn} onClick={handleTestIntegration} disabled={testingIntegration}>
-                  {testingIntegration ? 'Testando...' : 'Testar conexao'}
-                </button>
-                <button type="button" style={s.saveBtn} onClick={handleSyncIntegration} disabled={syncingIntegration}>
-                  {syncingIntegration ? 'Sincronizando...' : 'Sincronizar clientes agora'}
-                </button>
               </div>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar integração'}
+                {saving ? 'Salvando...' : 'Salvar configurações'}
               </button>
             </div>
           </div>
