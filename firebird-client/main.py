@@ -845,7 +845,7 @@ def normalize_contact(record: dict[str, Any]) -> dict[str, Any]:
         "contact": first_non_empty(record.get("contato")),
         "updatedAt": parse_firebird_timestamp(record.get("atualizado")),
         "inclusionAt": parse_firebird_timestamp(record.get("inclusao")),
-        "raw": record,
+        "raw": {k: json_safe(v) for k, v in record.items()},
     }
 
 
@@ -896,7 +896,7 @@ def normalize_equipment(record: dict[str, Any]) -> dict[str, Any]:
         "inactive": first_non_empty(record.get("tfinativo")),
         "updatedAt": parse_firebird_timestamp(record.get("atualizado")),
         "inclusionAt": parse_firebird_timestamp(record.get("inclusao")),
-        "raw": record,
+        "raw": {k: json_safe(v) for k, v in record.items()},
     }
 
 
@@ -913,7 +913,7 @@ def normalize_contract(record: dict[str, Any]) -> dict[str, Any]:
         "endsAt": record.get("dtcontratofin"),
         "updatedAt": parse_firebird_timestamp(record.get("atualizado")),
         "inclusionAt": parse_firebird_timestamp(record.get("inclusao")),
-        "raw": record,
+        "raw": {k: json_safe(v) for k, v in record.items()},
     }
 
 
@@ -943,7 +943,7 @@ def normalize_service_order(record: dict[str, Any]) -> dict[str, Any]:
         "zipCode": first_non_empty(record.get("cep")),
         "sector": first_non_empty(record.get("departamento"), record.get("localinstal")),
         "phone": compose_brazil_phone(record.get("ddd"), record.get("fone")) or normalize_phone(record.get("fone"), record.get("celular")),
-        "raw": record,
+        "raw": {k: json_safe(v) for k, v in record.items()},
     }
 
 
