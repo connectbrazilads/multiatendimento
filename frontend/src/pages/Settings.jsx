@@ -955,60 +955,58 @@ export default function Settings() {
                     <p style={s.hint}>Mensagem enviada junto aos PDFs de cobrança.</p>
                   </div>
 
-                  <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                    {saving ? 'Salvando...' : 'Salvar Alterações'}
-                  </button>
-                </div>
-              </div>
+              <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </div>
 
-              <div style={s.card}>
-                <h2 style={s.cardTitle}>Logs de Envio de Faturas (Últimos 100)</h2>
-                <div style={s.form}>
-                  <div style={{ ...s.integrationActions, marginBottom: '1rem' }}>
-                    <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff', marginTop: 0 }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
-                      {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
-                    </button>
-                  </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    {billingLogs.length === 0 ? (
-                      <p style={s.hint}>Nenhum log de envio registrado.</p>
-                    ) : (
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Data</th>
-                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Cliente</th>
-                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Arquivos</th>
-                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {billingLogs.map((log) => (
-                            <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                              <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
-                              <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
-                              <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{log.fileName}</td>
-                              <td style={{ padding: '0.5rem' }}>
-                                <span style={{
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '0.8rem',
-                                  backgroundColor: log.status === 'SUCCESS' ? '#22c55e20' : '#ef444420',
-                                  color: log.status === 'SUCCESS' ? '#22c55e' : '#ef4444'
-                                }}>
-                                  {log.status === 'SUCCESS' ? 'Enviado' : 'Erro'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
+          <div style={s.card}>
+            <h2 style={s.cardTitle}>Logs de Envio de Faturas (Últimos 100)</h2>
+            <div style={s.form}>
+              <div style={{ ...s.integrationActions, marginBottom: '1rem' }}>
+                <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff', marginTop: 0 }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
+                  {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
+                </button>
+              </div>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {billingLogs.length === 0 ? (
+                  <p style={s.hint}>Nenhum log de envio registrado.</p>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Data</th>
+                        <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Cliente</th>
+                        <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Arquivos</th>
+                        <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingLogs.map((log) => (
+                        <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
+                          <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
+                          <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{log.fileName}</td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem',
+                              backgroundColor: log.status === 'SUCCESS' ? '#22c55e20' : '#ef444420',
+                              color: log.status === 'SUCCESS' ? '#22c55e' : '#ef4444'
+                            }}>
+                              {log.status === 'SUCCESS' ? 'Enviado' : 'Erro'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
