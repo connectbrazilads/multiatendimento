@@ -112,50 +112,52 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
 }
 
 async function sendBilling(req, res) {
-  const { tenantSlug, cpfCnpj } = req.body;
-  const files = req.files || [];
+    const { tenantSlug, cpfCnpj, sendPolicy } = req.body;
+    const files = req.files || [];
 
-  try {
-    if (!tenantSlug) {
-      return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
-    }
-    if (!cpfCnpj) {
-      return res.status(400).json({ error: 'cpfCnpj é obrigatório.' });
-    }
-    if (files.length === 0) {
-      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
-    }
+    try {
+      if (!tenantSlug) {
+        return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
+      }
+      if (!cpfCnpj) {
+        return res.status(400).json({ error: 'cpfCnpj é obrigatório.' });
+      }
+      if (files.length === 0) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+      }
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-      include: { settings: true, instances: true },
-    });
-
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant não encontrado.' });
-    }
-
-    // Valida token do client local
-    assertToken(req, tenant);
-
-    const contact = await findContactByCpfCnpj(tenant.id, cpfCnpj);
-    if (!contact) {
-      // Registra a falha no log de cobrança
-      await prisma.billingLog.create({
-        data: {
-          tenantId: tenant.id,
-          cpfCnpj,
-          fileName: files.map(f => f.originalname).join(', '),
-          status: 'FAILED',
-          errorMessage: 'Cliente não encontrado no CRM.'
-        }
+      const tenant = await prisma.tenant.findUnique({
+        where: { slug: tenantSlug },
+        include: { settings: true, instances: true },
       });
-      return res.status(404).json({ error: 'Cliente não encontrado no CRM.' });
-    }
 
-    if (!contact.enableWhatsAppBilling) {
-      // Registra que o envio foi ignorado por configuração do usuário (opt-in desativado por padrão)
-      await prisma.billingLog.create({
+      if (!tenant) {
+        return res.status(404).json({ error: 'Tenant não encontrado.' });
+      }
+
+      // Valida token do client local
+      assertToken(req, tenant);
+
+      const contact = await findContactByCpfCnpj(tenant.id, cpfCnpj);
+      if (!contact) {
+        // Registra a falha no log de cobrança
+        await prisma.billingLog.create({
+          data: {
+            tenantId: tenant.id,
+            cpfCnpj,
+            fileName: files.map(f => f.originalname).join(', '),
+            status: 'FAILED',
+            errorMessage: 'Cliente não encontrado no CRM.'
+          }
+        });
+        return res.status(404).json({ error: 'Cliente não encontrado no CRM.' });
+      }
+
+      const isSendToAll = String(sendPolicy).toLowerCase() === 'todos';
+
+      if (!isSendToAll && !contact.enableWhatsAppBilling) {
+        // Registra que o envio foi ignorado por configuração do usuário (opt-in desativado por padrão)
+        await prisma.billingLog.create({
         data: {
           tenantId: tenant.id,
           cpfCnpj,

@@ -7,6 +7,7 @@ const authenticate = require('../middlewares/authenticate');
 router.post('/push', pushBatch);
 router.get('/pending-commands', getPendingCommands);
 router.post('/pending-commands/:id/callback', commandCallback);
+router.post('/ping', require('../controllers/firebirdSyncController').agentPing);
 
 // Rotas de Faturamento/Cobrança
 router.post('/send-billing', upload.array('media'), sendBilling);

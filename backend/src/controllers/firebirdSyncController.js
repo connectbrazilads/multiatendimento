@@ -652,8 +652,33 @@ async function commandCallback(req, res) {
   }
 }
 
+async function agentPing(req, res) {
+  try {
+    const { tenantSlug } = req.body || {};
+    if (!tenantSlug) {
+      return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
+    }
+    const { tenant } = await resolveTenantContext(tenantSlug);
+    assertToken(req, tenant);
+
+    await prisma.tenantSettings.update({
+      where: { tenantId: tenant.id },
+      data: {
+        firebirdLastSyncAt: new Date(),
+        firebirdLastSyncStatus: 'online'
+      }
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[agent-ping] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   pushBatch,
   getPendingCommands,
   commandCallback,
+  agentPing,
 };

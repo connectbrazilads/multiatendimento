@@ -125,6 +125,7 @@ class AppConfig:
     log_level: str = "INFO"
     billing_folder_path: str = r"C:\ILUX\boletos_enviar"
     own_cnpj: str = "35.692.721/0001-94"
+    billing_send_policy: str = "Somente Marcados"
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -169,6 +170,7 @@ class AppConfig:
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             billing_folder_path=os.getenv("BILLING_FOLDER_PATH", r"C:\ILUX\boletos_enviar"),
             own_cnpj=os.getenv("OWN_CNPJ", "35.692.721/0001-94"),
+            billing_send_policy=os.getenv("BILLING_SEND_POLICY", "Somente Marcados"),
         )
 
 
@@ -293,6 +295,17 @@ class CRMClient:
         except Exception as e:
             logging.error("Falha ao reportar resultado do comando %s: %s", command_id, e)
 
+    def send_ping(self) -> None:
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/ping"
+        try:
+            self.session.post(
+                url,
+                json={"tenantSlug": self.config.crm_tenant_slug},
+                timeout=10
+            )
+        except Exception as e:
+            logging.error("Falha ao enviar ping: %s", e)
+
     def process_billing_folder(self) -> None:
         folder_path = self.config.billing_folder_path
         if not folder_path or not os.path.exists(folder_path):
@@ -405,7 +418,8 @@ class CRMClient:
 
                 data = {
                     'tenantSlug': self.config.crm_tenant_slug,
-                    'cpfCnpj': customer_id
+                    'cpfCnpj': customer_id,
+                    'sendPolicy': self.config.billing_send_policy
                 }
                 headers = {
                     'x-firebird-token': self.config.crm_sync_token
@@ -1043,6 +1057,9 @@ def run_cycle(config: AppConfig, state: StateStore, full: bool = False) -> None:
     # Process billing files
     logging.info("Verificando pasta de cobranças...")
     crm.process_billing_folder()
+
+    # Inform backend that agent is alive
+    crm.send_ping()
 
 
 def inspect_schema(config: AppConfig) -> Path:

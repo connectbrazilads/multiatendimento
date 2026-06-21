@@ -23,7 +23,7 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Integração API', 'Envio de Faturas'];
+const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Agente Local'];
 const DAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 export default function Settings() {
@@ -878,181 +878,137 @@ export default function Settings() {
               />
             </div>
 
-            <div style={s.saveRow}>
-              {profileSaved && <span style={s.savedMsg}>Perfil atualizado</span>}
-              <button style={s.saveBtn} type="button" onClick={handleProfileSave} disabled={saving}>Salvar perfil</button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {tab === 9 && (
-        <div style={s.sections}>
-          <div style={s.card}>
-            <h2 style={s.cardTitle}>Integracao Firebird</h2>
-            <div style={s.form}>
-              <div style={s.integrationGuide}>
-                <strong style={s.integrationGuideTitle}>Modo recomendado: agent instalado no servidor da empresa</strong>
-                <p style={s.hint}>
-                  O agent le o Firebird localmente e envia os dados para a VPS por HTTPS. Nao precisa abrir o banco nem manter VPN pelo seu PC.
-                </p>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.label}>Token do agent</label>
-                <div style={{ display: 'flex', gap: '0.75rem', flexDirection: isMobile ? 'column' : 'row' }}>
-                  <input
-                    style={{ ...s.input, flex: 1 }}
-                    type={showToken ? "text" : "password"}
-                    value={form.firebirdClientToken}
-                    onChange={(e) => setForm({ ...form, firebirdClientToken: e.target.value })}
-                    placeholder="Gere um token e salve a integracao"
-                  />
-                  <button
-                    type="button"
-                    style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
-                    onClick={() => setShowToken(!showToken)}
-                  >
-                    {showToken ? 'Ocultar' : 'Mostrar'}
-                  </button>
-                  <button
-                    type="button"
-                    style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
-                    onClick={handleCopyToken}
-                  >
-                    Copiar
-                  </button>
-                  <button type="button" style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap' }} onClick={generateFirebirdClientToken}>
-                    Gerar token
-                  </button>
+                <div style={s.saveRow}>
+                  {profileSaved && <span style={s.savedMsg}>Perfil atualizado</span>}
+                  <button style={s.saveBtn} type="button" onClick={handleProfileSave} disabled={saving}>Salvar perfil</button>
                 </div>
-                <p style={s.hint}>Esse mesmo valor deve ir no arquivo .env do agent como CRM_SYNC_TOKEN.</p>
               </div>
+            </section>
+          )}
 
-              <div style={s.field}>
-                <label style={s.label}>Modelo de .env para o agent</label>
-                <textarea style={{ ...s.input, ...s.codeArea }} value={firebirdEnvPreview} readOnly />
-                <p style={s.hint}>No servidor da empresa, ajuste principalmente FIREBIRD_DATABASE e FIREBIRD_PASSWORD.</p>
-              </div>
-
-              <div style={s.integrationGuide}>
-                <strong style={s.integrationGuideTitle}>Modo alternativo: CRM puxando uma API interna</strong>
-                <p style={s.hint}>
-                  Use esta parte somente se a empresa tiver uma API propria publicada para o CRM consultar. Para o nosso agent, deixe esses campos em branco.
-                </p>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.label}>URL da API interna da empresa</label>
-                <input
-                  style={s.input}
-                  value={form.firebirdApiUrl}
-                  onChange={(e) => setForm({ ...form, firebirdApiUrl: e.target.value })}
-                  placeholder="https://api.empresa.com.br"
-                />
-                <p style={s.hint}>Opcional. Nao e usado pelo agent de envio.</p>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.label}>Token da API</label>
-                <input
-                  style={s.input}
-                  type="password"
-                  value={form.firebirdApiKey}
-                  onChange={(e) => setForm({ ...form, firebirdApiKey: e.target.value })}
-                  placeholder="Token ou chave de acesso"
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
-                <div style={{ ...s.field, flex: 1 }}>
-                  <label style={s.label}>Modo de autenticação</label>
-                  <select
-                    style={s.input}
-                    value={form.firebirdAuthMode || 'bearer'}
-                    onChange={(e) => setForm({ ...form, firebirdAuthMode: e.target.value })}
-                  >
-                    <option value="bearer">Bearer token</option>
-                    <option value="x-api-key">X-API-Key</option>
-                    <option value="none">Sem autenticação</option>
-                  </select>
+          {tab === 9 && (
+            <div style={s.sections}>
+              <div style={s.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h2 style={s.cardTitle}>Agente Local (Integração Firebird & Boletos)</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: form.firebirdLastSyncStatus === 'online' ? '#22c55e' : '#ef4444' }} />
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)' }}>
+                      {form.firebirdLastSyncStatus === 'online' ? 'Conectado' : 'Desconectado'}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ ...s.field, flex: 1 }}>
-                  <label style={s.label}>Sincronização automática</label>
-                  <div style={s.toggleCard}>
-                    <div style={s.toggleInfo}>
-                      <span style={{ ...s.toggleStatus, color: form.firebirdSyncEnabled ? 'var(--accent)' : 'var(--text-dim)' }}>
-                        {form.firebirdSyncEnabled ? 'Ativa' : 'Desativada'}
-                      </span>
-                      <p style={s.toggleHint}>Quando ligada, o CRM pode puxar dados da API em rotinas automáticas.</p>
+                
+                <div style={s.form}>
+                  <div style={s.integrationGuide}>
+                    <strong style={s.integrationGuideTitle}>Integração com Aplicativo Desktop</strong>
+                    <p style={s.hint}>
+                      A configuração de banco de dados e pastas locais agora é feita diretamente no Aplicativo Desktop no servidor da empresa. Copie o token abaixo e cole no aplicativo para autenticar a conexão.
+                    </p>
+                  </div>
+
+                  <div style={s.field}>
+                    <label style={s.label}>Token de Autenticação (CRM_SYNC_TOKEN)</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexDirection: isMobile ? 'column' : 'row' }}>
+                      <input
+                        style={{ ...s.input, flex: 1 }}
+                        type={showToken ? "text" : "password"}
+                        value={form.firebirdClientToken}
+                        onChange={(e) => setForm({ ...form, firebirdClientToken: e.target.value })}
+                        placeholder="Gere um token e salve a integração"
+                      />
+                      <button
+                        type="button"
+                        style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                        onClick={() => setShowToken(!showToken)}
+                      >
+                        {showToken ? 'Ocultar' : 'Mostrar'}
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                        onClick={handleCopyToken}
+                      >
+                        Copiar
+                      </button>
+                      <button type="button" style={{ ...s.saveBtn, marginTop: 0, whiteSpace: 'nowrap' }} onClick={generateFirebirdClientToken}>
+                        Gerar token
+                      </button>
                     </div>
-                    <input
-                      type="checkbox"
-                      style={s.switch}
-                      checked={form.firebirdSyncEnabled}
-                      onChange={(e) => setForm({ ...form, firebirdSyncEnabled: e.target.checked })}
+                  </div>
+
+                  <div style={s.field}>
+                    <label style={s.label}>Última Comunicação do Agente</label>
+                    <div style={{ ...s.input, backgroundColor: 'var(--bg-main)' }}>
+                      {form.firebirdLastSyncAt ? new Date(form.firebirdLastSyncAt).toLocaleString('pt-BR') : 'Nunca'}
+                    </div>
+                  </div>
+
+                  <div style={s.field}>
+                    <label style={s.label}>Template da Mensagem de Cobrança</label>
+                    <textarea
+                      style={{ ...s.input, minHeight: '100px' }}
+                      value={form.billingMessageTemplate || ''}
+                      onChange={(e) => setForm({ ...form, billingMessageTemplate: e.target.value })}
+                      placeholder="Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição."
                     />
+                    <p style={s.hint}>Mensagem enviada junto aos PDFs de cobrança.</p>
+                  </div>
+
+                  <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
+                    {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={s.card}>
+                <h2 style={s.cardTitle}>Logs de Envio de Faturas (Últimos 100)</h2>
+                <div style={s.form}>
+                  <div style={{ ...s.integrationActions, marginBottom: '1rem' }}>
+                    <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff', marginTop: 0 }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
+                      {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    {billingLogs.length === 0 ? (
+                      <p style={s.hint}>Nenhum log de envio registrado.</p>
+                    ) : (
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Data</th>
+                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Cliente</th>
+                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Arquivos</th>
+                            <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {billingLogs.map((log) => (
+                            <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
+                              <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
+                              <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{log.fileName}</td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.8rem',
+                                  backgroundColor: log.status === 'SUCCESS' ? '#22c55e20' : '#ef444420',
+                                  color: log.status === 'SUCCESS' ? '#22c55e' : '#ef4444'
+                                }}>
+                                  {log.status === 'SUCCESS' ? 'Enviado' : 'Erro'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 </div>
               </div>
-
-              <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
-                <div style={{ ...s.field, flex: 1 }}>
-                  <label style={s.label}>Rota de health check</label>
-                  <input
-                    style={s.input}
-                    value={form.firebirdHealthPath}
-                    onChange={(e) => setForm({ ...form, firebirdHealthPath: e.target.value })}
-                    placeholder="/health"
-                  />
-                </div>
-                <div style={{ ...s.field, flex: 1 }}>
-                  <label style={s.label}>Rota de clientes</label>
-                  <input
-                    style={s.input}
-                    value={form.firebirdContactsPath}
-                    onChange={(e) => setForm({ ...form, firebirdContactsPath: e.target.value })}
-                    placeholder="/contacts"
-                  />
-                </div>
-              </div>
-
-              <div style={s.integrationMeta}>
-                <div>
-                  <div style={s.integrationMetaLabel}>Ultima sincronizacao</div>
-                  <div style={s.integrationMetaValue}>
-                    {form.firebirdLastSyncAt ? new Date(form.firebirdLastSyncAt).toLocaleString('pt-BR') : 'Nunca'}
-                  </div>
-                </div>
-                <div>
-                  <div style={s.integrationMetaLabel}>Status</div>
-                  <div style={s.integrationMetaValue}>
-                    {form.firebirdLastSyncStatus || 'idle'}
-                  </div>
-                </div>
-              </div>
-
-              {form.firebirdLastSyncError ? (
-                <div style={s.errorBox}>
-                  <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Ultimo erro registrado</strong>
-                  <pre style={s.errorText}>{form.firebirdLastSyncError}</pre>
-                </div>
-              ) : null}
-
-              <div style={s.integrationActions}>
-                <button type="button" style={s.saveBtn} onClick={handleTestIntegration} disabled={testingIntegration}>
-                  {testingIntegration ? 'Testando...' : 'Testar conexao'}
-                </button>
-                <button type="button" style={s.saveBtn} onClick={handleSyncIntegration} disabled={syncingIntegration}>
-                  {syncingIntegration ? 'Sincronizando...' : 'Sincronizar clientes agora'}
-                </button>
-              </div>
-
-              <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar integração'}
-              </button>
             </div>
-          </div>
+          )}
         </div>
       )}
 
