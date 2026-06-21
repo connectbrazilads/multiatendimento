@@ -1046,7 +1046,7 @@ def run_cycle(config: AppConfig, state: StateStore, full: bool = False) -> None:
     # Sync static support metadata
     sync_static_entities(repo, crm)
 
-    for entity in ["contacts", "equipments"]:
+    for entity in ["contacts", "equipments", "contracts", "serviceOrders"]:
         logging.info("Iniciando sincronização de %s", entity)
         sync_entity(repo, crm, state, entity, config.batch_size)
 
