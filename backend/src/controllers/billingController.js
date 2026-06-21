@@ -26,18 +26,34 @@ function assertToken(req, tenant) {
   }
 }
 
+function getCpfCnpjVariations(query) {
+  const clean = String(query || '').replace(/\D/g, '');
+  if (!clean) return [];
+
+  const variations = [clean, String(query)];
+
+  if (clean.length === 11) {
+    const formatted = `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9, 11)}`;
+    variations.push(formatted);
+  } else if (clean.length === 14) {
+    const formatted = `${clean.slice(0, 2)}.${clean.slice(2, 5)}.${clean.slice(5, 8)}/${clean.slice(8, 12)}-${clean.slice(12, 14)}`;
+    variations.push(formatted);
+  }
+
+  return [...new Set(variations)];
+}
+
 async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
   const cleanQuery = String(queryCpfCnpj || '').replace(/\D/g, '');
   if (!cleanQuery) return null;
+
+  const variations = getCpfCnpjVariations(queryCpfCnpj);
 
   // 1. Tenta buscar o CrmCustomer pelo CPF/CNPJ primeiro
   const crmCustomer = await prisma.crmCustomer.findFirst({
     where: {
       tenantId,
-      OR: [
-        { cpfCnpj: cleanQuery },
-        { cpfCnpj: queryCpfCnpj }
-      ]
+      cpfCnpj: { in: variations }
     },
     include: {
       whatsappContacts: true
