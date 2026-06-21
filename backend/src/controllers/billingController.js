@@ -153,8 +153,8 @@ async function sendBilling(req, res) {
       return res.status(404).json({ error: 'Cliente não encontrado no CRM.' });
     }
 
-    if (contact.disableWhatsAppBilling) {
-      // Registra que o envio foi ignorado por configuração do usuário
+    if (!contact.enableWhatsAppBilling) {
+      // Registra que o envio foi ignorado por configuração do usuário (opt-in desativado por padrão)
       await prisma.billingLog.create({
         data: {
           tenantId: tenant.id,
@@ -162,10 +162,10 @@ async function sendBilling(req, res) {
           clientName: contact.name,
           fileName: files.map(f => f.originalname).join(', '),
           status: 'FAILED',
-          errorMessage: 'Envio desativado para este contato nas configurações.'
+          errorMessage: 'Envio de cobrança via WhatsApp não habilitado para este contato (opt-in desativado).'
         }
       });
-      return res.json({ success: true, message: 'Envio desativado para este contato nas configurações.' });
+      return res.json({ success: true, message: 'Envio de cobrança via WhatsApp não habilitado para este contato.' });
     }
 
     const evolutionUrl = tenant.settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;

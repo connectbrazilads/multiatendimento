@@ -194,7 +194,7 @@ model Contact {
   city       String?
   state      String?
   zipCode    String?
-  disableWhatsAppBilling Boolean @default(false)
+  enableWhatsAppBilling Boolean @default(false)
 
   instance   WaInstance @relation(fields: [instanceId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])

@@ -68,7 +68,7 @@ async function updateContact(req, res) {
   const { 
     notes, tags, name, fantasyName, email, 
     cpfCnpj, address, city, state, zipCode,
-    disableWhatsAppBilling
+    enableWhatsAppBilling
   } = req.body;
 
   const contact = await prisma.contact.findFirst({ where: { id, tenantId: req.user.tenantId } });
@@ -87,7 +87,7 @@ async function updateContact(req, res) {
       ...(city !== undefined && { city }),
       ...(state !== undefined && { state }),
       ...(zipCode !== undefined && { zipCode }),
-      ...(disableWhatsAppBilling !== undefined && { disableWhatsAppBilling: Boolean(disableWhatsAppBilling) }),
+      ...(enableWhatsAppBilling !== undefined && { enableWhatsAppBilling: Boolean(enableWhatsAppBilling) }),
     },
   });
   res.json(updated);

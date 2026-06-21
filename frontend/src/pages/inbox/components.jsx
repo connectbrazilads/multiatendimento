@@ -442,7 +442,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   const [notes, setNotes] = useState(contact.notes || '');
   const [city, setCity] = useState(contact.city || '');
   const [state, setState] = useState(contact.state || '');
-  const [disableWhatsAppBilling, setDisableWhatsAppBilling] = useState(contact.disableWhatsAppBilling || false);
+  const [enableWhatsAppBilling, setEnableWhatsAppBilling] = useState(contact.enableWhatsAppBilling || false);
   const [priority, setPriority] = useState(ticket.priority || 'medium');
   const [tags, setTags] = useState(() => {
     try {
@@ -488,8 +488,8 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
     setPanelTab('overview');
     setIsEditingName(false);
     setNewName(contact.name || '');
-    setDisableWhatsAppBilling(contact.disableWhatsAppBilling || false);
-  }, [contact.id, contact.name, contact.disableWhatsAppBilling]);
+    setEnableWhatsAppBilling(contact.enableWhatsAppBilling || false);
+  }, [contact.id, contact.name, contact.enableWhatsAppBilling]);
 
   async function saveContact() {
     await updateContact(contact.id, { notes, tags: JSON.stringify(tags), city, state });
@@ -497,8 +497,8 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   }
 
   async function handleToggleBilling(val) {
-    setDisableWhatsAppBilling(val);
-    await updateContact(contact.id, { disableWhatsAppBilling: val });
+    setEnableWhatsAppBilling(val);
+    await updateContact(contact.id, { enableWhatsAppBilling: val });
     onUpdate();
   }
 
@@ -588,16 +588,16 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
           <input 
             type="checkbox" 
-            checked={disableWhatsAppBilling} 
+            checked={enableWhatsAppBilling} 
             onChange={(e) => handleToggleBilling(e.target.checked)} 
             style={{ width: '16px', height: '16px', accentColor: '#D4AF37', cursor: 'pointer' }}
           />
           <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            Desativar Faturas no WhatsApp
+            Enviar Faturas no WhatsApp
           </span>
         </label>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', paddingLeft: '26px', lineHeight: '1.25' }}>
-          Desabilita o envio automático de boletos e cobranças para este contato via WhatsApp (ideal para quem prefere receber apenas por e-mail).
+          Habilita o envio automático de boletos e cobranças para este contato via WhatsApp.
         </div>
       </div>
 
