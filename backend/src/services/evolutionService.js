@@ -411,26 +411,38 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
   const client = getClient(url, key);
   const jid = remoteJid.includes('@') ? remoteJid : `${remoteJid}@s.whatsapp.net`;
   
-  // Tenta deleteMessage (mais moderno) ou revokeMessage (legado)
+  // Tenta DELETE /chat/deleteMessageForEveryone (Evolution API v2+)
   try {
-    const { data } = await client.post(`/message/deleteMessage/${instanceName}`, {
-      number: jid,
-      id: messageId,
-      fromMe: true
-    });
-    return data;
-  } catch (err) {
-    console.log('[evolutionService] deleteMessage falhou, tentando revokeMessage...');
-    const { data } = await client.post(`/chat/revokeMessage/${instanceName}`, {
-      message: {
-        key: {
-          remoteJid: jid,
-          id: messageId,
-          fromMe: true
-        }
+    const { data } = await client.delete(`/chat/deleteMessageForEveryone/${instanceName}`, {
+      data: {
+        id: messageId,
+        remoteJid: jid,
+        fromMe: true
       }
     });
     return data;
+  } catch (err) {
+    console.warn('[evolutionService] deleteMessageForEveryone falhou, tentando fallback legacy...', err.message);
+    try {
+      const { data } = await client.post(`/message/deleteMessage/${instanceName}`, {
+        number: jid,
+        id: messageId,
+        fromMe: true
+      });
+      return data;
+    } catch (err2) {
+      console.warn('[evolutionService] deleteMessage falhou, tentando revokeMessage...', err2.message);
+      const { data } = await client.post(`/chat/revokeMessage/${instanceName}`, {
+        message: {
+          key: {
+            remoteJid: jid,
+            id: messageId,
+            fromMe: true
+          }
+        }
+      });
+      return data;
+    }
   }
 }
 
