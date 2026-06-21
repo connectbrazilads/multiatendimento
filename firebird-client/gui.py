@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from dotenv import set_key, load_dotenv
 import customtkinter as ctk
+import pystray
+from PIL import Image, ImageDraw
 
 # Configure theme
 ctk.set_appearance_mode("Dark")
@@ -17,19 +19,29 @@ else:
 
 ENV_FILE = ROOT / ".env"
 
+def create_tray_image():
+    # Generate a simple icon for the tray
+    image = Image.new('RGB', (64, 64), color = (0, 100, 200))
+    d = ImageDraw.Draw(image)
+    d.text((10, 20), "CRM", fill=(255, 255, 255))
+    return image
+
 class AgentGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         self.title("LCD Digital - Agente Firebird CRM")
-        self.geometry("800x600")
-        self.minsize(800, 600)
+        self.geometry("800x650")
+        self.minsize(800, 650)
         
         self.is_running = False
         self.agent_thread = None
+        self.tray_icon = None
         
         self.create_widgets()
         self.load_settings()
+        
+        self.protocol("WM_DELETE_WINDOW", self.hide_window)
         
     def create_widgets(self):
         # Configurar layout principal
@@ -66,11 +78,16 @@ class AgentGUI(ctk.CTk):
         # Intervalo de Sincronizacao
         self.interval_entry = self.create_input(self.settings_frame, "Intervalo de Sincronização (segundos)", 6)
         
+        # Autostart checkbox
+        self.autostart_var = ctk.BooleanVar(value=False)
+        self.autostart_checkbox = ctk.CTkCheckBox(self.settings_frame, text="Iniciar com o Windows", variable=self.autostart_var)
+        self.autostart_checkbox.grid(row=14, column=0, pady=(15, 0), sticky="w")
+        
         self.save_btn = ctk.CTkButton(self.settings_frame, text="Salvar Configurações", command=self.save_settings)
-        self.save_btn.grid(row=14, column=0, pady=20, sticky="ew")
+        self.save_btn.grid(row=15, column=0, pady=20, sticky="ew")
         
         self.action_btn = ctk.CTkButton(self.settings_frame, text="▶ Iniciar Agente", command=self.toggle_agent, fg_color="green", hover_color="darkgreen")
-        self.action_btn.grid(row=15, column=0, pady=0, sticky="ew")
+        self.action_btn.grid(row=16, column=0, pady=0, sticky="ew")
 
         # Right Panel (Logs)
         self.logs_frame = ctk.CTkFrame(self.main_frame)
@@ -102,6 +119,9 @@ class AgentGUI(ctk.CTk):
         
         self.interval_entry.insert(0, os.getenv("SYNC_INTERVAL_SECONDS", "300"))
         
+        autostart = os.getenv("AUTOSTART_WINDOWS", "False").lower() == "true"
+        self.autostart_var.set(autostart)
+        
     def save_settings(self):
         if not ENV_FILE.exists():
             ENV_FILE.touch()
@@ -113,9 +133,48 @@ class AgentGUI(ctk.CTk):
         set_key(str(ENV_FILE), "BILLING_FOLDER_PATH", self.billing_folder_entry.get())
         set_key(str(ENV_FILE), "BILLING_SEND_POLICY", self.policy_var.get())
         set_key(str(ENV_FILE), "SYNC_INTERVAL_SECONDS", self.interval_entry.get())
+        set_key(str(ENV_FILE), "AUTOSTART_WINDOWS", str(self.autostart_var.get()))
+        
+        self.set_startup(self.autostart_var.get())
         
         self.log_message("Configurações salvas com sucesso.")
         
+    def set_startup(self, enable: bool):
+        startup_path = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+        bat_path = os.path.join(startup_path, "AgenteCRM.bat")
+        if enable:
+            exe_path = os.path.abspath(sys.executable) if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+            try:
+                with open(bat_path, "w") as f:
+                    f.write(f'@echo off\nstart "" "{exe_path}" --minimized\n')
+            except Exception as e:
+                self.log_message(f"Erro ao configurar inicialização: {e}")
+        else:
+            if os.path.exists(bat_path):
+                try:
+                    os.remove(bat_path)
+                except Exception:
+                    pass
+
+    def hide_window(self):
+        self.withdraw()
+        image = create_tray_image()
+        menu = pystray.Menu(
+            pystray.MenuItem("Mostrar Agente", self.show_window),
+            pystray.MenuItem("Sair", self.quit_window)
+        )
+        self.tray_icon = pystray.Icon("AgenteCRM", image, "Agente Firebird CRM", menu)
+        threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+    def show_window(self, icon, item):
+        icon.stop()
+        self.after(0, self.deiconify)
+
+    def quit_window(self, icon, item):
+        icon.stop()
+        self.is_running = False
+        self.after(0, self.destroy)
+
     def log_message(self, message):
         self.log_textbox.configure(state="normal")
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -149,7 +208,6 @@ class AgentGUI(ctk.CTk):
                 
             def emit(self, record):
                 msg = self.format(record)
-                # Ensure we run the update on the main thread
                 self.gui.after(0, self.gui.log_message_raw, msg)
                 
         # Setup logging redirect
@@ -192,4 +250,7 @@ class AgentGUI(ctk.CTk):
 
 if __name__ == "__main__":
     app = AgentGUI()
+    if "--minimized" in sys.argv:
+        app.hide_window()
+        app.toggle_agent() # Start the agent automatically if launched minimized via autostart
     app.mainloop()
