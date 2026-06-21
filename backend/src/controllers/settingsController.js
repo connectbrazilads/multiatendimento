@@ -39,7 +39,8 @@ async function saveSettings(req, res) {
     firebirdLastSyncAt,
     firebirdLastSyncStatus,
     firebirdLastSyncError,
-    kpiContractValue, kpiServiceValue, kpiSlaLimitHours
+    kpiContractValue, kpiServiceValue, kpiSlaLimitHours,
+    billingMessageTemplate
   } = req.body;
 
   const parsedContractValue = kpiContractValue !== undefined && kpiContractValue !== '' ? parseFloat(kpiContractValue) : null;
@@ -83,7 +84,8 @@ async function saveSettings(req, res) {
       firebirdLastSyncError,
       kpiContractValue: parsedContractValue,
       kpiServiceValue: parsedServiceValue,
-      kpiSlaLimitHours: parsedSlaLimitHours
+      kpiSlaLimitHours: parsedSlaLimitHours,
+      billingMessageTemplate
     },
     create: { 
       tenantId: req.user.tenantId, 
@@ -121,7 +123,8 @@ async function saveSettings(req, res) {
       firebirdLastSyncError,
       kpiContractValue: parsedContractValue,
       kpiServiceValue: parsedServiceValue,
-      kpiSlaLimitHours: parsedSlaLimitHours
+      kpiSlaLimitHours: parsedSlaLimitHours,
+      billingMessageTemplate
     },
   });
 

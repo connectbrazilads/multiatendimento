@@ -40,6 +40,7 @@ model Tenant {
   crmEquipments  CrmEquipment[]
   crmOsTypes     CrmOsType[]
   crmTechnicians CrmTechnician[]
+  billingLogs    BillingLog[]
 }
 
 model TenantSettings {
@@ -84,6 +85,8 @@ model TenantSettings {
   firebirdLastSyncAt  DateTime?
   firebirdLastSyncStatus String? @default("idle")
   firebirdLastSyncError String? @db.Text
+  billingMessageTemplate String? @db.Text
+  firebirdQueueBillingProcess Boolean @default(false)
 
   // Configurações de KPI do RevGuard AI
   kpiContractValue   Float?   @default(1200.0)
@@ -191,6 +194,7 @@ model Contact {
   city       String?
   state      String?
   zipCode    String?
+  disableWhatsAppBilling Boolean @default(false)
 
   instance   WaInstance @relation(fields: [instanceId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
@@ -564,4 +568,19 @@ model CrmTechnician {
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, name])
+}
+
+model BillingLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  cpfCnpj      String?
+  clientName   String?
+  fileName     String
+  status       String   // "SUCCESS" ou "FAILED"
+  errorMessage String?  @db.Text
+  sentAt       DateTime @default(now())
+  
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }

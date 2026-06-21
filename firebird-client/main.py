@@ -123,6 +123,8 @@ class AppConfig:
     log_max_bytes: int = 5 * 1024 * 1024
     log_backup_count: int = 5
     log_level: str = "INFO"
+    billing_folder_path: str = r"C:\ILUX\boletos_enviar"
+    own_cnpj: str = "35.692.721/0001-94"
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -165,6 +167,8 @@ class AppConfig:
             log_max_bytes=env_int("LOG_MAX_BYTES", 5 * 1024 * 1024),
             log_backup_count=env_int("LOG_BACKUP_COUNT", 5),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
+            billing_folder_path=os.getenv("BILLING_FOLDER_PATH", r"C:\ILUX\boletos_enviar"),
+            own_cnpj=os.getenv("OWN_CNPJ", "35.692.721/0001-94"),
         )
 
 
@@ -260,6 +264,11 @@ class CRMClient:
                         seq_os = repo.create_service_order(payload)
                         self.report_command_result(cmd_id, success=True, result={"seqOs": seq_os})
                         logging.info("O.S. criada no Firebird com sucesso. SEQOS: %s", seq_os)
+                    elif cmd_type == "PROCESS_BILLING":
+                        logging.info("Comando PROCESS_BILLING recebido sob demanda. Processando...")
+                        self.process_billing_folder()
+                        self.report_command_result(cmd_id, success=True)
+                        logging.info("Comando PROCESS_BILLING processado com sucesso.")
                     else:
                         logging.warning("Tipo de comando desconhecido: %s", cmd_type)
                 except Exception as e:
@@ -283,6 +292,167 @@ class CRMClient:
             )
         except Exception as e:
             logging.error("Falha ao reportar resultado do comando %s: %s", command_id, e)
+
+    def process_billing_folder(self) -> None:
+        folder_path = self.config.billing_folder_path
+        if not folder_path or not os.path.exists(folder_path):
+            logging.warning("Pasta de cobranças não configurada ou não existe: %s", folder_path)
+            return
+
+        import shutil
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            logging.error("Biblioteca pypdf não encontrada. Por favor, execute 'pip install pypdf'.")
+            return
+
+        # Regexes para CNPJ/CPF
+        cnpj_pattern = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\b\d{14}\b')
+        cpf_pattern = re.compile(r'\d{3}\.\d{3}\.\d{3}-\d{2}|\b\d{11}\b')
+
+        own_cnpj_clean = re.sub(r'\D', '', self.config.own_cnpj)
+
+        try:
+            files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+        except Exception as err:
+            logging.error("Erro ao listar pasta de cobranças: %s", err)
+            return
+
+        if not files:
+            return
+
+        logging.info("Encontrados %d arquivos PDF na pasta de cobranças", len(files))
+
+        # Agrupamento por CPF/CNPJ
+        grouped_files = {}  # { cpfCnpj: [filepaths] }
+        unidentified_files = []
+
+        for filename in files:
+            filepath = os.path.join(folder_path, filename)
+            try:
+                text = ""
+                with open(filepath, 'rb') as f:
+                    reader = PdfReader(f)
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                
+                cnpjs = cnpj_pattern.findall(text)
+                cpfs = cpf_pattern.findall(text)
+
+                customer_id = None
+
+                # Filtra CNPJ do emitente
+                for cnpj_val in cnpjs:
+                    cleaned = re.sub(r'\D', '', cnpj_val)
+                    if cleaned != own_cnpj_clean:
+                        customer_id = cleaned
+                        break
+
+                if not customer_id:
+                    # Filtra CPF
+                    for cpf_val in cpfs:
+                        cleaned = re.sub(r'\D', '', cpf_val)
+                        customer_id = cleaned
+                        break
+
+                if customer_id:
+                    grouped_files.setdefault(customer_id, []).append(filepath)
+                else:
+                    logging.warning("Não foi possível identificar o CPF/CNPJ no arquivo %s", filename)
+                    unidentified_files.append(filepath)
+
+            except Exception as e:
+                logging.error("Erro ao ler PDF %s: %s", filename, e)
+                unidentified_files.append(filepath)
+
+        # Processar arquivos não identificados movendo para 'erros'
+        if unidentified_files:
+            error_dir = os.path.join(folder_path, "erros")
+            os.makedirs(error_dir, exist_ok=True)
+            for filepath in unidentified_files:
+                dest = os.path.join(error_dir, os.path.basename(filepath))
+                try:
+                    shutil.move(filepath, dest)
+                    logging.info("Arquivo com erro movido para a pasta de erros: %s", os.path.basename(filepath))
+                except Exception as mv_err:
+                    logging.error("Erro ao mover arquivo com erro %s: %s", filepath, mv_err)
+
+        if not grouped_files:
+            return
+
+        # Enviar arquivos agrupados por cliente
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/send-billing"
+        
+        # Mapeamento do mês para pasta de arquivo
+        meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+        now = datetime.now()
+        month_name = meses[now.month - 1]
+        dest_folder_name = f"Enviados - {month_name} {now.year}"
+        dest_dir = os.path.join(folder_path, dest_folder_name)
+
+        for customer_id, filepaths in grouped_files.items():
+            logging.info("Enviando lote de %d arquivos para o cliente %s", len(filepaths), customer_id)
+            
+            files_payload = []
+            opened_files = []
+            try:
+                for fp in filepaths:
+                    f = open(fp, 'rb')
+                    opened_files.append(f)
+                    files_payload.append(('media', (os.path.basename(fp), f, 'application/pdf')))
+
+                data = {
+                    'tenantSlug': self.config.crm_tenant_slug,
+                    'cpfCnpj': customer_id
+                }
+                headers = {
+                    'x-firebird-token': self.config.crm_sync_token,
+                    'Content-Type': None
+                }
+                response = self.session.post(url, files=files_payload, data=data, headers=headers, timeout=120)
+                response.raise_for_status()
+                
+                # Fechar arquivos antes de mover
+                for f in opened_files:
+                    try:
+                        f.close()
+                    except Exception:
+                        pass
+                opened_files = []
+                
+                # Se deu certo, move os arquivos para a pasta de arquivos do mês
+                os.makedirs(dest_dir, exist_ok=True)
+                for fp in filepaths:
+                    shutil.move(fp, os.path.join(dest_dir, os.path.basename(fp)))
+                
+                logging.info("Lote enviado com sucesso para %s. Arquivos arquivados em %s", customer_id, dest_folder_name)
+
+            except Exception as e:
+                logging.error("Falha ao enviar lote de cobrança para %s: %s", customer_id, e)
+                # Fechar arquivos antes de mover para pasta de erros
+                for f in opened_files:
+                    try:
+                        f.close()
+                    except Exception:
+                        pass
+                opened_files = []
+
+                # Se falhou, move os arquivos para a pasta de erros
+                error_dir = os.path.join(folder_path, "erros")
+                os.makedirs(error_dir, exist_ok=True)
+                for fp in filepaths:
+                    try:
+                        shutil.move(fp, os.path.join(error_dir, os.path.basename(fp)))
+                    except Exception as mv_err:
+                        logging.error("Erro ao mover arquivo com erro %s para pasta de erros: %s", fp, mv_err)
+            finally:
+                for f in opened_files:
+                    try:
+                        f.close()
+                    except Exception:
+                        pass
 
 
 class FirebirdRepository:
@@ -473,8 +643,8 @@ class FirebirdRepository:
         from datetime import timedelta
         data_prev_entrega = (now + timedelta(days=3)).strftime("%Y-%m-%d")
 
-        status = "E"  # Despachado
-        cd_status = "E1"  # Despachado
+        status = "E"  # Aberto
+        cd_status = "E1"  # Aberto
 
         defect = str(data.get("defect", "")).strip()
         nmsuportet = str(data.get("nmsuportet", "")).strip()
@@ -516,10 +686,10 @@ class FirebirdRepository:
             str(data.get("email", ""))[:50],
             str(data.get("contato", ""))[:30],
 
-            str(data.get("departamento", ""))[:30],
-            str(data.get("localinstal", ""))[:30],
-            data_prev_entrega,
-            hr_inclusao
+            str(data.get("departamento", "")).strip()[:40],
+            str(data.get("localInstal", "")).strip()[:40],
+            data_prev_entrega, hr_inclusao,
+            f"{now.strftime('%d/%m/%Y %H:%M:%S')} CA I"
         )
 
         # Tenta descobrir o gerador de SEQOS para evitar erro de validação (Null)
@@ -565,12 +735,12 @@ class FirebirdRepository:
                     SEQOS, CDCLIENTE, CDCLIENTEENT, CDEQUIPAMENTO, CDOSTP, DTINCLUSAO, HRINCLUSAO, STATUS, CDSTATUS, OBSDEFEITOCLI, NMSUPORTET, NMSUPORTEA,
                     NMCLIENTE, ENDERECO, NUM, COMPLEMENTO, BAIRRO, CIDADE, UF, CEP, DDD, FONE, CELULAR, EMAIL, CONTATO,
                     DEPARTAMENTO, LOCALINSTAL, DTPREVENTREGA, HRPREVENTREGA, CDEMPRESA, TPORCATEND, TPCHAMADO, CDTERRITORIO, EQUIPCLI, STATUSEQUIP,
-                    SEQOSORIGEM, TIPO_OS, TFLIBERADO
+                    SEQOSORIGEM, TIPO_OS, TFLIBERADO, CDDEFEITO, PRIORIDADE, ATUALIZADO, FORMULARIOOS, SEQOSCLI, NMSUPORTEL, NR_CAU, NR_RP
                 ) values (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, 1, 'A', '1', 'GERAL', 'E', '0',
-                    -1, '1', 'S'
+                    -1, '1', 'S', 'MAN', '24', ?, '', '', '', '', ''
                 )
             """
             insert_params = (seq_os,) + params
@@ -869,6 +1039,10 @@ def run_cycle(config: AppConfig, state: StateStore, full: bool = False) -> None:
     logging.info("Buscando comandos pendentes do CRM...")
     crm.process_pending_commands(repo)
 
+    # Process billing files
+    logging.info("Verificando pasta de cobranças...")
+    crm.process_billing_folder()
+
 
 def inspect_schema(config: AppConfig) -> Path:
     repo = FirebirdRepository(config)
@@ -946,6 +1120,7 @@ def main() -> None:
         return
 
     logging.info("Client iniciado. Intervalo: %ss", config.sync_interval_seconds)
+
     while True:
         try:
             run_cycle(config, state, full=args.full)

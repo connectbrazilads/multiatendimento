@@ -24,6 +24,7 @@ const { setIo: setIoTicket } = require('./controllers/ticketController');
 const { setIo: setIoInternal } = require('./controllers/internalMessageController');
 const campaignRoutes = require('./routes/campaignRoutes');
 const { setIo: setIoCampaign } = require('./controllers/campaignController');
+const { setIo: setIoBilling } = require('./controllers/billingController');
 const tagRoutes = require('./routes/tagRoutes');
 const uploadRoutes = require('./routes/upload');
 const osRoutes = require('./routes/osRoutes');
@@ -55,6 +56,7 @@ setIoWebhook(io);
 setIoTicket(io);
 setIoInternal(io);
 setIoCampaign(io);
+setIoBilling(io);
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5174', credentials: true }));
 app.use(express.json({ limit: '100mb' }));

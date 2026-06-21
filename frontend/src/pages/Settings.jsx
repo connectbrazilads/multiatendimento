@@ -17,6 +17,8 @@ import {
   getMediaUrl,
   testFirebirdConnection,
   syncFirebirdContacts,
+  triggerBillingProcess,
+  getBillingLogs,
 } from '../services/api';
 import Users from './Users';
 import Teams from './Teams';
@@ -63,7 +65,10 @@ export default function Settings() {
     kpiContractValue: 1200.0,
     kpiServiceValue: 350.0,
     kpiSlaLimitHours: 24,
+    billingMessageTemplate: '',
   });
+  const [billingLogs, setBillingLogs] = useState([]);
+  const [triggeringBilling, setTriggeringBilling] = useState(false);
   const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -122,6 +127,13 @@ export default function Settings() {
       }
     } catch {
       // erro ao carregar horarios
+    }
+
+    try {
+      const { data } = await getBillingLogs();
+      setBillingLogs(data);
+    } catch {
+      // erro ao carregar logs
     }
   }
 
@@ -239,6 +251,28 @@ export default function Settings() {
       toast.error(err.response?.data?.error || 'Erro ao sincronizar');
     } finally {
       setSyncingIntegration(false);
+    }
+  }
+
+  async function loadBillingLogs() {
+    try {
+      const { data } = await getBillingLogs();
+      setBillingLogs(data);
+    } catch (err) {
+      console.error('Erro ao carregar logs de faturamento:', err);
+    }
+  }
+
+  async function handleTriggerBilling() {
+    setTriggeringBilling(true);
+    try {
+      await triggerBillingProcess();
+      toast.success('Envio de cobranças disparado! O client processará os PDFs em instantes.');
+      setTimeout(loadBillingLogs, 4000);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao disparar envio de cobranças');
+    } finally {
+      setTriggeringBilling(false);
     }
   }
 
@@ -1005,7 +1039,69 @@ export default function Settings() {
                 </div>
               ) : null}
 
+              <div style={s.integrationGuide}>
+                <strong style={s.integrationGuideTitle}>Automação de Envio de Cobranças</strong>
+                <p style={s.hint}>
+                  O client local monitora e processa os PDFs de boletos/faturas da pasta configurada, enviando-os automaticamente para o WhatsApp do cliente.
+                </p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Template da Mensagem de Cobrança</label>
+                <textarea
+                  style={{ ...s.input, minHeight: '100px' }}
+                  value={form.billingMessageTemplate || ''}
+                  onChange={(e) => setForm({ ...form, billingMessageTemplate: e.target.value })}
+                  placeholder="Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição."
+                />
+                <p style={s.hint}>Mensagem enviada junto aos PDFs de cobrança.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Histórico de Envios de Cobrança (Últimos 100)</label>
+                <div style={s.logsContainer}>
+                  {billingLogs.length === 0 ? (
+                    <p style={s.hint}>Nenhum log de envio registrado.</p>
+                  ) : (
+                    <table style={s.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Data</th>
+                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Cliente</th>
+                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Arquivos</th>
+                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {billingLogs.map((log) => (
+                          <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
+                            <td style={{ padding: '0.5rem' }}>
+                              <div><strong>{log.clientName || 'N/A'}</strong></div>
+                              <small style={{ color: 'var(--text-dim)' }}>{log.cpfCnpj || 'N/A'}</small>
+                            </td>
+                            <td style={{ padding: '0.5rem' }}>{log.fileName}</td>
+                            <td style={{ padding: '0.5rem' }}>
+                              {log.status === 'SUCCESS' ? (
+                                <span style={{ color: '#10b981', fontWeight: 'bold' }}>Sucesso</span>
+                              ) : (
+                                <span style={{ color: '#ef4444', fontWeight: 'bold' }} title={log.errorMessage}>
+                                  Falha: {log.errorMessage}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
               <div style={s.integrationActions}>
+                <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
+                  {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
+                </button>
                 <button type="button" style={s.saveBtn} onClick={handleTestIntegration} disabled={testingIntegration}>
                   {testingIntegration ? 'Testando...' : 'Testar conexao'}
                 </button>
@@ -1219,5 +1315,20 @@ const s = {
     border: '1px dashed var(--border-color)',
     overflow: 'hidden',
     marginBottom: '1rem',
+  },
+  logsContainer: {
+    background: 'var(--bg-base)',
+    padding: '1.25rem',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    maxHeight: '300px',
+    overflowY: 'auto',
+    marginTop: '0.5rem'
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.85rem',
+    textAlign: 'left'
   },
 };

@@ -59,6 +59,10 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
     return ensureAccepted(data, 'sendText');
   } catch (err) {
     console.error(`[evolutionService] sendText ERROR:`, err.response?.data || err.message);
+    if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
+      console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de texto no ambiente local.`);
+      return { key: { id: `MOCK-TXT-${Date.now()}` } };
+    }
     throw err;
   }
 }
@@ -123,14 +127,22 @@ async function sendMedia(url, key, instanceName, phone, { mediatype, media, mime
     }
   }
 
-  return sendMediaJson(url, key, instanceName, phone, {
-    mediatype,
-    media,
-    mimetype,
-    filename,
-    caption,
-    quoted
-  });
+  try {
+    return await sendMediaJson(url, key, instanceName, phone, {
+      mediatype,
+      media,
+      mimetype,
+      filename,
+      caption,
+      quoted
+    });
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
+      console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de mídia no ambiente local.`);
+      return { key: { id: `MOCK-MED-${Date.now()}` } };
+    }
+    throw err;
+  }
 }
 
 async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {

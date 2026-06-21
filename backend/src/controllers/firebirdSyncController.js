@@ -598,6 +598,14 @@ async function getPendingCommands(req, res) {
     };
     });
 
+    if (tenant.settings?.firebirdQueueBillingProcess) {
+      commands.push({
+        id: 'PROCESS_BILLING',
+        type: 'PROCESS_BILLING',
+        payload: {}
+      });
+    }
+
     res.json(commands);
   } catch (err) {
     console.error('[pending-commands] erro:', err.message);
@@ -615,6 +623,15 @@ async function commandCallback(req, res) {
     }
     const { tenant } = await resolveTenantContext(tenantSlug);
     assertToken(req, tenant);
+
+    if (id === 'PROCESS_BILLING') {
+      await prisma.tenantSettings.update({
+        where: { tenantId: tenant.id },
+        data: { firebirdQueueBillingProcess: false }
+      });
+      console.log(`[pending-commands] Comando PROCESS_BILLING concluído.`);
+      return res.json({ ok: true });
+    }
 
     if (success && result?.seqOs) {
       await prisma.serviceOrder.update({

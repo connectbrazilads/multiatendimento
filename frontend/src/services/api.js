@@ -173,4 +173,8 @@ export const getCrmCustomers = (params = {}) => api.get('/crm/customers', { para
 export const getCrmCustomer = (id) => api.get(`/crm/customers/${id}`);
 export const getCrmEquipments = (params = {}) => api.get('/crm/equipments', { params });
 
+// Billing Integration (Automação de Cobranças)
+export const triggerBillingProcess = () => api.post('/integrations/firebird/trigger-billing-process');
+export const getBillingLogs = () => api.get('/integrations/firebird/billing-logs');
+
 export default api;
