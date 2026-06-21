@@ -58,19 +58,19 @@ class AgentGUI(ctk.CTk):
         self.billing_folder_entry = self.create_input(self.settings_frame, "Pasta de Boletos para WhatsApp", 4)
         
         # Politica de envio
-        ctk.CTkLabel(self.settings_frame, text="Enviar boletos para:").grid(row=5, column=0, sticky="w", pady=(10, 0))
-        self.policy_var = ctk.StringVar(value="somente_marcados")
+        ctk.CTkLabel(self.settings_frame, text="Enviar boletos para:").grid(row=10, column=0, sticky="w", pady=(10, 0))
+        self.policy_var = ctk.StringVar(value="Somente Marcados")
         self.policy_menu = ctk.CTkOptionMenu(self.settings_frame, variable=self.policy_var, values=["Somente Marcados", "Todos"])
-        self.policy_menu.grid(row=6, column=0, sticky="ew", pady=(0, 10))
+        self.policy_menu.grid(row=11, column=0, sticky="ew", pady=(0, 10))
         
         # Intervalo de Sincronizacao
-        self.interval_entry = self.create_input(self.settings_frame, "Intervalo de Sincronização (segundos)", 7)
+        self.interval_entry = self.create_input(self.settings_frame, "Intervalo de Sincronização (segundos)", 6)
         
         self.save_btn = ctk.CTkButton(self.settings_frame, text="Salvar Configurações", command=self.save_settings)
-        self.save_btn.grid(row=8, column=0, pady=20, sticky="ew")
+        self.save_btn.grid(row=14, column=0, pady=20, sticky="ew")
         
         self.action_btn = ctk.CTkButton(self.settings_frame, text="▶ Iniciar Agente", command=self.toggle_agent, fg_color="green", hover_color="darkgreen")
-        self.action_btn.grid(row=9, column=0, pady=0, sticky="ew")
+        self.action_btn.grid(row=15, column=0, pady=0, sticky="ew")
 
         # Right Panel (Logs)
         self.logs_frame = ctk.CTkFrame(self.main_frame)
