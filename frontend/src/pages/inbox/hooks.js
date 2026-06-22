@@ -217,10 +217,13 @@ export function useInboxMessages({
     ticketId = selectedIdRef.current,
     before = null,
     replace = true,
+    background = false,
   } = {}) => {
     if (!ticketId) return;
 
-    if (replace) setLoading(true);
+    if (replace) {
+      if (!background) setLoading(true);
+    }
     else setLoadingMoreMessages(true);
 
     setSummary(null);
@@ -308,7 +311,7 @@ export function useInboxRealtime({
 
       if (ticket?.id === selectedIdRef.current) {
         if (historySearchRef?.current?.trim()) {
-          loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch((error) => console.error(error));
+          loadMessages({ ticketId: selectedIdRef.current, replace: true, background: true }).catch((error) => console.error(error));
           return;
         }
 
@@ -339,7 +342,7 @@ export function useInboxRealtime({
     socket.on('connect', () => {
       loadTickets();
       if (selectedIdRef.current) {
-        loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch((error) => console.error(error));
+        loadMessages({ ticketId: selectedIdRef.current, replace: true, background: true }).catch((error) => console.error(error));
       }
     });
 
@@ -350,7 +353,7 @@ export function useInboxRealtime({
       }
 
       if (historySearchRef?.current?.trim()) {
-        loadMessages({ ticketId: selectedIdRef.current, replace: true }).catch((error) => console.error(error));
+        loadMessages({ ticketId: selectedIdRef.current, replace: true, background: true }).catch((error) => console.error(error));
         return;
       }
 

@@ -176,7 +176,7 @@ export default function Inbox() {
         const blob = new Blob(chunks, { type: mimeType });
         try {
           await sendAudioMessage(selectedId, blob);
-          loadMessages();
+          loadMessages({ background: true });
         } catch (e) { toast.error('Erro ao enviar áudio: ' + (e.response?.data?.error || e.message)); }
         stream.getTracks().forEach(t => t.stop());
       };
@@ -370,7 +370,7 @@ export default function Inbox() {
             toast.error(`Falha ao enviar ${currentFiles[i].name}: ` + (e.response?.data?.error || e.message));
           }
         }
-        await loadMessages();
+        await loadMessages({ background: true });
       })();
       return;
     } else {
@@ -390,7 +390,7 @@ export default function Inbox() {
       } else {
         await sendMessage(tId, body, qId);
       }
-      loadMessages();
+      loadMessages({ background: true });
     } catch (e) { toast.error('Erro ao enviar mensagem: ' + (e.response?.data?.error || e.message)); }
   }
 
@@ -820,9 +820,9 @@ export const inboxStyles = {
   },
   searchWrap: { padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem', borderBottom: '1px solid var(--border-color)' },
   searchRow: { display: 'flex', gap: '8px', marginBottom: '4px' },
-  searchShell: { flex: 1, display: 'flex', alignItems: 'center', gap: '0.7rem', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0 0.95rem' },
+  searchShell: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.7rem', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0 0.95rem' },
   searchIcon: { color: 'var(--text-dim)', flexShrink: 0 },
-  search: { flex: 1, background: 'transparent', border: 'none', padding: '0.85rem 0', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' },
+  search: { flex: 1, minWidth: 0, width: '100%', background: 'transparent', border: 'none', padding: '0.85rem 0', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' },
   clearBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', color: 'var(--text-muted)', padding: '0 1rem', cursor: 'pointer', fontWeight: 700, flexShrink: 0 },
   filterBar: { display: 'flex', gap: '6px' },
   filterSelect: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.72rem', outline: 'none', fontWeight: 700 },
