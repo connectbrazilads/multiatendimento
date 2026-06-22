@@ -419,10 +419,10 @@ export function MediaContent({ message, onImageClick, styles }) {
           <FileText size={20} strokeWidth={2.1} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileName}</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{isPdf ? 'Documento PDF' : 'Arquivo'}</div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileName}</div>
+          <div style={{ fontSize: '0.7rem', color: 'rgba(0,0,0,0.5)', fontWeight: 600 }}>{isPdf ? 'Documento PDF' : 'Arquivo'}</div>
         </div>
-        <button type="button" onClick={() => triggerMediaDownload(url)} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Baixar">
+        <button type="button" onClick={() => triggerMediaDownload(url)} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Baixar">
           <Download size={16} strokeWidth={2.2} />
         </button>
       </div>
@@ -774,6 +774,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         width: isMobile ? '100%' : styles.infoPanel.width,
         zIndex: isMobile ? 2000 : profileModal ? 2500 : 1,
         height: '100%',
+        animation: 'slideInRight 0.3s ease-out forwards',
       }}
     >
       <div style={styles.infoPanelHeader}>
@@ -1571,7 +1572,7 @@ export function MessageList({
 
               return (
                 <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
-                  <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start', animation: 'fadeInUp 0.3s ease-out forwards' }}>
                     <div
                       style={{
                         ...styles.bubble,

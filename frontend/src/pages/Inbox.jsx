@@ -860,7 +860,7 @@ export const inboxStyles = {
   miniBadge: { fontSize: '0.6rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' },
 
   main: { flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#141416', background: 'radial-gradient(circle at 24px 24px, rgba(255,255,255,0.02) 1px, transparent 0) 0 0 / 28px 28px, linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 180px)', position: 'relative', minWidth: 0, overflow: 'hidden' },
-  chatHeader: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', background: 'var(--chat-header-bg)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border-color)', zIndex: 10, width: '100%', boxSizing: 'border-box', minHeight: '76px' },
+  chatHeader: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', background: 'var(--chat-header-bg)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border-color)', zIndex: 10, width: '100%', boxSizing: 'border-box', minHeight: '76px' },
   backBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', color: 'var(--text-main)', width: '38px', height: '38px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   chatIdentity: { minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' },
   chatTitleRow: { display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flexWrap: 'wrap' },
@@ -988,7 +988,7 @@ export const inboxStyles = {
   eventWrap: { display: 'flex', justifyContent: 'center', margin: '0.15rem 0 0.35rem' },
   eventBadge: { background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', fontSize: '0.78rem', padding: '0.55rem 0.9rem', borderRadius: '999px', border: '1px solid var(--border-color)', lineHeight: 1.4, textAlign: 'center', maxWidth: 'min(92%, 760px)' },
   
-  infoPanel: { width: '400px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', boxShadow: '-16px 0 32px rgba(0,0,0,0.08)' },
+  infoPanel: { width: '400px', borderLeft: '1px solid var(--border-color)', background: 'var(--chat-header-bg)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', boxShadow: '-16px 0 32px rgba(0,0,0,0.08)' },
   infoPanelHeader: { padding: '1.2rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' },
   infoPanelHeaderMain: { minWidth: 0 },
   infoPanelEyebrow: { fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-dim)', fontWeight: 800, marginBottom: '0.35rem' },
