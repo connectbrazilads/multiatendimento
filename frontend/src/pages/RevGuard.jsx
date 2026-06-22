@@ -129,8 +129,16 @@ export default function RevGuard() {
       // Recarrega a lista
       await loadAuditList();
       
-      // Atualiza o painel lateral com os resultados novos
-      setSelectedTicket(res.data);
+      // Atualiza o painel lateral com os resultados novos mesclando dados anteriores
+      setSelectedTicket(prev => {
+        if (!prev) return res.data;
+        return {
+          ...prev,
+          auditScore: res.data.auditScore,
+          auditResult: res.data.auditResult,
+          auditedAt: res.data.auditedAt
+        };
+      });
     } catch (error) {
       const message = error.response?.data?.error || error.message || 'Falha na análise.';
       toast.error(`Erro ao auditar: ${message}`);
@@ -598,23 +606,54 @@ export default function RevGuard() {
             <div style={s.chartSection}>
               {selectedTicket ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-main)' }}>{selectedTicket.contactName}</h3>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ID do Ticket: {selectedTicket.id}</span>
+                  <div style={s.auditDetailHeader}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: '12px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>{selectedTicket.contactName}</h3>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'monospace' }}>ID: {selectedTicket.id}</span>
+                      </div>
+                      
+                      <button 
+                        style={s.auditBtn} 
+                        disabled={auditingTicketId !== null} 
+                        onClick={() => handleAudit(selectedTicket.id)}
+                      >
+                        {auditingTicketId === selectedTicket.id ? (
+                          <><RotateCw size={14} className="animate-spin" /> Analisando...</>
+                        ) : (
+                          <><Play size={14} /> Auditar com IA</>
+                        )}
+                      </button>
                     </div>
-                    
-                    <button 
-                      style={s.auditBtn} 
-                      disabled={auditingTicketId !== null} 
-                      onClick={() => handleAudit(selectedTicket.id)}
-                    >
-                      {auditingTicketId === selectedTicket.id ? (
-                        <><RotateCw size={14} className="animate-spin" /> Analisando...</>
-                      ) : (
-                        <><Play size={14} /> Auditar com IA</>
-                      )}
-                    </button>
+
+                    <div style={s.metadataGrid}>
+                      <div style={s.metadataItem}>
+                        <span style={s.metadataLabel}>Atendente</span>
+                        <span style={s.metadataValue}>{selectedTicket.agentName}</span>
+                      </div>
+                      <div style={s.metadataItem}>
+                        <span style={s.metadataLabel}>Iniciado em</span>
+                        <span style={s.metadataValue}>
+                          {new Date(selectedTicket.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                      </div>
+                      <div style={s.metadataItem}>
+                        <span style={s.metadataLabel}>Finalizado em</span>
+                        <span style={s.metadataValue}>
+                          {new Date(selectedTicket.resolvedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                      </div>
+                      <div style={s.metadataItem}>
+                        <span style={s.metadataLabel}>CSAT Cliente</span>
+                        <span style={{ 
+                          ...s.metadataValue, 
+                          color: selectedTicket.rating ? '#10b981' : 'var(--text-dim)',
+                          fontWeight: selectedTicket.rating ? 'bold' : 'normal'
+                        }}>
+                          {selectedTicket.rating ? `★ ${selectedTicket.rating}/5` : 'Não avaliado'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {selectedTicket.auditScore !== null ? (
@@ -739,6 +778,39 @@ const s = {
   scoreCircle: { width: '48px', height: '48px', borderRadius: '50%', border: '4px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)' },
   reportBox: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.25rem' },
   
+  auditDetailHeader: {
+    borderBottom: '1px solid var(--border-color)',
+    paddingBottom: '16px',
+    marginBottom: '12px'
+  },
+  metadataGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '12px',
+    marginTop: '12px',
+    background: 'var(--bg-base)',
+    padding: '12px',
+    borderRadius: '12px',
+    border: '1px solid var(--border-color)'
+  },
+  metadataItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px'
+  },
+  metadataLabel: {
+    fontSize: '0.65rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em'
+  },
+  metadataValue: {
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    color: 'var(--text-main)'
+  },
+
   loadingBox: { display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: 'var(--text-muted)', fontSize: '0.85rem' },
   spinner: { width: '28px', height: '28px', borderRadius: '50%', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent)', animation: 'spin-sk 1s infinite linear' },
   errorBox: { padding: '2rem', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '18px', color: '#ef4444', fontSize: '0.85rem', textAlign: 'center' }

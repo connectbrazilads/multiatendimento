@@ -341,6 +341,7 @@ async function getAuditedTickets(req, res) {
         rating: true,
         ratingFeedback: true,
         auditScore: true,
+        auditResult: true,
         auditedAt: true,
         createdAt: true,
         resolvedAt: true,
@@ -357,6 +358,7 @@ async function getAuditedTickets(req, res) {
       agentName: t.agent?.name || 'IA/Sistema',
       rating: t.rating,
       auditScore: t.auditScore,
+      auditResult: t.auditResult,
       auditedAt: t.auditedAt,
       createdAt: t.createdAt,
       resolvedAt: t.resolvedAt
@@ -404,7 +406,7 @@ async function auditTicket(req, res) {
 
     // Formatar histórico de mensagens
     const historyText = ticket.messages.map(m => {
-      const sender = m.fromMe ? (ticket.agent?.name || 'Atendente') : (m.fromBot ? 'IA/Sistema' : 'Cliente');
+      const sender = m.fromBot ? 'IA/Sistema' : (m.fromMe ? (ticket.agent?.name || 'Atendente') : 'Cliente');
       const text = m.body || (m.transcription ? `[Áudio Transcrito: ${m.transcription}]` : '[Mídia/Outro]');
       return `[${m.createdAt.toLocaleTimeString('pt-BR')}] ${sender}: ${text}`;
     }).join('\n');
@@ -416,16 +418,17 @@ async function auditTicket(req, res) {
     });
 
     const prompt = `Você é um auditor de qualidade de atendimento ao cliente por inteligência artificial (QA Analyst).
-    Analise a conversa abaixo que ocorreu entre o cliente e o suporte técnico e atribua uma nota de 0 a 100 de conformidade geral e elabore um relatório detalhado.
-    A avaliação deve analisar:
-    1. **Empatia & Linguagem**: Tom cordial, prestatividade e educação.
-    2. **Agilidade**: Tempo de resposta razoável entre interações.
-    3. **Resolução Técnica**: Se a dúvida foi esclarecida ou se o encaminhamento técnico foi correto.
-    4. **Aderência a Processos**: Se evitou desvios ou promessas indevidas.
+    Analise a conversa abaixo que ocorreu entre o cliente, a IA/Sistema (robô) e o atendente humano da empresa. Atribua uma nota de 0 a 100 de conformidade geral e elabore um parecer detalhado.
+
+    A sua avaliação deve analisar rigorosamente os seguintes critérios:
+    1. **Interação da IA (Robô)**: Se a IA/Sistema respondeu com cordialidade, precisão e de acordo com as informações da empresa.
+    2. **Atendimento Humano**: A empatia, o tom de voz e a educação do atendente humano ao falar com o cliente.
+    3. **Passagem de Bastão (Transição IA ➔ Humano)**: Avalie se o atendente humano leu o histórico do robô antes de interagir. É considerado um erro grave o atendente fazer perguntas repetidas que o cliente já havia respondido para o robô. A transição deve ser fluida e sem atrito.
+    4. **Resolução e Processo**: Se o problema do cliente foi de fato solucionado, se os prazos informados foram corretos e se as diretrizes da empresa foram seguidas.
 
     Retorne estritamente um JSON contendo as chaves:
     1. "score": número inteiro de 0 a 100.
-    2. "report": texto formatado em Markdown descrevendo a análise de cada critério acima, destacando os "Pontos Fortes", as "Oportunidades de Melhoria" e um curto "Veredito Final".
+    2. "report": texto formatado em Markdown descrevendo a análise detalhada de cada critério acima, destacando os "Pontos Fortes", as "Oportunidades de Melhoria" (especialmente em relação à transição IA/Humano e perguntas repetitivas) e um curto "Veredito Final".
 
     Conversa:
     ${historyText}
