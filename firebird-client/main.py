@@ -1043,10 +1043,10 @@ def run_cycle(config: AppConfig, state: StateStore, full: bool = False) -> None:
 
     if full:
         state.data["cursors"] = {
-            "cursors": {
-                "contacts": 0,
-                "equipments": 0,
-            }
+            "contacts": 0,
+            "equipments": 0,
+            "contracts": 0,
+            "serviceOrders": 0,
         }
         state.save()
 
