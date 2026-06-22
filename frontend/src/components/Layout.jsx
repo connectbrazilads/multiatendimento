@@ -155,10 +155,6 @@ export default function Layout() {
   ];
 
   const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
-  const primaryDesktopRoutes = ['/dashboard', '/inbox', '/connections', '/contacts', '/crm', '/campaigns'];
-  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryDesktopRoutes.includes(link.to) || link.label === 'Chat Interno');
-  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryDesktopRoutes.includes(link.to) && link.label !== 'Chat Interno');
-  const secondaryMenuActive = secondaryDesktopLinks.some((link) => location.pathname === link.to);
 
   const mobileLinks = [
     { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
@@ -200,60 +196,18 @@ export default function Layout() {
         {!isMobile ? (
           <div style={styles.centerNav}>
             <div style={{ ...styles.links }} className="desktop-nav-scroll">
-              {primaryDesktopLinks.map((link) => (
+              {visibleDesktopLinks.map((link) => (
                 link.to ? (
-                  <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
+                  <NavLink key={link.to} to={link.to} end={link.to === '/dashboard'} title={link.label} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}>
                     {link.icon}
-                    {link.label}
                   </NavLink>
                 ) : (
-                  <button key={link.label} onClick={link.action} style={{ ...styles.link, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button key={link.label} onClick={link.action} title={link.label} style={{ ...styles.link, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
                     {link.icon}
-                    {link.label}
                   </button>
                 )
               ))}
             </div>
-
-            {secondaryDesktopLinks.length > 0 ? (
-              <div ref={desktopMenuRef} style={styles.moreMenuWrap}>
-                <button
-                  type="button"
-                  onClick={() => setDesktopMenuOpen((previous) => !previous)}
-                  style={{ ...styles.link, ...styles.moreMenuBtn, ...((desktopMenuOpen || secondaryMenuActive) ? styles.linkActive : {}) }}
-                >
-                  Mais
-                  <ChevronDown size={16} style={{ transform: desktopMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
-                </button>
-
-                {desktopMenuOpen ? (
-                  <div style={styles.moreMenuDropdown}>
-                    {secondaryDesktopLinks.map((link) => (
-                      link.to ? (
-                        <NavLink
-                          key={link.to}
-                          to={link.to}
-                          end={link.to === '/dashboard'}
-                          onClick={() => setDesktopMenuOpen(false)}
-                          style={({ isActive }) => ({
-                            ...styles.moreMenuItem,
-                            ...(isActive ? styles.moreMenuItemActive : {}),
-                          })}
-                        >
-                          {link.icon}
-                          {link.label}
-                        </NavLink>
-                      ) : (
-                        <button key={link.label} onClick={() => { link.action(); setDesktopMenuOpen(false); }} style={{ ...styles.moreMenuItem, border: 'none', background: 'transparent', width: '100%', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                          {link.icon}
-                          {link.label}
-                        </button>
-                      )
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         ) : null}
 
@@ -346,15 +300,13 @@ const styles = {
   link: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.4rem',
+    justifyContent: 'center',
+    width: '38px',
+    height: '38px',
     color: 'var(--text-muted)',
     textDecoration: 'none',
-    padding: '0.55rem 0.9rem',
     borderRadius: '12px',
-    fontSize: '0.88rem',
-    fontWeight: 600,
     transition: 'all 0.2s ease',
-    whiteSpace: 'nowrap',
     flexShrink: 0,
   },
   linkActive: {
