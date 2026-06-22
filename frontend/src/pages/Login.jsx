@@ -45,7 +45,11 @@ export default function Login() {
       localStorage.setItem('tenantId', data.tenant?.id || '');
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('role', data.user.role);
-      navigate('/dashboard');
+      if (data.user.role === 'superadmin') {
+        navigate('/superadmin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError('E-mail ou senha inválidos. Tente novamente.');
     } finally {
