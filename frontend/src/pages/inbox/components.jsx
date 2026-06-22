@@ -413,21 +413,17 @@ export function MediaContent({ message, onImageClick, styles }) {
   if (url && message.mediaType === 'sticker') return <img src={url} alt="" style={{ maxWidth: 150, borderRadius: 8 }} />;
   if (url && message.mediaType === 'document') {
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
-    const extensionLabel = isPdf ? 'PDF' : (fileName.split('.').pop() || 'DOC').slice(0, 4).toUpperCase();
     return (
-      <div style={styles.attachmentCard}>
-        <div style={styles.documentPreview}>
-          <div style={styles.documentPreviewBadge}>
-            <FileText size={22} strokeWidth={2.1} />
-            <span>{extensionLabel}</span>
-          </div>
-          <div style={styles.documentPreviewLabel}>
-            {isPdf ? 'Documento PDF' : 'Documento anexado'}
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-color)', maxWidth: '320px' }}>
+        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(212,175,55,0.1)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <FileText size={20} strokeWidth={2.1} />
         </div>
-        <button type="button" style={styles.attachmentFooterBtn} onClick={() => triggerMediaDownload(url)} title="Baixar anexo">
-          <Download size={14} strokeWidth={2.2} />
-          <span style={styles.attachmentFooterText}>{fileName}</span>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileName}</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{isPdf ? 'Documento PDF' : 'Arquivo'}</div>
+        </div>
+        <button type="button" onClick={() => triggerMediaDownload(url)} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Baixar">
+          <Download size={16} strokeWidth={2.2} />
         </button>
       </div>
     );
@@ -716,13 +712,41 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
   const mediaTab = (
     <>
       <div style={styles.infoSection}>
-        <h5 style={styles.infoLabel}>Midias compartilhadas</h5>
+        <h5 style={styles.infoLabel}>Fotos e Videos</h5>
         <div style={{ ...styles.mediaGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : styles.mediaGrid.gridTemplateColumns }}>
-          {media.filter((item) => item.mediaType === 'image').slice(0, 12).map((item) => (
-            <img key={item.id} src={item.mediaUrl} style={styles.mediaThumb} onClick={() => onImageClick(item.mediaUrl)} />
+          {media.filter((item) => item.mediaType === 'image' || item.mediaType === 'video').slice(0, 12).map((item) => (
+            item.mediaType === 'image' ? (
+              <img key={item.id} src={getMediaUrl(item.mediaUrl)} style={styles.mediaThumb} onClick={() => onImageClick(getMediaUrl(item.mediaUrl))} />
+            ) : (
+              <video key={item.id} src={getMediaUrl(item.mediaUrl)} style={{...styles.mediaThumb, background: '#000'}} controls={false} onClick={() => triggerMediaDownload(getMediaUrl(item.mediaUrl))} />
+            )
           ))}
         </div>
-        {media.length === 0 ? <div style={styles.infoEmpty}>Nenhuma midia enviada</div> : null}
+        {media.filter((item) => item.mediaType === 'image' || item.mediaType === 'video').length === 0 ? <div style={styles.infoEmpty}>Nenhuma imagem ou video</div> : null}
+      </div>
+
+      <div style={styles.infoSection}>
+        <h5 style={styles.infoLabel}>Documentos e Arquivos</h5>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {media.filter((item) => item.mediaType === 'document' || item.mediaType === 'audio').map((item) => {
+            const docName = getSafeText(item.body || item.mediaUrl.split('/').pop(), item.mediaType === 'audio' ? 'Áudio' : 'Documento');
+            return (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--bg-panel)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-muted)' }}>
+                  {item.mediaType === 'audio' ? <Mic size={16} /> : <FileText size={16} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{docName}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</div>
+                </div>
+                <button type="button" onClick={() => triggerMediaDownload(getMediaUrl(item.mediaUrl))} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <Download size={16} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {media.filter((item) => item.mediaType === 'document' || item.mediaType === 'audio').length === 0 ? <div style={styles.infoEmpty}>Nenhum documento enviado</div> : null}
       </div>
 
       <div style={styles.infoSection}>
