@@ -640,9 +640,9 @@ export default function Inbox() {
       </main>
 
       {showInfo && selectedTicket && (
-        <InboxSectionErrorBoundary key={`info-${selectedTicket.id}-${updateTrigger}`} label="painel do cliente">
+        <InboxSectionErrorBoundary key={`info-${selectedTicket.id}`} label="painel do cliente">
           <ContactPanel 
-            key={(selectedTicket.contact?.id || 'new') + '_' + updateTrigger}
+            key={(selectedTicket.contact?.id || 'new')}
             ticket={selectedTicket} 
             onClose={() => setShowInfo(false)} 
             onUpdate={() => { loadTickets(); setUpdateTrigger(prev => prev + 1); }}
@@ -823,7 +823,7 @@ export const inboxStyles = {
   searchShell: { flex: 1, display: 'flex', alignItems: 'center', gap: '0.7rem', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0 0.95rem' },
   searchIcon: { color: 'var(--text-dim)', flexShrink: 0 },
   search: { flex: 1, background: 'transparent', border: 'none', padding: '0.85rem 0', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' },
-  clearBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', color: 'var(--text-muted)', padding: '0 1rem', cursor: 'pointer', fontWeight: 700 },
+  clearBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '14px', color: 'var(--text-muted)', padding: '0 1rem', cursor: 'pointer', fontWeight: 700, flexShrink: 0 },
   filterBar: { display: 'flex', gap: '6px' },
   filterSelect: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.72rem', outline: 'none', fontWeight: 700 },
   list: { flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem 0.75rem' },

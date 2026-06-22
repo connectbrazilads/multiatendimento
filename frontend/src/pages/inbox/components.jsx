@@ -767,6 +767,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
 
   return (
     <div
+      className="animate-slide-in-right"
       style={{
         ...styles.infoPanel,
         position: isMobile ? 'fixed' : 'relative',
@@ -774,7 +775,6 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         width: isMobile ? '100%' : styles.infoPanel.width,
         zIndex: isMobile ? 2000 : profileModal ? 2500 : 1,
         height: '100%',
-        animation: 'slideInRight 0.3s ease-out forwards',
       }}
     >
       <div style={styles.infoPanelHeader}>
@@ -1572,7 +1572,7 @@ export function MessageList({
 
               return (
                 <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
-                  <div style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start', animation: 'fadeInUp 0.3s ease-out forwards' }}>
+                  <div className="animate-fade-in-up" style={{ ...styles.bubbleWrap, justifyContent: message.fromMe ? 'flex-end' : 'flex-start' }}>
                     <div
                       style={{
                         ...styles.bubble,
