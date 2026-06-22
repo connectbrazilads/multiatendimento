@@ -585,12 +585,21 @@ class FirebirdRepository:
     def fetch_contacts(self, cursor: int) -> Iterator[dict[str, Any]]:
         sql = """
             select
-                CDCLIENTE, NMCLIENTE, FANTASIA, CPF, CNPJ, CIDADE, UF, CEP,
-                ENDERECO, NUM, COMPLEMENTO, BAIRRO, DDD, FONE1, FONE2, CELULAR, FAX, EMAIL, CONTATO,
-                INCLUSAO, ATUALIZADO
-            from ICLIENTES
-            where CDCLIENTE > ?
-            order by CDCLIENTE
+                cli.CDCLIENTE, cli.NMCLIENTE, cli.FANTASIA, cli.CPF, cli.CNPJ, cli.CIDADE, cli.UF, cli.CEP,
+                cli.ENDERECO, cli.NUM, cli.COMPLEMENTO, cli.BAIRRO, cli.DDD, cli.FONE1, cli.FONE2, cli.CELULAR, cli.FAX, cli.EMAIL, cli.CONTATO,
+                cli.INCLUSAO, cli.ATUALIZADO,
+                (
+                    select sum(m.VALFRANQUIA)
+                    from IXLCONTRATOSGRP g
+                    join IXLCONTRATOS c on c.SEQCONTRATOGRP = g.SEQCONTRATOGRP
+                    join IXLCONTRATOSMED m on m.SEQCONTRATO = c.SEQCONTRATO
+                    where g.CDCLIENTE = cli.CDCLIENTE
+                      and c.STATUS = 'G'
+                      and m.TFMEDIDORATIVO = 'S'
+                ) as TOTAL_MENSALIDADE
+            from ICLIENTES cli
+            where cli.CDCLIENTE > ?
+            order by cli.CDCLIENTE
         """
         yield from self._rows(sql, (cursor,))
 

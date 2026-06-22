@@ -28,7 +28,23 @@ async function getRevenueDashboard(req, res) {
 
     // Remover duplicados de clientes para contar quantos contratos de locação estão sob risco
     const uniqueContactsWithDowntime = [...new Set(criticalServiceOrders.map(so => so.contactId))];
-    const mrrInRisk = uniqueContactsWithDowntime.length * kpiContractValue;
+    
+    // Buscar os CrmCustomers associados aos contatos para somar o valor real de contrato
+    const contactsWithCrm = await prisma.contact.findMany({
+      where: { id: { in: uniqueContactsWithDowntime } },
+      select: {
+        crmCustomer: {
+          select: { raw: true }
+        }
+      }
+    });
+
+    let mrrInRisk = 0;
+    for (const c of contactsWithCrm) {
+      const rawVal = c.crmCustomer?.raw?.['total_mensalidade'] || c.crmCustomer?.raw?.['TOTAL_MENSALIDADE'];
+      const parsedVal = (rawVal !== undefined && rawVal !== null) ? parseFloat(rawVal) : null;
+      mrrInRisk += (parsedVal !== null && !isNaN(parsedVal)) ? parsedVal : kpiContractValue;
+    }
 
     // 3. ORÇAMENTOS DE MANUTENÇÃO PARADOS (DINHEIRO NA MESA)
     // O.S. que estão aguardando retorno de aprovação do cliente há mais de 24 horas
