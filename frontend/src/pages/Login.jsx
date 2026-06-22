@@ -10,7 +10,8 @@ export default function Login() {
   const [tenantInfo, setTenantInfo] = useState(null);
   const navigate = useNavigate();
   const { slug } = useParams();
-  const routeSlug = slug || window.location.pathname.split('/').filter(Boolean)[0] || '';
+  const firstPath = window.location.pathname.split('/').filter(Boolean)[0] || '';
+  const routeSlug = slug || (firstPath !== 'login' ? firstPath : '') || '';
 
   useEffect(() => {
     if (routeSlug) {
