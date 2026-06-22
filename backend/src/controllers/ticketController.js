@@ -535,7 +535,8 @@ async function resolve(req, res) {
   })();
   res.json(ticket);
 
-  // IA: Geração de Tags Automáticas ao encerrar
+  // IA: Geração de Tags Automáticas ao encerrar (DESATIVADO pelo usuário)
+  /*
   if (settings?.geminiKey) {
     (async () => {
       try {
@@ -570,6 +571,7 @@ async function resolve(req, res) {
       }
     })();
   }
+  */
 }
 
 async function sendMessage(req, res) {
