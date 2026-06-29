@@ -271,7 +271,7 @@ async function setWebhook(url, key, instanceName, webhookUrl) {
       enabled: true,
       webhook_by_events: false,
       webhook_base64: false,
-      events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'MESSAGES_DELETE', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+      events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'MESSAGES_DELETE', 'CONNECTION_UPDATE', 'QRCODE_UPDATED', 'MESSAGES_SET'],
     },
   });
   return data;
@@ -446,8 +446,27 @@ async function revokeMessage(url, key, instanceName, remoteJid, messageId) {
   }
 }
 
+async function findChats(url, key, instanceName) {
+  const client = getClient(url, key);
+  const { data } = await client.get(`/chat/findChats/${instanceName}`);
+  return data;
+}
+
+async function findMessages(url, key, instanceName, remoteJid, limit = 50) {
+  const client = getClient(url, key);
+  const { data } = await client.post(`/chat/findMessages/${instanceName}?limit=${limit}`, {
+    where: {
+      key: {
+        remoteJid: remoteJid
+      }
+    }
+  });
+  return data;
+}
+
 module.exports = {
   sendText, sendMedia, sendAudio, sendMessage, getMediaBase64, saveMediaFile,
   getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage,
-  normalizePhoneNumber, buildPhoneLookupCandidates, isGroupJid
+  normalizePhoneNumber, buildPhoneLookupCandidates, isGroupJid,
+  findChats, findMessages
 };

@@ -175,6 +175,31 @@ server.listen(PORT, () => {
     } catch (err) {
       console.error('[startup-fix] Erro ao executar auto-correção:', err.message);
     }
+
+    // Sincronização automática de webhooks para garantir que MESSAGES_SET esteja ativo
+    try {
+      const prisma = require('./lib/prisma');
+      const evolution = require('./services/evolutionService');
+      const instances = await prisma.waInstance.findMany();
+      if (instances.length > 0) {
+        console.log(`[startup-webhook-fix] Verificando/atualizando webhooks para ${instances.length} instâncias...`);
+        const backendUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3002}`;
+        const webhookUrl = `${backendUrl}/api/webhook`;
+        
+        for (const inst of instances) {
+          const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: inst.tenantId } });
+          const evolutionUrl = settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+          const evolutionKey = settings?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+          if (evolutionUrl && evolutionKey) {
+            console.log(`[startup-webhook-fix] Atualizando webhook da instância ${inst.instanceName} com URL ${webhookUrl}...`);
+            await evolution.setWebhook(evolutionUrl, evolutionKey, inst.instanceName, webhookUrl);
+          }
+        }
+        console.log(`[startup-webhook-fix] Concluído.`);
+      }
+    } catch (err) {
+      console.error('[startup-webhook-fix] Erro ao sincronizar webhooks:', err.message);
+    }
   })();
 });
 
