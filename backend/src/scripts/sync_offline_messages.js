@@ -38,7 +38,8 @@ async function main() {
     }
 
     try {
-      console.log('Buscando conversas ativas na Evolution...');
+      const targetUrl = `${evolutionUrl}/chat/findChats/${inst.instanceName}`;
+      console.log(`Buscando conversas em: ${targetUrl} (Chave: ${evolutionKey ? evolutionKey.slice(0, 5) + '...' : 'nula'})...`);
       const chats = await evolution.findChats(evolutionUrl, evolutionKey, inst.instanceName);
       
       if (!Array.isArray(chats) || chats.length === 0) {
@@ -88,6 +89,11 @@ async function main() {
       console.log(`Processamento concluido para ${inst.instanceName}. Importadas ${importedCount} mensagens.`);
     } catch (err) {
       console.error(`Erro ao processar a instancia ${inst.instanceName}:`, err.message);
+      if (err.response?.data) {
+        console.error('Detalhes do erro da Evolution:', JSON.stringify(err.response.data, null, 2));
+      } else {
+        console.error(err.stack || err);
+      }
     }
   }
 }
