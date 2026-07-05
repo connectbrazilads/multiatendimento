@@ -25,6 +25,7 @@ import {
   SendHorizontal,
   Sparkles,
   X,
+  Lock,
 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
@@ -934,15 +935,38 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
 
 export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
   const [target, setTarget] = useState('users');
+  const [note, setNote] = useState('');
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}><h3>Transferir chat</h3><button onClick={onClose}>X</button></div>
         <div style={styles.tabs}><button onClick={() => setTarget('users')} style={{ ...styles.tab, ...(target === 'users' ? styles.tabActive : {}) }}>Agentes</button><button onClick={() => setTarget('teams')} style={{ ...styles.tab, ...(target === 'teams' ? styles.tabActive : {}) }}>Equipes</button></div>
-        <div style={{ padding: '1rem', maxHeight: 300, overflowY: 'auto' }}>
+        
+        <div style={{ padding: '0.5rem 1.5rem 0' }}>
+          <textarea
+            placeholder="Mensagem/Nota para o destinatário (opcional)..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '0.65rem 0.8rem',
+              color: 'var(--text-main)',
+              fontSize: '0.88rem',
+              outline: 'none',
+              resize: 'none',
+              height: '56px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ padding: '1rem', maxHeight: 220, overflowY: 'auto' }}>
           {target === 'users'
-            ? users.map((user) => <div key={user.id} style={styles.transferRow} onClick={() => onTransfer(user.id, null)}><Avatar name={user.name} size={30} />{user.name}</div>)
-            : teams.map((team) => <div key={team.id} style={styles.transferRow} onClick={() => onTransfer(null, team.id)}>Equipe: {team.name}</div>)}
+            ? users.map((user) => <div key={user.id} style={styles.transferRow} onClick={() => onTransfer(user.id, null, note)}><Avatar name={user.name} size={30} />{user.name}</div>)
+            : teams.map((team) => <div key={team.id} style={styles.transferRow} onClick={() => onTransfer(null, team.id, note)}>Equipe: {team.name}</div>)}
         </div>
       </div>
     </div>
@@ -1542,6 +1566,24 @@ export function MessageList({
                   );
                 }
 
+                if (message.type === 'note') {
+                  const noteText = payload?.note || payload?.text || message.payload || '';
+                  return (
+                    <MessageRenderErrorBoundary key={messageKey} messageId={message.id}>
+                      <div style={styles.noteWrap}>
+                        <div style={styles.noteCard}>
+                          <div style={styles.noteHeader}>
+                            <Lock size={12} style={{ color: '#d4af37', marginRight: 6 }} />
+                            <span>Nota Interna • {messageUserName}</span>
+                          </div>
+                          <div style={styles.noteBody}>{noteText}</div>
+                          <div style={styles.noteTime}>{message.createdAt ? new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                        </div>
+                      </div>
+                    </MessageRenderErrorBoundary>
+                  );
+                }
+
                 const eventLabel = {
                   assigned: 'Assumiu o atendimento',
                   transferred: `Transferiu para ${getSafeText(payload?.teamName, 'outra equipe')}`,
@@ -1712,6 +1754,8 @@ export function MessageComposer({
   setText,
   text,
   recordingTime,
+  isNote,
+  setIsNote,
 }) {
   const fileInputRef = useRef(null);
 
@@ -1758,6 +1802,45 @@ export function MessageComposer({
       )}
 
       <div style={{ ...styles.inputArea, padding: isMobile ? '0.75rem' : '1rem 1.5rem' }}>
+        {/* Toggle between Message and Note */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+          <button
+            type="button"
+            onClick={() => setIsNote(false)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '999px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: '1px solid var(--border-color)',
+              background: !isNote ? 'var(--accent)' : 'transparent',
+              color: !isNote ? 'var(--text-inverse)' : 'var(--text-muted)',
+              transition: 'all 0.15s'
+            }}
+          >
+            Mensagem (WhatsApp)
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsNote(true)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '999px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: '1px solid var(--border-color)',
+              background: isNote ? 'rgba(212, 175, 55, 0.14)' : 'transparent',
+              color: isNote ? '#d4af37' : 'var(--text-muted)',
+              borderColor: isNote ? 'rgba(212, 175, 55, 0.3)' : 'var(--border-color)',
+              transition: 'all 0.15s'
+            }}
+          >
+            Nota Interna (Privado)
+          </button>
+        </div>
+
         {replyingTo ? (
           <div style={styles.replyBanner}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1783,12 +1866,14 @@ export function MessageComposer({
         ) : (
           <>
             <div style={{ ...styles.composerShell, gap: isMobile ? '0.55rem' : styles.composerShell.gap, padding: isMobile ? '0.55rem' : styles.composerShell.padding }}>
-              <button type="button" style={{ ...styles.attachBtn, width: isMobile ? '42px' : styles.attachBtn.width, height: isMobile ? '42px' : styles.attachBtn.height }} onClick={() => fileInputRef.current?.click()} title="Adicionar anexo">
-                <Paperclip size={18} strokeWidth={2.4} />
-              </button>
+              {!isNote && (
+                <button type="button" style={{ ...styles.attachBtn, width: isMobile ? '42px' : styles.attachBtn.width, height: isMobile ? '42px' : styles.attachBtn.height }} onClick={() => fileInputRef.current?.click()} title="Adicionar anexo">
+                  <Paperclip size={18} strokeWidth={2.4} />
+                </button>
+              )}
 
               <div style={styles.composerCenter}>
-                {files.length > 0 ? (
+                {files.length > 0 && !isNote ? (
                   <div style={styles.draftAttachmentList}>
                     {files.map((file, index) => (
                       <DraftAttachmentPreview
@@ -1817,8 +1902,8 @@ export function MessageComposer({
                       event.target.style.height = isMobile ? '46px' : '52px';
                     }
                   }}
-                  onPaste={handlePaste}
-                  placeholder={isMobile ? 'Mensagem...' : 'Digite sua mensagem...'}
+                  onPaste={isNote ? undefined : handlePaste}
+                  placeholder={isNote ? 'Escrever nota interna privada (invisível para o cliente)...' : (isMobile ? 'Mensagem...' : 'Digite sua mensagem...')}
                   spellCheck={false}
                 />
               </div>
@@ -1828,14 +1913,15 @@ export function MessageComposer({
                   ...styles.sendBtn,
                   width: isMobile ? '44px' : '48px',
                   height: isMobile ? '44px' : '48px',
-                  background: (!text.trim() && files.length === 0) ? 'var(--bg-panel)' : 'var(--accent)',
-                  border: (!text.trim() && files.length === 0) ? '1px solid var(--border-color)' : 'none',
-                  color: (!text.trim() && files.length === 0) ? 'var(--text-muted)' : 'var(--text-inverse)',
+                  background: (!text.trim() && files.length === 0 && !isNote) ? 'var(--bg-panel)' : 'var(--accent)',
+                  border: (!text.trim() && files.length === 0 && !isNote) ? '1px solid var(--border-color)' : 'none',
+                  color: (!text.trim() && files.length === 0 && !isNote) ? 'var(--text-muted)' : 'var(--text-inverse)',
                   fontSize: isMobile ? '1rem' : '1.1rem',
                 }}
-                onClick={(!text.trim() && files.length === 0) ? startRecording : handleSend}
+                onClick={(!text.trim() && files.length === 0 && !isNote) ? startRecording : handleSend}
+                disabled={isNote && !text.trim()}
               >
-                {(!text.trim() && files.length === 0) ? <Mic size={18} strokeWidth={2.4} /> : <SendHorizontal size={18} strokeWidth={2.4} />}
+                {(!text.trim() && files.length === 0 && !isNote) ? <Mic size={18} strokeWidth={2.4} /> : <SendHorizontal size={18} strokeWidth={2.4} />}
               </button>
 
               <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />

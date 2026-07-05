@@ -17,6 +17,7 @@ import api, {
   deleteMessage,
   getSettings,
   forwardMessage,
+  createTicketNote,
   BACKEND_URL,
 } from '../services/api';
 import { toast } from '../utils/toast';
@@ -98,6 +99,7 @@ export default function Inbox() {
   const [updateTrigger, setUpdateTrigger] = useState(0); // Forca atualizacao de componentes filhos
   const [replyingTo, setReplyingTo] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [isNote, setIsNote] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const isMobile = useIsMobile();
 
@@ -348,6 +350,19 @@ export default function Inbox() {
     e?.preventDefault();
     if (!text.trim() && files.length === 0) return;
 
+    if (isNote) {
+      const noteBody = text;
+      setText('');
+      setFiles([]);
+      setIsNote(false);
+      try {
+        await createTicketNote(selectedId, noteBody);
+        loadMessages({ background: true });
+      } catch (err) {
+        toast.error('Erro ao salvar nota: ' + (err.response?.data?.error || err.message));
+      }
+      return;
+    }
 
     if (files.length > 0) {
       const currentFiles = [...files];
@@ -627,6 +642,8 @@ export default function Inbox() {
                 styles={s}
                 setText={setText}
                 text={text}
+                isNote={isNote}
+                setIsNote={setIsNote}
               />
             </InboxSectionErrorBoundary>
           </>
@@ -987,6 +1004,11 @@ export const inboxStyles = {
   sepLabel: { fontSize: '0.72rem', fontWeight: 800, padding: '0.4rem 0.8rem', borderRadius: '999px', color: 'var(--text-muted)', background: 'var(--bg-panel)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center', border: '1px solid var(--border-color)' },
   eventWrap: { display: 'flex', justifyContent: 'center', margin: '0.15rem 0 0.35rem' },
   eventBadge: { background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', fontSize: '0.78rem', padding: '0.55rem 0.9rem', borderRadius: '999px', border: '1px solid var(--border-color)', lineHeight: 1.4, textAlign: 'center', maxWidth: 'min(92%, 760px)' },
+  noteWrap: { display: 'flex', justifyContent: 'center', margin: '0.45rem 0' },
+  noteCard: { background: 'rgba(212, 175, 55, 0.09)', border: '1px dashed rgba(212, 175, 55, 0.3)', color: 'var(--text-main)', padding: '0.85rem 1.25rem', borderRadius: '18px', width: 'fit-content', maxWidth: 'min(90%, 620px)', display: 'flex', flexDirection: 'column', gap: '0.35rem', boxShadow: 'var(--shadow-sm)' },
+  noteHeader: { display: 'flex', alignItems: 'center', fontSize: '0.72rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  noteBody: { fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' },
+  noteTime: { fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'right', fontWeight: 700 },
   
   infoPanel: { width: '400px', borderLeft: '1px solid var(--border-color)', background: 'var(--chat-header-bg)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', boxShadow: '-16px 0 32px rgba(0,0,0,0.08)' },
   infoPanelHeader: { padding: '1.2rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' },

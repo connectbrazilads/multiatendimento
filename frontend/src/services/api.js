@@ -84,8 +84,9 @@ export const assignTicket = (ticketId, agentId, teamId) => api.patch(`/tickets/$
 export const resolveTicket = (ticketId) => api.patch(`/tickets/${ticketId}/resolve`);
 export const createTicket = (contactId) => api.post('/tickets', { contactId });
 export const summarizeTicket = (id) => api.post(`/tickets/${id}/summarize`);
-export const reopenTicket = (contactId) => api.post('/tickets/reopen', { contactId });
+export const createTicketNote = (ticketId, body) => api.post(`/tickets/${ticketId}/notes`, { body });
 export const updateTicket = (id, data) => api.patch(`/tickets/${id}`, data);
+export const reopenTicket = (contactId) => api.post('/tickets/reopen', { contactId });
 export const sendMediaMessage = (ticketId, file, caption = '', quotedMsgId = null) => {
   const form = new FormData();
   form.append('file', file);

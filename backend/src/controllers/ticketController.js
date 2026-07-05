@@ -385,7 +385,7 @@ async function getMessages(req, res) {
 }
 async function assign(req, res) {
   const { id } = req.params;
-  const { agentId, teamId } = req.body;
+  const { agentId, teamId, note } = req.body;
 
   const existing = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!existing) return res.status(404).json({ error: 'Ticket não encontrado' });
@@ -412,6 +412,17 @@ async function assign(req, res) {
     type: agentId ? 'assigned' : (teamId ? 'transferred' : 'unassigned'),
     payload: { agentId, teamId, agentName: ticket.agent?.name, teamName: ticket.team?.name }
   });
+
+  // Log note event if a note is provided during transfer
+  if (note && typeof note === 'string' && note.trim()) {
+    await historyService.logEvent({
+      ticketId: ticket.id,
+      tenantId: ticket.tenantId,
+      userId: req.user.userId,
+      type: 'note',
+      payload: { note: note.trim() }
+    });
+  }
 
   // GERAÇÃO DE RESUMO IA (ASSÍNCRONO)
   if (agentId || teamId) {
@@ -1223,4 +1234,37 @@ async function forwardMessage(req, res) {
   }
 }
 
-module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, linkContact, forwardMessage, setIo };
+async function createNote(req, res) {
+  const { id } = req.params;
+  const { body } = req.body;
+  const tenantId = req.user.tenantId;
+
+  if (!body || !body.trim()) {
+    return res.status(400).json({ error: 'Conteúdo da nota é obrigatório' });
+  }
+
+  try {
+    const ticket = await prisma.ticket.findFirst({ where: { id, tenantId } });
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+
+    const event = await historyService.logEvent({
+      ticketId: ticket.id,
+      tenantId: ticket.tenantId,
+      userId: req.user.userId,
+      type: 'note',
+      payload: { note: body.trim() }
+    });
+
+    if (io) {
+      io.to(tenantId).emit('ticket_updated', { ticketId: ticket.id });
+      io.to(tenantId).emit('new_message', { ticketId: ticket.id });
+    }
+
+    res.json(event);
+  } catch (err) {
+    console.error('[createNote] erro:', err.message);
+    res.status(500).json({ error: 'Erro ao criar nota interna' });
+  }
+}
+
+module.exports = { list, getMessages, assign, resolve, update, sendMessage, sendMediaMessage, deleteMessage, reopen, summarize, linkContact, forwardMessage, createNote, setIo };
