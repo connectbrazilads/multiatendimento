@@ -49,7 +49,12 @@ function ensureAccepted(data, context) {
 async function sendText(url, key, instanceName, phone, text, quoted = null) {
   const client = getClient(url, key);
   try {
-    const payload = { number: phone, text };
+    const payload = { 
+      number: phone, 
+      text,
+      linkPreview: false,
+      options: { linkPreview: false }
+    };
     if (quoted) payload.quoted = buildQuotedPayload(quoted);
     const targetPath = `/message/sendText/${instanceName}`;
     const sanitizedUrl = sanitizeUrl(url);

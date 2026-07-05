@@ -28,9 +28,17 @@ async function list(req, res) {
         const data = await evolution.getConnectionState(evolutionUrl, evolutionKey, inst.instanceName);
         const state = data?.instance?.state || data?.state || 'close';
         
+        let phoneStr = data?.instance?.owner || data?.owner || inst.phone;
+        if (phoneStr && typeof phoneStr === 'string' && phoneStr.includes('@')) {
+           phoneStr = phoneStr.split('@')[0];
+        }
+        
         const updated = await prisma.waInstance.update({
           where: { id: inst.id },
-          data: { status: state === 'open' ? 'connected' : 'disconnected' }
+          data: { 
+            status: state === 'open' ? 'connected' : 'disconnected',
+            ...(phoneStr && { phone: phoneStr })
+          }
         });
         return { ...updated, state };
       } catch {

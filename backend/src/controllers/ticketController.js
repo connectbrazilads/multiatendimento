@@ -1194,7 +1194,7 @@ async function forwardMessage(req, res) {
         return res.status(400).json({ error: 'Arquivo de mídia não encontrado no servidor' });
       }
     } else {
-      const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body}`;
+      const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
       result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody);
     }
 

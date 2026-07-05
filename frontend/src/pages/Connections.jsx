@@ -106,6 +106,11 @@ export default function Connections() {
                     <span style={{ ...s.cardStatus, color: isConnected ? 'var(--success)' : 'var(--text-muted)' }}>
                       {isConnected ? 'Conectado' : 'Desconectado'}
                     </span>
+                    {inst.phone && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
+                        +{inst.phone}
+                      </div>
+                    )}
                   </div>
                   <button style={s.deleteBtn} onClick={() => handleDelete(inst.id)} title="Excluir conexao">
                     <Trash2 size={16} />
