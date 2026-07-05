@@ -609,6 +609,22 @@ async function handleWebhook(req, res) {
       if (waInstance) {
         if (io) io.to(waInstance.tenantId).emit('connection_update', { instance, event, data });
         
+        // Atualiza status e telefone se disponível no evento de conexão
+        const isConnected = ev === 'connection.update' && data?.state === 'open';
+        let phone = waInstance.phone;
+        const owner = data?.owner || data?.ownerJid;
+        if (owner && typeof owner === 'string') {
+          phone = owner.split('@')[0];
+        }
+
+        await prisma.waInstance.update({
+          where: { id: waInstance.id },
+          data: { 
+            status: isConnected ? 'connected' : (data?.state === 'close' ? 'disconnected' : waInstance.status),
+            ...(phone && { phone })
+          }
+        });
+        
         // Se a conexão caiu, avisa o admin
         if (ev === 'connection.update' && (data.state === 'close' || data.state === 'connecting')) {
           const { sendSystemAlert } = require('../services/alertService');
