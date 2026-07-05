@@ -409,9 +409,9 @@ export default function Inbox() {
     } catch (e) { toast.error('Erro ao enviar mensagem: ' + (e.response?.data?.error || e.message)); }
   }
 
-  async function handleTransfer(agentId, teamId) {
+  async function handleTransfer(agentId, teamId, note) {
     try {
-      await assignTicket(selectedId, agentId, teamId);
+      await assignTicket(selectedId, agentId, teamId, note);
       setTransferModal(false);
       setSelectedId(null);
       loadTickets();

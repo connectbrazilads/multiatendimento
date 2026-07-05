@@ -422,6 +422,10 @@ async function assign(req, res) {
       type: 'note',
       payload: { note: note.trim() }
     });
+    if (io) {
+      io.to(ticket.tenantId).emit('ticket_updated', { ticketId: ticket.id });
+      io.to(ticket.tenantId).emit('new_message', { ticketId: ticket.id });
+    }
   }
 
   // GERAÇÃO DE RESUMO IA (ASSÍNCRONO)
