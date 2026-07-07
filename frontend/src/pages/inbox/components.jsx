@@ -102,15 +102,15 @@ function getPriorityMeta(priority) {
   const priorityMap = {
     urgent: {
       label: 'Urgente',
-      background: 'rgba(239, 68, 68, 0.12)',
-      color: '#ef4444',
-      border: '1px solid rgba(239, 68, 68, 0.18)',
+      background: 'var(--danger-light)',
+      color: 'var(--danger)',
+      border: '1px solid var(--danger-light)',
     },
     high: {
       label: 'Alta',
-      background: 'rgba(249, 115, 22, 0.12)',
-      color: '#f97316',
-      border: '1px solid rgba(249, 115, 22, 0.18)',
+      background: 'var(--warning-light)',
+      color: 'var(--warning)',
+      border: '1px solid var(--warning-light)',
     },
     medium: {
       label: 'Normal',
@@ -120,9 +120,9 @@ function getPriorityMeta(priority) {
     },
     low: {
       label: 'Baixa',
-      background: 'rgba(59, 130, 246, 0.12)',
-      color: '#3b82f6',
-      border: '1px solid rgba(59, 130, 246, 0.18)',
+      background: 'var(--info-light)',
+      color: 'var(--info)',
+      border: '1px solid var(--info-border)',
     },
   };
 
@@ -177,12 +177,12 @@ class MessageRenderErrorBoundary extends React.Component {
         <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
           <div
             style={{
-              background: 'rgba(230, 126, 34, 0.08)',
-              color: '#e67e22',
+              background: 'var(--warning-light)',
+              color: 'var(--warning)',
               fontSize: '0.85rem',
               padding: '10px 14px',
-              borderRadius: '14px',
-              border: '1px solid rgba(230, 126, 34, 0.2)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--warning-light)',
               fontWeight: 700,
               lineHeight: 1.4,
               textAlign: 'center',
@@ -249,7 +249,7 @@ function AudioPlayer({ src, fromMe, transcription, styles }) {
           style={{
             ...styles.transcription,
             borderLeft: `2px solid ${fromMe ? '#000' : '#D4AF37'}`,
-            color: fromMe ? 'rgba(0,0,0,0.6)' : '#A0A0A0',
+            color: fromMe ? 'rgba(0,0,0,0.6)' : 'var(--text-muted)',
           }}
         >
           {transcriptionText}
@@ -361,14 +361,14 @@ export function MediaContent({ message, onImageClick, styles }) {
       <div
         style={{
           padding: '0.75rem 1rem',
-          background: 'rgba(255,80,80,0.05)',
-          borderRadius: '8px',
-          border: '1px dashed rgba(255,80,80,0.2)',
+          background: 'var(--danger-light)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px dashed var(--danger)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           fontSize: '0.8rem',
-          color: '#ff6b6b',
+          color: 'var(--danger)',
         }}
       >
         <span style={{ fontSize: '1rem' }}>Indisponivel</span> Midia indisponivel
@@ -418,7 +418,7 @@ export function MediaContent({ message, onImageClick, styles }) {
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-color)', maxWidth: '320px' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(212,175,55,0.1)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-light)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <FileText size={20} strokeWidth={2.1} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -628,8 +628,13 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
       <div style={styles.infoSection}>
         <h5 style={styles.infoLabel}>Prioridade do ticket</h5>
         <div style={styles.priorityGrid}>
-          {[{ id: 'urgent', label: 'Urgente', color: '#e53e3e' }, { id: 'high', label: 'Alta', color: '#dd6b20' }, { id: 'medium', label: 'Normal', color: '#d4af37' }, { id: 'low', label: 'Baixa', color: '#3182ce' }].map((priorityOption) => (
-            <button key={priorityOption.id} onClick={() => handlePriorityChange(priorityOption.id)} style={{ ...styles.priorityBtn, background: priority === priorityOption.id ? priorityOption.color : 'var(--bg-panel)', color: priority === priorityOption.id ? '#0b1020' : 'var(--text-muted)', borderColor: priority === priorityOption.id ? priorityOption.color : 'var(--border-color)' }}>
+          {[
+            { id: 'urgent', label: 'Urgente', color: 'var(--danger)' },
+            { id: 'high', label: 'Alta', color: 'var(--warning)' },
+            { id: 'medium', label: 'Normal', color: 'var(--accent)' },
+            { id: 'low', label: 'Baixa', color: 'var(--info)' }
+          ].map((priorityOption) => (
+            <button key={priorityOption.id} onClick={() => handlePriorityChange(priorityOption.id)} style={{ ...styles.priorityBtn, background: priority === priorityOption.id ? priorityOption.color : 'var(--bg-panel)', color: priority === priorityOption.id ? 'var(--text-inverse)' : 'var(--text-muted)', borderColor: priority === priorityOption.id ? priorityOption.color : 'var(--border-color)' }}>
               {priorityOption.label}
             </button>
           ))}
@@ -734,8 +739,8 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           {media.filter((item) => item.mediaType === 'document' || item.mediaType === 'audio').map((item) => {
             const docName = getSafeText(item.body || item.mediaUrl.split('/').pop(), item.mediaType === 'audio' ? 'Áudio' : 'Documento');
             return (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--bg-panel)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-muted)' }}>
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-muted)' }}>
                   {item.mediaType === 'audio' ? <Mic size={16} /> : <FileText size={16} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -838,7 +843,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               />
               <button 
                 onClick={handleSaveName} 
-                style={{ ...styles.infoActionBtn, padding: '8px 16px', minHeight: 0, height: 'auto', background: 'var(--accent)', color: '#0b1020', border: 'none', fontWeight: 700 }}
+                style={{ ...styles.infoActionBtn, padding: '8px 16px', minHeight: 0, height: 'auto', background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', fontWeight: 700 }}
               >
                 Salvar
               </button>
@@ -903,7 +908,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               Copiar ficha
             </button>
             {linkedCrm ? (
-              <button type="button" onClick={onUnlinkCRM} style={{ ...styles.infoActionBtn, backgroundColor: '#e53e3e', color: '#ffffff', border: '1px solid #e53e3e' }}>
+              <button type="button" onClick={onUnlinkCRM} style={{ ...styles.infoActionBtn, backgroundColor: 'var(--danger)', color: '#ffffff', border: '1px solid var(--danger)' }}>
                 Desvincular CRM
               </button>
             ) : (
@@ -951,7 +956,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={{ ...styles.modal, width: '480px', maxWidth: '90%', borderRadius: '16px', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ ...styles.modal, width: '480px', maxWidth: '90%', borderRadius: 'var(--radius-md)', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ padding: '24px 24px 16px', textAlign: 'center', borderBottom: '1px solid var(--border-color)' }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>Transferir chamado</h3>
         </div>
@@ -959,7 +964,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Transferir para departamento</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 12px' }}>
               <Users size={18} style={{ color: 'var(--text-muted)' }} />
               <select
                 value={selectedTeam}
@@ -974,7 +979,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
 
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Transferir para atendente (opcional)</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 12px' }}>
               <User size={18} style={{ color: 'var(--text-muted)' }} />
               <select
                 value={selectedAgent}
@@ -997,7 +1002,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
                 width: '100%',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-sm)',
                 padding: '12px',
                 color: 'var(--text-main)',
                 fontSize: '0.95rem',
@@ -1015,7 +1020,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
             onClick={onClose}
             style={{
               padding: '10px 24px',
-              borderRadius: '24px',
+              borderRadius: 'var(--radius-sm)',
               border: 'none',
               background: 'var(--bg-panel)',
               color: 'var(--text-muted)',
@@ -1031,10 +1036,10 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
             onClick={handleSave}
             style={{
               padding: '10px 24px',
-              borderRadius: '24px',
+              borderRadius: 'var(--radius-sm)',
               border: 'none',
-              background: '#818cf8',
-              color: '#ffffff',
+              background: 'var(--accent)',
+              color: 'var(--text-inverse)',
               fontSize: '0.95rem',
               fontWeight: 600,
               cursor: 'pointer',
@@ -1070,7 +1075,7 @@ export function ForwardModal({ onClose, onForward, styles }) {
       <div style={{ ...styles.modal, maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <h3 style={{ margin: 0 }}>Encaminhar mensagem</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#717171', cursor: 'pointer', fontSize: '1.2rem' }}>x</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>x</button>
         </div>
         <div style={{ padding: '1rem' }}>
           <input style={{ ...styles.modalInput, marginBottom: '1rem' }} placeholder="Buscar contato..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -1586,7 +1591,7 @@ export function MessageList({
               return (
                 <MessageRenderErrorBoundary key={`invalid-${index}`} messageId={`invalid-${index}`}>
                   <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                    <div style={{ background: 'rgba(230, 126, 34, 0.08)', color: '#e67e22', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(230, 126, 34, 0.2)', fontWeight: 700 }}>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', color: 'var(--warning)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(245, 158, 11, 0.2)', fontWeight: 700 }}>
                       Uma entrada invalida do historico foi ignorada.
                     </div>
                   </div>
@@ -1695,14 +1700,14 @@ export function MessageList({
                       style={{
                         ...styles.bubble,
                         maxWidth: isMobile ? '88%' : styles.bubble.maxWidth,
-                        background: hasCardMedia ? 'rgba(255,255,255,0.98)' : (message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)'),
-                        color: hasCardMedia ? '#1b2b49' : (message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)'),
+                        background: hasCardMedia ? 'var(--bg-surface)' : (message.fromMe ? (message.fromBot ? 'var(--bg-msg-ai)' : 'var(--bg-msg-me)') : 'var(--bg-msg-contact)'),
+                        color: hasCardMedia ? 'var(--text-main)' : (message.fromMe ? (message.fromBot ? 'var(--text-msg-ai)' : 'var(--text-msg-me)') : 'var(--text-msg-contact)'),
                         opacity: message.isDeleted ? 0.6 : 1,
                         textDecoration: message.isDeleted ? 'line-through' : 'none',
-                        border: hasCardMedia ? '1px solid rgba(27,43,73,0.12)' : (message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : '1px solid transparent') : '1px solid var(--border-color)'),
+                        border: hasCardMedia ? '1px solid var(--border-color)' : (message.fromMe ? (message.fromBot ? '1px solid var(--border-msg-ai)' : '1px solid transparent') : '1px solid var(--border-color)'),
                         alignItems: 'flex-start',
-                        borderBottomRightRadius: message.fromMe ? '6px' : '18px',
-                        borderBottomLeftRadius: message.fromMe ? '18px' : '6px',
+                        borderBottomRightRadius: message.fromMe ? 'var(--radius-sm)' : 'var(--radius-md)',
+                        borderBottomLeftRadius: message.fromMe ? 'var(--radius-md)' : 'var(--radius-sm)',
                       }}
                     >
                       <div style={styles.messageHeader}>
@@ -1765,7 +1770,7 @@ export function MessageList({
                           style={{
                             ...styles.quotedBlock,
                             background: message.fromMe ? 'rgba(255,255,255,0.18)' : 'rgba(15, 23, 42, 0.04)',
-                            borderLeft: `3px solid ${message.fromMe ? 'rgba(255,255,255,0.58)' : 'rgba(59, 130, 246, 0.38)'}`,
+                            borderLeft: `2px solid ${message.fromMe ? 'rgba(255,255,255,0.58)' : 'var(--info-border)'}`,
                             color: message.fromMe ? 'rgba(255,255,255,0.78)' : 'var(--text-muted)',
                           }}
                         >
@@ -1786,11 +1791,11 @@ export function MessageList({
                   <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
                     <div
                       style={{
-                        background: 'rgba(230, 126, 34, 0.08)',
-                        color: '#e67e22',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        color: 'var(--warning)',
                         padding: '10px 14px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(230, 126, 34, 0.2)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid rgba(245, 158, 11, 0.2)',
                         fontWeight: 700,
                         maxWidth: 'min(92%, 640px)',
                         textAlign: 'center',
@@ -1885,7 +1890,7 @@ export function MessageComposer({
             onClick={() => setIsNote(false)}
             style={{
               padding: '5px 12px',
-              borderRadius: '999px',
+              borderRadius: 'var(--radius-lg)',
               fontSize: '0.75rem',
               fontWeight: 800,
               cursor: 'pointer',
@@ -1902,7 +1907,7 @@ export function MessageComposer({
             onClick={() => setIsNote(true)}
             style={{
               padding: '5px 12px',
-              borderRadius: '999px',
+              borderRadius: 'var(--radius-lg)',
               fontSize: '0.75rem',
               fontWeight: 800,
               cursor: 'pointer',

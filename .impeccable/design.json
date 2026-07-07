@@ -5,7 +5,15 @@
   "extensions": {
     "colorMeta": {
       "primary": { "role": "primary", "displayName": "Dourado Radiante", "canonical": "oklch(77.7% 0.17 84.8)", "tonalRamp": ["#362a04", "#5d4a07", "#84690a", "#ab880d", "#d4af37", "#f2d06b", "#f7df9a", "#fcf0cc"] },
-      "neutral-bg-light": { "role": "neutral", "displayName": "Fundo Base Claro", "canonical": "oklch(97.7% 0.005 240)", "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f8fafc"] }
+      "neutral-bg-light": { "role": "neutral", "displayName": "Fundo Base Claro", "canonical": "oklch(97.7% 0.005 240)", "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f8fafc"] },
+      "danger": { "role": "danger", "displayName": "Perigo / Vermelho", "canonical": "oklch(57.3% 0.22 27.4)", "tonalRamp": ["#3f1010", "#631717", "#871f1f", "#ab2828", "#e53e3e", "#ec6e6e", "#f39f9f", "#fad0d0"] },
+      "danger-light": { "role": "danger", "displayName": "Perigo Suave", "canonical": "rgba(229, 62, 62, 0.08)", "tonalRamp": [] },
+      "warning": { "role": "warning", "displayName": "Alerta / Laranja", "canonical": "oklch(74.9% 0.19 71.3)", "tonalRamp": ["#3b2203", "#623906", "#8a5008", "#b1670b", "#f59e0b", "#f7b744", "#fad17c", "#fceab5"] },
+      "warning-light": { "role": "warning", "displayName": "Alerta Suave", "canonical": "rgba(245, 158, 11, 0.08)", "tonalRamp": [] },
+      "info": { "role": "info", "displayName": "Informaçao / Azul", "canonical": "oklch(62.8% 0.25 256.5)", "tonalRamp": ["#081d3f", "#0f326b", "#164898", "#1d5dc4", "#3b82f6", "#6ea2f8", "#a2c3fb", "#d6e5fd"] },
+      "info-light": { "role": "info", "displayName": "Informaçao Suave", "canonical": "rgba(59, 130, 246, 0.12)", "tonalRamp": [] },
+      "info-border": { "role": "info", "displayName": "Borda de Informaçao", "canonical": "rgba(59, 130, 246, 0.18)", "tonalRamp": [] },
+      "overlay-bg": { "role": "neutral", "displayName": "Fundo do Overlay", "canonical": "rgba(0, 0, 0, 0.65)", "tonalRamp": [] }
     },
     "typographyMeta": {
       "display": { "displayName": "Display Title", "purpose": "Grandes cabeçalhos e dashboard." },

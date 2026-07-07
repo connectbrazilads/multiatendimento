@@ -12,6 +12,14 @@ colors:
   border-dark: "#262d3b"
   text-light: "#0f172a"
   text-dark: "#FFFFFF"
+  danger: "#e53e3e"
+  danger-light: "rgba(229, 62, 62, 0.08)"
+  warning: "#f59e0b"
+  warning-light: "rgba(245, 158, 11, 0.08)"
+  info: "#3b82f6"
+  info-light: "rgba(59, 130, 246, 0.12)"
+  info-border: "rgba(59, 130, 246, 0.18)"
+  overlay-bg: "rgba(0, 0, 0, 0.65)"
 typography:
   display:
     fontFamily: "Syne, sans-serif"

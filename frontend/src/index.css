@@ -14,8 +14,14 @@
   --accent-light: rgba(212, 175, 55, 0.1);
   --accent-border: rgba(212, 175, 55, 0.3);
   --danger: #e53e3e;
+  --danger-light: rgba(229, 62, 62, 0.08);
   --success: #2ecc71;
   --warning: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.08);
+  --info: #3b82f6;
+  --info-light: rgba(59, 130, 246, 0.12);
+  --info-border: rgba(59, 130, 246, 0.18);
+  --overlay-bg: rgba(0, 0, 0, 0.65);
 
   /* Radii */
   --radius-sm: 8px;
