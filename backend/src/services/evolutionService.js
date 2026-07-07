@@ -30,6 +30,15 @@ function getClient(url, key) {
 
 function buildQuotedPayload(quoted) {
   if (!quoted) return undefined;
+  if (typeof quoted === 'object' && quoted !== null) {
+    return {
+      key: {
+        id: quoted.id || quoted,
+        ...(quoted.remoteJid ? { remoteJid: quoted.remoteJid } : {}),
+        ...(typeof quoted.fromMe === 'boolean' ? { fromMe: quoted.fromMe } : {})
+      }
+    };
+  }
   return { key: { id: quoted } };
 }
 
