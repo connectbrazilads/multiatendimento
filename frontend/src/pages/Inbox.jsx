@@ -792,7 +792,7 @@ export default function Inbox() {
 }
 
 export const inboxStyles = {
-  layout: { display: 'flex', height: '100%', width: '100%', background: 'var(--bg-base)', color: 'var(--text-main)', overflow: 'hidden', fontFamily: "'Inter', sans-serif" },
+  layout: { display: 'flex', height: '100%', width: '100%', background: 'var(--bg-base)', color: 'var(--text-main)', overflow: 'hidden', fontFamily: 'var(--font-main)' },
   sidebar: { width: '348px', minWidth: '348px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--bg-surface)' },
   sidebarHeader: { padding: '1.25rem 1rem 0.9rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' },
   sidebarEyebrow: { fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-dim)', fontWeight: 600, marginBottom: '0.45rem' },
@@ -849,7 +849,7 @@ export const inboxStyles = {
   rowInfo: { flex: 1, minWidth: 0 },
   rowTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem', marginBottom: 2 },
   rowName: { fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  rowTime: { fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 500, flexShrink: 0 },
+  rowTime: { fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 500, flexShrink: 0, fontVariantNumeric: 'tabular-nums' },
   rowPreview: { fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.45rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rowSub: { display: 'flex', alignItems: 'center', gap: '0.45rem', position: 'relative', flexWrap: 'wrap' },
   rowStatusPill: { display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.22rem 0.55rem', borderRadius: 'var(--radius-lg)', fontSize: '0.67rem', fontWeight: 600, lineHeight: 1.2 },
@@ -919,7 +919,7 @@ export const inboxStyles = {
   messageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.55rem', width: '100%' },
   messageSender: { fontSize: '0.74rem', fontWeight: 600, letterSpacing: '-0.01em' },
   messageHeaderSide: { display: 'flex', alignItems: 'center', gap: '0.15rem', marginLeft: 'auto', flexShrink: 0 },
-  messageHeaderTime: { fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 },
+  messageHeaderTime: { fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' },
   messageMenuRoot: { position: 'relative' },
   messageMenuTrigger: { width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   messageMenuPanel: { position: 'absolute', top: 'calc(100% + 0.35rem)', right: 0, minWidth: '210px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', padding: '0.35rem', zIndex: 5 },
