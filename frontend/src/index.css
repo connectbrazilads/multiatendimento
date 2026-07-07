@@ -16,6 +16,8 @@
   --danger: #e53e3e;
   --danger-light: rgba(229, 62, 62, 0.08);
   --success: #2ecc71;
+  --success-light: rgba(46, 204, 113, 0.08);
+  --success-border: rgba(46, 204, 113, 0.16);
   --warning: #f59e0b;
   --warning-light: rgba(245, 158, 11, 0.08);
   --info: #3b82f6;

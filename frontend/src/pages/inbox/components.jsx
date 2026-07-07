@@ -114,9 +114,9 @@ function getPriorityMeta(priority) {
     },
     medium: {
       label: 'Normal',
-      background: 'rgba(212, 175, 55, 0.12)',
-      color: '#d4af37',
-      border: '1px solid rgba(212, 175, 55, 0.22)',
+      background: 'var(--accent-light)',
+      color: 'var(--accent)',
+      border: '1px solid var(--accent-border)',
     },
     low: {
       label: 'Baixa',
@@ -130,12 +130,31 @@ function getPriorityMeta(priority) {
 }
 
 function getStatusMeta(status) {
-  const color = statusColor(status);
-  return {
-    label: statusLabel(status),
-    color,
-    background: `${color}1a`,
-    border: `1px solid ${color}30`,
+  const statusMap = {
+    pending: {
+      label: 'Aguardando',
+      color: 'var(--warning)',
+      background: 'var(--warning-light)',
+      border: '1px solid var(--warning-light)',
+    },
+    open: {
+      label: 'Atendimento',
+      color: 'var(--success)',
+      background: 'var(--success-light)',
+      border: '1px solid var(--success-border)',
+    },
+    resolved: {
+      label: 'Resolvido',
+      color: 'var(--text-dim)',
+      background: 'var(--border-light)',
+      border: '1px solid var(--border-color)',
+    },
+  };
+  return statusMap[status] || {
+    label: status,
+    color: 'var(--text-dim)',
+    background: 'var(--border-light)',
+    border: '1px solid var(--border-color)',
   };
 }
 

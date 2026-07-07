@@ -1,7 +1,7 @@
 import React from 'react';
 
 export function Empty({ children }) {
-  return <div style={{ textAlign: 'center', padding: '3rem', color: '#717171' }}>{children}</div>;
+  return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>{children}</div>;
 }
 
 export function fmt(value) {
@@ -42,5 +42,5 @@ export function statusLabel(status) {
 }
 
 export function statusColor(status) {
-  return { pending: '#D4AF37', open: '#48bb78', resolved: '#717171' }[status] || '#717171';
+  return { pending: 'var(--warning)', open: 'var(--success)', resolved: 'var(--text-dim)' }[status] || 'var(--text-dim)';
 }
