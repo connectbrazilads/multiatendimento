@@ -141,7 +141,7 @@ export default function InternalChatDrawer({ isOpen, onClose }) {
                   <div key={index} style={{ ...s.bubbleWrap, justifyContent: fromMe ? 'flex-end' : 'flex-start' }}>
                     <div style={{ ...s.bubble, ...(fromMe ? s.bubbleFromMe : s.bubbleFromOther) }}>
                       <div>{message.body}</div>
-                      <div style={{ ...s.time, color: fromMe ? 'rgba(74,56,0,0.72)' : 'var(--text-dim)' }}>
+                      <div style={{ ...s.time, color: fromMe ? 'var(--text-inverse)' : 'var(--text-dim)', opacity: fromMe ? 0.72 : 1 }}>
                         {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
@@ -173,7 +173,7 @@ const s = {
   backdrop: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.3)',
+    background: 'var(--overlay-bg)',
     backdropFilter: 'blur(2px)',
     zIndex: 1040,
     animation: 'fadeIn 0.2s ease',
@@ -201,14 +201,14 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '1rem 1.25rem',
+    padding: 'var(--space-md) 1.25rem',
     background: 'var(--bg-surface)',
     borderBottom: '1px solid var(--border-color)',
   },
   headerTitle: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.6rem',
+    gap: 'var(--space-sm)',
     fontWeight: 800,
     color: 'var(--text-main)',
     fontSize: '1.05rem',
@@ -218,8 +218,8 @@ const s = {
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
-    padding: '0.4rem',
-    borderRadius: '8px',
+    padding: 'var(--space-xs)',
+    borderRadius: 'var(--radius-sm)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -227,10 +227,10 @@ const s = {
   content: {
     flex: 1,
     overflowY: 'auto',
-    padding: '1rem',
+    padding: 'var(--space-md)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: 'var(--space-sm)',
   },
   userItem: {
     display: 'flex',
@@ -239,7 +239,7 @@ const s = {
     padding: '0.85rem',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-md)',
     cursor: 'pointer',
     textAlign: 'left',
     transition: 'all 0.2s ease',
@@ -247,7 +247,7 @@ const s = {
   avatar: {
     width: '40px',
     height: '40px',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-md)',
     background: 'var(--accent)',
     color: 'var(--text-inverse)',
     display: 'flex',
@@ -281,9 +281,9 @@ const s = {
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
-    padding: '0.4rem',
-    borderRadius: '8px',
-    marginRight: '0.5rem',
+    padding: 'var(--space-xs)',
+    borderRadius: 'var(--radius-sm)',
+    marginRight: 'var(--space-sm)',
     display: 'flex',
     alignItems: 'center',
   },
@@ -296,7 +296,7 @@ const s = {
   avatarSmall: {
     width: '34px',
     height: '34px',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-sm)',
     background: 'var(--accent)',
     color: 'var(--text-inverse)',
     display: 'flex',
@@ -317,10 +317,10 @@ const s = {
   messageList: {
     flex: 1,
     overflowY: 'auto',
-    padding: '1rem',
+    padding: 'var(--space-md)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: 'var(--space-sm)',
     userSelect: 'text',
     WebkitUserSelect: 'text',
   },
@@ -328,8 +328,8 @@ const s = {
     display: 'flex',
   },
   bubble: {
-    padding: '0.65rem 0.95rem',
-    borderRadius: '14px',
+    padding: '0.65rem var(--space-md)',
+    borderRadius: 'var(--radius-md)',
     maxWidth: '85%',
     fontSize: '0.9rem',
     boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -352,21 +352,21 @@ const s = {
   },
   time: {
     fontSize: '0.65rem',
-    marginTop: '0.3rem',
+    marginTop: 'var(--space-xs)',
     textAlign: 'right',
   },
   inputArea: {
-    padding: '1rem',
+    padding: 'var(--space-md)',
     background: 'var(--bg-surface)',
     borderTop: '1px solid var(--border-color)',
     display: 'flex',
-    gap: '0.75rem',
+    gap: 'var(--space-sm)',
     alignItems: 'center',
   },
   input: {
     flex: 1,
-    padding: '0.8rem 1rem',
-    borderRadius: '999px',
+    padding: 'var(--space-sm) var(--space-md)',
+    borderRadius: 'var(--radius-lg)',
     border: '1px solid var(--border-color)',
     background: 'var(--bg-panel)',
     color: 'var(--text-main)',
@@ -374,7 +374,7 @@ const s = {
     fontSize: '0.9rem',
   },
   sendBtn: {
-    padding: '0.8rem',
+    padding: 'var(--space-sm)',
     borderRadius: '50%',
     minWidth: 'auto',
     display: 'flex',

@@ -27,6 +27,12 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
 }
 
 body.dark-theme {
