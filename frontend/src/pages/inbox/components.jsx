@@ -26,6 +26,8 @@ import {
   Sparkles,
   X,
   Lock,
+  User,
+  Users,
 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
@@ -934,39 +936,113 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
 }
 
 export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
-  const [target, setTarget] = useState('users');
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState('');
   const [note, setNote] = useState('');
+
+  const handleSave = () => {
+    if (!selectedTeam && !selectedAgent) {
+      alert('Selecione um departamento ou atendente para transferir.');
+      return;
+    }
+    // onTransfer receives (agentId, teamId, note)
+    onTransfer(selectedAgent || null, selectedTeam || null, note);
+  };
+
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.modalHeader}><h3>Transferir chat</h3><button onClick={onClose}>X</button></div>
-        <div style={styles.tabs}><button onClick={() => setTarget('users')} style={{ ...styles.tab, ...(target === 'users' ? styles.tabActive : {}) }}>Agentes</button><button onClick={() => setTarget('teams')} style={{ ...styles.tab, ...(target === 'teams' ? styles.tabActive : {}) }}>Equipes</button></div>
+      <div style={{ ...styles.modal, width: '480px', maxWidth: '90%', borderRadius: '16px', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: '24px 24px 16px', textAlign: 'center', borderBottom: '1px solid var(--border-color)' }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>Transferir chamado</h3>
+        </div>
         
-        <div style={{ padding: '0.5rem 1.5rem 0' }}>
-          <textarea
-            placeholder="Mensagem/Nota para o destinatário (opcional)..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            style={{
-              width: '100%',
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '0.65rem 0.8rem',
-              color: 'var(--text-main)',
-              fontSize: '0.88rem',
-              outline: 'none',
-              resize: 'none',
-              height: '56px',
-              boxSizing: 'border-box'
-            }}
-          />
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Transferir para departamento</label>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
+              <Users size={18} style={{ color: 'var(--text-muted)' }} />
+              <select
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
+                style={{ flex: 1, border: 'none', background: 'transparent', padding: '12px', fontSize: '0.95rem', color: 'var(--text-main)', outline: 'none' }}
+              >
+                <option value="">Selecione o departamento</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Transferir para atendente (opcional)</label>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
+              <User size={18} style={{ color: 'var(--text-muted)' }} />
+              <select
+                value={selectedAgent}
+                onChange={(e) => setSelectedAgent(e.target.value)}
+                style={{ flex: 1, border: 'none', background: 'transparent', padding: '12px', fontSize: '0.95rem', color: 'var(--text-main)', outline: 'none' }}
+              >
+                <option value="">Selecione o atendente</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Adicionar comentário</label>
+            <textarea
+              placeholder="Digite o comentário aqui..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: 'var(--text-main)',
+                fontSize: '0.95rem',
+                outline: 'none',
+                resize: 'none',
+                height: '80px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
         </div>
 
-        <div style={{ padding: '1rem', maxHeight: 220, overflowY: 'auto' }}>
-          {target === 'users'
-            ? users.map((user) => <div key={user.id} style={styles.transferRow} onClick={() => onTransfer(user.id, null, note)}><Avatar name={user.name} size={30} />{user.name}</div>)
-            : teams.map((team) => <div key={team.id} style={styles.transferRow} onClick={() => onTransfer(null, team.id, note)}>Equipe: {team.name}</div>)}
+        <div style={{ padding: '16px 24px 24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '24px',
+              border: 'none',
+              background: 'var(--bg-panel)',
+              color: 'var(--text-muted)',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '24px',
+              border: 'none',
+              background: '#818cf8',
+              color: '#ffffff',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+          >
+            Salvar
+          </button>
         </div>
       </div>
     </div>

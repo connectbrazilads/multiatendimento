@@ -307,7 +307,12 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
                      || (qContent?.contactMessage ? `👤 Contato: ${qContent.contactMessage.displayName || 'Desconhecido'}` : null)
                      || (qContent?.locationMessage ? '📍 Localização' : null);
 
-  if (!phone || (!body && !media)) return;
+  if (!phone || (!body && !media)) {
+    if (fromMe) {
+      console.log(`[webhook] Ignorando mensagem fromMe sem body/media. Jid: ${remoteJid}, msg.message:`, JSON.stringify(msg.message || {}).substring(0, 300));
+    }
+    return;
+  }
   console.log(`[webhook] mensagem ${fromMe ? 'ENVIADA para' : 'RECEBIDA de'} ${phone}: "${body}" ${media ? `[${media.type}]` : ''} | isHistorical: ${isHistorical}`);
 
   const phoneCandidates = evolutionService.buildPhoneLookupCandidates(phone);
@@ -675,8 +680,11 @@ async function handleWebhook(req, res) {
       const msgTimeMs = msgTimeSec ? (parseInt(msgTimeSec) * 1000) : Date.now();
       const ageMs = Date.now() - msgTimeMs;
 
+      const isForwarded = JSON.stringify(msg.message || {}).includes('"isForwarded":true');
+
       // Ignora mensagens muito antigas (mais de 2 dias), para recuperar apenas o período offline curto
-      if (ageMs > maxAgeMs) {
+      // MAS não ignora se for uma mensagem encaminhada (isForwarded), pois ela pode carregar o timestamp original
+      if (ageMs > maxAgeMs && !isForwarded) {
         console.log(`[webhook] Ignorando mensagem histórica antiga ${msg.key?.id || 'sem-id'} (idade: ${Math.round(ageMs / (1000 * 60 * 60))} horas, limite de 48h).`);
         continue;
       }

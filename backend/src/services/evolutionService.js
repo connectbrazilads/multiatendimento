@@ -55,7 +55,10 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
       linkPreview: false,
       options: { linkPreview: false }
     };
-    if (quoted) payload.quoted = buildQuotedPayload(quoted);
+    if (quoted) {
+      payload.quoted = buildQuotedPayload(quoted);
+      payload.options.quoted = buildQuotedPayload(quoted);
+    }
     const targetPath = `/message/sendText/${instanceName}`;
     const sanitizedUrl = sanitizeUrl(url);
     console.log(`[evolutionService] Attempting sendText to URL: ${sanitizedUrl}${targetPath} (key prefix: ${(key || '').slice(0, 5)}...)`);
@@ -83,7 +86,9 @@ async function sendMediaMultipart(url, key, instanceName, phone, { mediatype, mi
   form.append('media', fs.createReadStream(filePath));
 
   if (quoted) {
-    form.append('quoted', JSON.stringify(buildQuotedPayload(quoted)));
+    const qPayload = buildQuotedPayload(quoted);
+    form.append('quoted', JSON.stringify(qPayload));
+    form.append('options', JSON.stringify({ quoted: qPayload }));
   }
 
   const { data } = await axios.post(`${endpointBase}/message/sendMedia/${instanceName}`, form, {
@@ -110,7 +115,10 @@ async function sendMediaJson(url, key, instanceName, phone, { mediatype, media, 
     fileName: filename || 'arquivo',
     caption: caption || ''
   };
-  if (quoted) payload.quoted = buildQuotedPayload(quoted);
+  if (quoted) {
+    payload.quoted = buildQuotedPayload(quoted);
+    payload.options = { quoted: buildQuotedPayload(quoted) };
+  }
   const { data } = await client.post(`/message/sendMedia/${instanceName}`, payload);
   console.log(`[evolutionService] sendMedia json OK:`, getMessageKeyId(data) || 'id-nÃ£o-retornado');
   return ensureAccepted(data, 'sendMedia json');
@@ -157,7 +165,10 @@ async function sendAudio(url, key, instanceName, phone, audio, quoted = null) {
     audio,        // base64
     encoding: true,
   };
-  if (quoted) payload.quoted = buildQuotedPayload(quoted);
+  if (quoted) {
+    payload.quoted = buildQuotedPayload(quoted);
+    payload.options = { quoted: buildQuotedPayload(quoted) };
+  }
   const { data } = await client.post(`/message/sendWhatsAppAudio/${instanceName}`, payload);
   console.log(`[evolutionService] sendAudio OK:`, getMessageKeyId(data) || 'id-nÃ£o-retornado');
   return ensureAccepted(data, 'sendAudio');

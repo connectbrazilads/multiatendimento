@@ -405,27 +405,30 @@ async function assign(req, res) {
   }
 
   // Auditoria de transferência/atribuição
-  await historyService.logEvent({
+  const assignEvent = await historyService.logEvent({
     ticketId: ticket.id,
     tenantId: ticket.tenantId,
     userId: req.user.userId,
     type: agentId ? 'assigned' : (teamId ? 'transferred' : 'unassigned'),
     payload: { agentId, teamId, agentName: ticket.agent?.name, teamName: ticket.team?.name }
   });
+  if (io) {
+    io.to(ticket.tenantId).emit('new_event', assignEvent);
+  }
 
   // Log note event if a note is provided during transfer
   if (note && typeof note === 'string' && note.trim()) {
-    await historyService.logEvent({
+    const noteEvent = await historyService.logEvent({
       ticketId: ticket.id,
       tenantId: ticket.tenantId,
       userId: req.user.userId,
       type: 'note',
       payload: { note: note.trim() }
     });
-    if (io) {
-      io.to(ticket.tenantId).emit('ticket_updated', { ticketId: ticket.id });
-      io.to(ticket.tenantId).emit('new_message', { ticketId: ticket.id });
-    }
+      if (io) {
+        io.to(ticket.tenantId).emit('ticket_updated', { ticketId: ticket.id });
+        io.to(ticket.tenantId).emit('new_event', noteEvent);
+      }
   }
 
   // GERAÇÃO DE RESUMO IA (ASSÍNCRONO)
@@ -613,14 +616,22 @@ async function sendMessage(req, res) {
     if (!agent) return res.status(400).json({ error: 'Usuário/Agente não encontrado' });
     const finalBody = `*${agent.name}*\n${body}`;
     
-    let quotedMsgBody = null;
-    if (quotedMsgId) {
-      const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
-      if (quoted) quotedMsgBody = quoted.body;
-    }
-    
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
     const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
+    const isGroup = phone.includes('@g.us') || evolutionService.isGroupJid(ticket.contact?.phone);
+    const remoteJid = isGroup ? phone : `${phone}@s.whatsapp.net`;
+
+    let quotedMsgBody = null;
+    let quotedObj = null;
+    if (quotedMsgId) {
+      const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
+      if (quoted) {
+        quotedMsgBody = quoted.body || (quoted.mediaType === 'image' ? '📷 Foto' : (quoted.mediaType === 'video' ? '🎥 Vídeo' : (quoted.mediaType === 'audio' ? '🎤 Áudio' : (quoted.mediaType === 'document' ? '📎 Documento' : 'Mensagem'))));
+        quotedObj = { id: quoted.externalId, remoteJid, fromMe: quoted.fromMe };
+      } else {
+        quotedObj = quotedMsgId;
+      }
+    }
 
     let instanceName = ticket.instance?.instanceName;
     let targetInstanceId = ticket.instanceId;
@@ -653,7 +664,7 @@ async function sendMessage(req, res) {
       });
     }
 
-    const result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody, quotedMsgId);
+    const result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody, quotedObj);
     const externalId = result?.key?.id || result?.message?.key?.id;
 
     // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -755,17 +766,26 @@ async function sendMediaMessage(req, res) {
     // Só adiciona o nome do agente se houver legenda ou se for imagem/vídeo
     const finalCaption = caption ? `*${agent?.name || 'Agente'}*\n${caption}` : `*${agent?.name || 'Agente'}*`;
     
+    const isGroup = phone.includes('@g.us') || evolutionService.isGroupJid(ticket.contact?.phone);
+    const remoteJid = isGroup ? phone : `${phone}@s.whatsapp.net`;
+
     let quotedMsgBody = null;
+    let quotedObj = null;
     if (quotedMsgId) {
       const quoted = await prisma.message.findFirst({ where: { externalId: quotedMsgId } });
-      if (quoted) quotedMsgBody = quoted.body;
+      if (quoted) {
+        quotedMsgBody = quoted.body || (quoted.mediaType === 'image' ? '📷 Foto' : (quoted.mediaType === 'video' ? '🎥 Vídeo' : (quoted.mediaType === 'audio' ? '🎤 Áudio' : (quoted.mediaType === 'document' ? '📎 Documento' : 'Mensagem'))));
+        quotedObj = { id: quoted.externalId, remoteJid, fromMe: quoted.fromMe };
+      } else {
+        quotedObj = quotedMsgId;
+      }
     }
 
     let result;
     if (mime.startsWith('image/')) {
       mediaType = 'image';
       result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-        mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
+        mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedObj, filePath: file.path
       });
     } else if (mime.startsWith('audio/')) {
       mediaType = 'audio';
@@ -776,15 +796,15 @@ async function sendMediaMessage(req, res) {
         const newFilename = path.basename(newPath);
         mediaUrl = `/uploads/media/${newFilename}`;
         const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
-        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, oggBase64, quotedMsgId);
+        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, oggBase64, quotedObj);
       } catch (err) {
         console.error('[audioConvert] erro:', err.message);
-        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64, quotedMsgId);
+        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64, quotedObj);
       }
     } else if (mime.startsWith('video/')) {
       mediaType = 'video';
       result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedMsgId, filePath: file.path
+        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedObj, filePath: file.path
       });
     } else {
       mediaType = 'document';
@@ -796,7 +816,7 @@ async function sendMediaMessage(req, res) {
         mimetype: mime,
         filename: file.originalname, 
         caption: docCaption, 
-        quoted: quotedMsgId,
+        quoted: quotedObj,
         filePath: file.path
       });
     }
