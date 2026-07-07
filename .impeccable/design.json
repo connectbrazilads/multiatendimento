@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-07T02:50:00Z",
+  "title": "Design System: Sistema Multiatendimento",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Dourado Radiante", "canonical": "oklch(77.7% 0.17 84.8)", "tonalRamp": ["#362a04", "#5d4a07", "#84690a", "#ab880d", "#d4af37", "#f2d06b", "#f7df9a", "#fcf0cc"] },
+      "neutral-bg-light": { "role": "neutral", "displayName": "Fundo Base Claro", "canonical": "oklch(97.7% 0.005 240)", "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f8fafc"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display Title", "purpose": "Grandes cabeçalhos e dashboard." },
+      "body": { "displayName": "Corpo", "purpose": "Texto padrão e mensagens de chat." }
+    },
+    "shadows": [
+      { "name": "foco-flutuante", "value": "0 4px 12px rgba(0,0,0,0.05)", "purpose": "Separação sutil para modais e dropdowns." }
+    ],
+    "motion": [
+      { "name": "transição-rápida", "value": "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Interações de foco e hover." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ações principais da tela como enviar, salvar ou transferir.",
+      "html": "<button class=\"ds-btn-primary\">Salvar</button>",
+      "css": ".ds-btn-primary { background: #D4AF37; color: #000000; padding: 10px 24px; font-family: 'Inter', sans-serif; font-size: 0.95rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: #F2D06B; transform: translateY(-1px); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Violet Portal",
+    "overview": "O foco principal do design é a usabilidade limpa e nítida para operadores de suporte. O violeta e o dourado atuam estritamente como guias visuais e marcadores de atenção em uma base sóbria (branca ou cinza profunda). Isso garante que o cansaço visual seja mínimo durante o uso intensivo de 8 horas.",
+    "keyCharacteristics": [
+      "Foco absoluto no conteúdo (balões de mensagens estruturados).",
+      "Destaques pontuais de dourado (#D4AF37) e violeta suave (var(--bg-msg-ai)).",
+      "Visual plano e limpo por padrão, sem sombras pesadas ou glassmorphism supérfluo."
+    ],
+    "rules": [
+      { "name": "The 10% Accent Rule", "body": "O dourado e o violeta nunca devem ocupar mais do que 10% da área útil de qualquer tela de visualização de mensagens. A escassez do tom mantém o operador focado.", "section": "colors" }
+    ],
+    "dos": [
+      "Do Manter o contraste de leitura do chat maior que 4.5:1 em ambos os temas.",
+      "Do Usar transições exponenciais rápidas (cubic-bezier(0.4, 0, 0.2, 1)) apenas para hover e foco."
+    ],
+    "donts": [
+      "Don't Usar gradientes coloridos ou degradês em textos.",
+      "Don't Colocar bordas de destaque laterais coloridas com espessura maior que 1px.",
+      "Don't Utilizar desfoques de fundo (glassmorphism) a menos que em painéis flutuantes explícitos."
+    ]
+  }
+}
