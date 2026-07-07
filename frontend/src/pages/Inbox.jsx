@@ -820,7 +820,7 @@ export const inboxStyles = {
     gap: '5px',
     whiteSpace: 'nowrap'
   },
-  tabActive: { background: 'var(--bg-surface)', color: 'var(--text-main)', boxShadow: '0 4px 12px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)' },
+  tabActive: { background: 'var(--bg-surface)', color: 'var(--accent)', border: '1px solid var(--accent-border)', boxShadow: 'var(--shadow-sm)' },
   badge: { 
     background: 'var(--accent)', 
     color: 'var(--text-inverse)', 
@@ -845,7 +845,7 @@ export const inboxStyles = {
   filterSelect: { flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.72rem', outline: 'none', fontWeight: 600 },
   list: { flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem 0.75rem' },
   row: { display: 'flex', alignItems: 'flex-start', gap: '0.85rem', padding: '1rem 0.9rem', cursor: 'pointer', borderRadius: 'var(--radius-md)', marginBottom: '0.45rem', transition: 'all 0.18s ease', border: '1px solid transparent' },
-  rowActive: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' },
+  rowActive: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderLeft: '1px solid var(--accent)' },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem', marginBottom: 2 },
   rowName: { fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
