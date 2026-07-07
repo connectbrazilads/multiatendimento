@@ -473,7 +473,7 @@ export default function Inbox() {
     } catch (e) { toast.error('Erro ao agendar: ' + (e.response?.data?.error || e.message)); }
   }
 
-  const handleInput = (v) => {
+  const handleInput = useCallback((v) => {
     setText(v);
     if (v.startsWith('/')) {
       const q = v.slice(1).toLowerCase();
@@ -481,11 +481,11 @@ export default function Inbox() {
     } else {
       setFilteredQuick([]);
     }
-  };
+  }, [quickResponses]);
 
   const selectedTicket = tickets.find(t => t.id === selectedId);
 
-  const selectTicket = async (id) => {
+  const selectTicket = useCallback(async (id) => {
     if (selectedId !== id && historySearch) {
       setHistorySearch('');
     }
@@ -496,7 +496,7 @@ export default function Inbox() {
     setTickets(prev => prev.map(t => t.id === id ? { ...t, unreadCount: 0 } : t));
     
     // O backend ja zera ao chamar getMessages pelo useEffect do selectedId
-  };
+  }, [selectedId, historySearch, isMobile]);
 
   if (!me) {
     return (

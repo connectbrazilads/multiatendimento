@@ -1122,7 +1122,7 @@ export function ForwardModal({ onClose, onForward, styles }) {
   );
 }
 
-export function TicketSidebar({
+export const TicketSidebar = React.memo(function TicketSidebar({
   counts,
   filters,
   isMobile,
@@ -1321,9 +1321,9 @@ export function TicketSidebar({
       </div>
     </aside>
   );
-}
+});
 
-export function ChatHeader({
+export const ChatHeader = React.memo(function ChatHeader({
   botName,
   handleReopen,
   handleResolve,
@@ -1500,9 +1500,9 @@ export function ChatHeader({
       </div>
     </header>
   );
-}
+});
 
-export function MessageList({
+export const MessageList = React.memo(function MessageList({
   botName,
   handleCopyMessage,
   handleDeleteMessage,
@@ -1832,9 +1832,9 @@ export function MessageList({
       )}
     </div>
   );
-}
+});
 
-export function MessageComposer({
+export const MessageComposer = React.memo(function MessageComposer({
   files,
   filteredQuick,
   fmtTime,
@@ -2031,4 +2031,4 @@ export function MessageComposer({
       </div>
     </>
   );
-}
+});
