@@ -622,13 +622,19 @@ async function handleWebhook(req, res) {
           phone = owner.split('@')[0];
         }
 
-        await prisma.waInstance.update({
+        const updatedInstance = await prisma.waInstance.update({
           where: { id: waInstance.id },
           data: { 
             status: isConnected ? 'connected' : (data?.state === 'close' ? 'disconnected' : waInstance.status),
             ...(phone && { phone })
           }
         });
+        
+        // Se a conexão foi estabelecida (reconexão), dispara rotina de sincronização de mensagens perdidas (em background)
+        if (isConnected && waInstance.status === 'disconnected') {
+          const { syncMissedMessages } = require('../services/syncMissedMessagesService');
+          syncMissedMessages(instance).catch(e => console.error('[webhook] Falha no sync automático:', e.message));
+        }
         
         // Se a conexão caiu, avisa o admin
         if (ev === 'connection.update' && (data.state === 'close' || data.state === 'connecting')) {
