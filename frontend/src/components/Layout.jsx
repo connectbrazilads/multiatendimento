@@ -23,7 +23,7 @@ import {
   Radar,
   Coins,
 } from 'lucide-react';
-import { getMe, getMediaUrl } from '../services/api';
+import { getMe, getMediaUrl, getInstances } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ToastContainer from './ToastContainer';
 import InternalChatDrawer from './InternalChatDrawer';
@@ -38,6 +38,7 @@ export default function Layout() {
   const desktopMenuRef = React.useRef(null);
   const role = localStorage.getItem('role')?.toLowerCase();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [instances, setInstances] = useState([]);
   const isMobile = useIsMobile();
 
   function getNotificationBody(message) {
@@ -83,6 +84,14 @@ export default function Layout() {
       reconnectionDelayMax: 10000,
     });
 
+    getInstances()
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setInstances(res.data);
+        }
+      })
+      .catch(() => {});
+
     socket.on('new_message', ({ message, contact, fromMe }) => {
       if (fromMe) return;
 
@@ -114,6 +123,20 @@ export default function Layout() {
       if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
         new Notification(`Equipe: ${msg.sender?.name || 'Colega'}`, { body: msg.body });
       }
+    });
+
+    socket.on('connection_update', ({ instance, data }) => {
+      setInstances((prev) => 
+        prev.map((inst) => {
+          if (inst.instanceName === instance) {
+            const isConnected = data?.state === 'open';
+            const isDisconnected = data?.state === 'close' || data?.state === 'connecting';
+            if (isConnected) return { ...inst, status: 'connected' };
+            if (isDisconnected) return { ...inst, status: 'disconnected' };
+          }
+          return inst;
+        })
+      );
     });
 
     return () => socket.disconnect();
@@ -221,6 +244,25 @@ export default function Layout() {
           </button>
         </div>
       </nav>
+
+      {instances.filter(i => i.status !== 'connected').length > 0 && (
+        <div style={{
+          backgroundColor: 'var(--danger, #EF4444)',
+          color: '#fff',
+          padding: '0.65rem 1rem',
+          textAlign: 'center',
+          fontWeight: 700,
+          fontSize: isMobile ? '0.8rem' : '0.9rem',
+          zIndex: 90,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.5rem',
+          boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+        }}>
+          ⚠️ Atenção: Você tem {instances.filter(i => i.status !== 'connected').length === 1 ? 'uma conexão do WhatsApp desconectada' : `${instances.filter(i => i.status !== 'connected').length} conexões do WhatsApp desconectadas`}! Clique em "Conexões" no menu para reconectar e voltar a receber mensagens.
+        </div>
+      )}
 
       <div style={{ ...styles.content, paddingBottom: isMobile ? '74px' : '0' }}>
         <Outlet />
