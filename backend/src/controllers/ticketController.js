@@ -11,7 +11,7 @@ const AVATAR_REFRESH_TTL_MS = 6 * 60 * 60 * 1000;
 const AVATAR_REFRESH_LIMIT = 10;
 
 function getMimeTypeFromFileName(fileName = '', mediaType = 'document') {
-  const ext = path.extname(fileName).toLowerCase();
+  const ext = path.extname(fileName || '').toLowerCase();
   const mimeByExt = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -853,8 +853,9 @@ async function sendMediaMessage(req, res) {
       (async () => {
         try {
           const geminiService = require('../services/geminiService');
+          const { mediaPath } = require('../utils/uploads');
           // Usa path.resolve para evitar problemas de caminho relativo no background
-          const audioPath = path.resolve(__dirname, '..', '..', 'uploads', 'media', path.basename(mediaUrl));
+          const audioPath = path.resolve(mediaPath, path.basename(mediaUrl));
           if (!fs.existsSync(audioPath)) return;
           const audioBase64 = (await fs.promises.readFile(audioPath)).toString('base64');
           const transcription = await geminiService.transcribeAudio(settings.geminiKey, audioBase64, 'audio/ogg');

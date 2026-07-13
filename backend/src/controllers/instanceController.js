@@ -11,7 +11,12 @@ async function getSettings(tenantId) {
 
 async function list(req, res) {
   try {
-    const instances = await prisma.waInstance.findMany({ where: { tenantId: req.user.tenantId } });
+    const instances = await prisma.waInstance.findMany({ 
+      where: { 
+        tenantId: req.user.tenantId,
+        instanceName: { not: { startsWith: 'DELETED_' } }
+      } 
+    });
     
     let settings;
     try {
@@ -149,8 +154,20 @@ async function remove(req, res) {
     // Tenta deletar na Evolution (ignora erro se já não existir lá)
     try { await evolution.deleteInstance(evolutionUrl, evolutionKey, inst.instanceName); } catch {}
 
-    // Deleta no banco
-    await prisma.waInstance.delete({ where: { id } });
+    // Em vez de hard delete, faz soft delete renomeando e mudando o status
+    // Isso evita quebrar o histórico de tickets e contatos (FK constraints)
+    try {
+      await prisma.waInstance.delete({ where: { id } });
+    } catch (dbErr) {
+      // Se falhar por constraint, faz o soft delete
+      await prisma.waInstance.update({
+        where: { id },
+        data: { 
+           instanceName: `DELETED_${Date.now()}_${inst.instanceName}`,
+           status: 'disconnected'
+        }
+      });
+    }
 
     res.json({ ok: true });
   } catch (err) {
