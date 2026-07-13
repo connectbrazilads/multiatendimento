@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import api, {
   getTickets,
   getMessages,
@@ -102,6 +103,8 @@ export default function Inbox() {
   const [isNote, setIsNote] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const isMobile = useIsMobile();
+  const { instances } = useOutletContext() || { instances: [] };
+  const navigate = useNavigate();
 
   // Volta para a lista quando a janela retorna ao desktop
   useEffect(() => {

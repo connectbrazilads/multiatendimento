@@ -1856,6 +1856,8 @@ export const MessageComposer = React.memo(function MessageComposer({
   recordingTime,
   isNote,
   setIsNote,
+  isDisconnected,
+  onReconnect,
 }) {
   const fileInputRef = useRef(null);
 
@@ -1957,7 +1959,38 @@ export const MessageComposer = React.memo(function MessageComposer({
           </div>
         ) : null}
 
-        {isRecording ? (
+        {isDisconnected && !isNote ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '1rem',
+            padding: '1.2rem',
+            background: 'var(--bg-surface)',
+            borderTop: '1px solid var(--border-color)',
+            color: 'var(--text-muted)'
+          }}>
+            <span style={{ fontSize: isMobile ? '0.85rem' : '0.95rem', textAlign: 'center', lineHeight: '1.4' }}>
+              Não é possível enviar mensagens pois a conexão dessa conversa foi desconectada. Inicie a conexão novamente para continuar a conversa.
+            </span>
+            <button 
+              onClick={onReconnect}
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--text-inverse)',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Reconectar
+            </button>
+          </div>
+        ) : isRecording ? (
           <div style={styles.recordingWrap}>
             <div style={styles.recordingDot} />
             <span style={styles.recordingTime}>{fmtTime(recordingTime)}</span>
