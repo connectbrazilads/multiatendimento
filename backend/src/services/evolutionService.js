@@ -228,8 +228,8 @@ async function saveMediaFile(base64, mimetype, messageId) {
   };
   const ext = extMap[mainType] || (isAudio ? 'ogg' : 'bin');
 
-  const dir = path.resolve(__dirname, '..', '..', 'uploads', 'media');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const { mediaPath } = require('../utils/uploads');
+  const dir = mediaPath;
 
   const rawFilename = `${messageId}.${ext}`;
   const rawPath = path.join(dir, rawFilename);
@@ -341,6 +341,7 @@ async function deleteInstance(url, key, instanceName) {
 
   throw lastErr;
 }
+
 function normalizePhoneNumber(phone) {
   if (typeof phone !== 'string' && typeof phone !== 'number') return '';
   const rawValue = String(phone).trim();

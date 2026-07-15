@@ -67,31 +67,9 @@ async function processScheduledMessages() {
   }
 }
 
-// Limpeza de Mídias (Fotos, Vídeos, Áudios) com mais de 7 dias
+// Limpeza de Mídias (Fotos, Vídeos, Áudios) - DESATIVADA por solicitação do usuário
 async function nightlyCleanup() {
-  console.log('[cleanup] Iniciando limpeza noturna (03:00)...');
-  const mediaDir = path.join(__dirname, '../../uploads/media');
-  
-  try {
-    if (fs.existsSync(mediaDir)) {
-      const files = fs.readdirSync(mediaDir);
-      const now = Date.now();
-      const expiry = 7 * 24 * 60 * 60 * 1000; // 7 dias
-      
-      let count = 0;
-      files.forEach(file => {
-        const filePath = path.join(mediaDir, file);
-        const stats = fs.statSync(filePath);
-        if (now - stats.mtimeMs > expiry) {
-          fs.unlinkSync(filePath);
-          count++;
-        }
-      });
-      console.log(`[cleanup] ${count} arquivos de mídia antigos removidos.`);
-    }
-  } catch (err) {
-    console.error('[cleanup] erro na limpeza:', err.message);
-  }
+  console.log('[cleanup] Limpeza noturna (03:00): A exclusão automática de mídias foi desativada para manter o histórico completo.');
 }
 
 // Retry de mídias que falharam ou ainda estão pendentes

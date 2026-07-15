@@ -407,8 +407,9 @@ async function generatePdf(req, res) {
                   stack: (() => {
                     try {
                       if (os.tenant.logoUrl) {
+                        const { uploadsPath } = require('../utils/uploads');
                         const logoFilename = os.tenant.logoUrl.split('/').pop();
-                        const logoPath = path.resolve(__dirname, '..', '..', 'uploads', logoFilename);
+                        const logoPath = path.resolve(uploadsPath, logoFilename);
                         const ext = path.extname(logoFilename).toLowerCase();
                         const allowed = ['.png', '.jpg', '.jpeg'];
                         if (allowed.includes(ext) && fs.existsSync(logoPath)) {

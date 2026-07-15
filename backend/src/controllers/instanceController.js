@@ -145,6 +145,7 @@ async function repair(req, res) {
     if (!inst) return res.status(404).json({ error: 'Instancia nao encontrada' });
 
     const { evolutionUrl, evolutionKey } = await getSettings(req.user.tenantId);
+    const diagnostics = [];
 
     try {
       const stateData = await evolution.getConnectionState(evolutionUrl, evolutionKey, inst.instanceName);
@@ -152,25 +153,35 @@ async function repair(req, res) {
       if (state === 'open') {
         return res.status(400).json({ error: 'Esta conexao ja esta ativa. Desconecte pelo WhatsApp antes de recriar a sessao.' });
       }
-    } catch {
+    } catch (err) {
+      diagnostics.push(`connectionState: ${err.response?.data?.message || err.message}`);
       // Se o estado remoto tambem travou, seguimos com a recriacao.
     }
 
     try {
       await evolution.deleteInstance(evolutionUrl, evolutionKey, inst.instanceName);
     } catch (err) {
+      diagnostics.push(`deleteInstance: ${err.response?.data?.message || err.message}`);
       console.warn('[instanceController] Falha ao remover instancia remota antes do reparo:', err.response?.data || err.message);
     }
 
     try {
       await evolution.createInstance(evolutionUrl, evolutionKey, inst.instanceName);
     } catch (err) {
-      if (!evolution.isInstanceAlreadyInUse(err)) throw err;
+      if (!evolution.isInstanceAlreadyInUse(err)) {
+        diagnostics.push(`createInstance: ${err.response?.data?.message || err.message}`);
+        console.warn('[instanceController] Falha ao recriar instancia remota:', err.response?.data || err.message);
+      }
     }
 
     const backendUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3002}`;
     const webhookUrl = `${backendUrl}/api/webhook`;
-    await evolution.setWebhook(evolutionUrl, evolutionKey, inst.instanceName, webhookUrl);
+    try {
+      await evolution.setWebhook(evolutionUrl, evolutionKey, inst.instanceName, webhookUrl);
+    } catch (err) {
+      diagnostics.push(`setWebhook: ${err.response?.data?.message || err.message}`);
+      console.warn('[instanceController] Falha ao configurar webhook no reparo:', err.response?.data || err.message);
+    }
 
     const updated = await prisma.waInstance.update({
       where: { id },
@@ -181,6 +192,7 @@ async function repair(req, res) {
     try {
       qrData = await evolution.getQrCode(evolutionUrl, evolutionKey, inst.instanceName);
     } catch (err) {
+      diagnostics.push(`getQrCode: ${err.response?.data?.message || err.message}`);
       console.warn('[instanceController] Reparo concluiu, mas QR Code ainda nao veio:', err.response?.data || err.message);
     }
 
@@ -188,10 +200,11 @@ async function repair(req, res) {
       instance: updated,
       qrcode: qrData?.base64 || qrData?.qrcode?.base64 || null,
       pairingCode: qrData?.pairingCode || null,
+      diagnostics,
     });
   } catch (err) {
     console.error('[instanceController] Erro ao reparar instancia:', err.response?.data || err.message);
-    res.status(400).json({ error: err.response?.data?.message || err.message });
+    res.status(err.statusCode || err.response?.status || 400).json({ error: err.response?.data?.message || err.message });
   }
 }
 

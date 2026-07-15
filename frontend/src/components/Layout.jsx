@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../services/socket';
 import {
@@ -265,7 +265,7 @@ export default function Layout() {
       )}
 
       <div style={{ ...styles.content, paddingBottom: isMobile ? '74px' : '0' }}>
-        <Outlet />
+        <Outlet context={{ instances }} />
       </div>
 
       {isMobile ? (

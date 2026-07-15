@@ -79,10 +79,7 @@ app.use((req, res, next) => {
 });
 
 // Serve arquivos estáticos ANTES das rotas da API
-const uploadsPath = path.resolve(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
+const { uploadsPath } = require('./utils/uploads');
 app.use('/uploads', express.static(uploadsPath));
 
 app.use('/api/auth', authRoutes);
