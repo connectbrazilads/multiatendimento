@@ -312,6 +312,35 @@ async function createInstance(url, key, instanceName) {
   return data;
 }
 
+function isInstanceAlreadyInUse(err) {
+  const responseData = err?.response?.data;
+  const responseMsg = responseData?.response?.message || responseData?.message || err?.message;
+  return Array.isArray(responseMsg)
+    ? responseMsg.some(msg => String(msg).includes('already in use'))
+    : String(responseMsg || '').includes('already in use');
+}
+
+async function deleteInstance(url, key, instanceName) {
+  const client = getClient(url, key);
+  const attempts = [
+    () => client.delete(`/instance/delete/${instanceName}`),
+    () => client.delete(`/instance/logout/${instanceName}`),
+    () => client.post(`/instance/logout/${instanceName}`),
+  ];
+
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const { data } = await attempt();
+      return data;
+    } catch (err) {
+      lastErr = err;
+      if (err.response?.status === 404) return { ok: true, alreadyDeleted: true };
+    }
+  }
+
+  throw lastErr;
+}
 function normalizePhoneNumber(phone) {
   if (typeof phone !== 'string' && typeof phone !== 'number') return '';
   const rawValue = String(phone).trim();
@@ -491,7 +520,7 @@ async function findMessages(url, key, instanceName, remoteJid, limit = 50) {
 
 module.exports = {
   sendText, sendMedia, sendAudio, sendMessage, getMediaBase64, saveMediaFile,
-  getQrCode, getConnectionState, setWebhook, createInstance, fetchInstanceInfo, fetchProfilePicture, revokeMessage,
+  getQrCode, getConnectionState, setWebhook, createInstance, deleteInstance, isInstanceAlreadyInUse, fetchInstanceInfo, fetchProfilePicture, revokeMessage,
   normalizePhoneNumber, buildPhoneLookupCandidates, isGroupJid,
   findChats, findMessages
 };

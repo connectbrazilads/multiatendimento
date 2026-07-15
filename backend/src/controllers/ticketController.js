@@ -41,6 +41,55 @@ function getMimeTypeFromFileName(fileName = '', mediaType = 'document') {
   return 'application/octet-stream';
 }
 
+async function getInstanceFallbackQueue(tenantId, preferredInstanceId) {
+  const instances = await prisma.waInstance.findMany({
+    where: {
+      tenantId,
+      instanceName: { not: { startsWith: 'DELETED_' } },
+    },
+  });
+
+  const byId = new Map(instances.map((instance) => [instance.id, instance]));
+  const queue = [];
+  const push = (instance) => {
+    if (instance && !queue.some((item) => item.id === instance.id)) queue.push(instance);
+  };
+
+  if (preferredInstanceId) push(byId.get(preferredInstanceId));
+  instances
+    .filter((instance) => String(instance.status).toLowerCase() === 'connected')
+    .forEach(push);
+  instances.forEach(push);
+
+  return queue;
+}
+
+async function sendWithInstanceFallback({ tenantId, ticketId, preferredInstanceId, send }) {
+  const queue = await getInstanceFallbackQueue(tenantId, preferredInstanceId);
+  if (!queue.length) {
+    throw new Error('Nenhuma conexao WhatsApp encontrada ou configurada para esta empresa.');
+  }
+
+  const failures = [];
+  for (const instance of queue) {
+    try {
+      const result = await send(instance);
+      if (ticketId && instance.id !== preferredInstanceId) {
+        await prisma.ticket.update({
+          where: { id: ticketId },
+          data: { instanceId: instance.id },
+        });
+      }
+      return { result, instance };
+    } catch (err) {
+      failures.push(`${instance.instanceName}: ${err.response?.data?.message || err.message}`);
+      console.warn(`[sendWithInstanceFallback] Falha via ${instance.instanceName}; tentando proxima instancia...`, err.response?.data || err.message);
+    }
+  }
+
+  throw new Error(`Falha ao enviar por todas as conexoes disponiveis. Tentativas: ${failures.join(' | ')}`);
+}
+
 function getRecentConversation(messages = [], hours = 24, maxItems = 30) {
   const cutoff = Date.now() - (hours * 60 * 60 * 1000);
   const recent = messages.filter(message => new Date(message.createdAt).getTime() >= cutoff);
@@ -633,38 +682,15 @@ async function sendMessage(req, res) {
       }
     }
 
-    let instanceName = ticket.instance?.instanceName;
-    let targetInstanceId = ticket.instanceId;
-
-    if (!instanceName) {
-      const fallbackInstance = await prisma.waInstance.findFirst({
-        where: { tenantId: req.user.tenantId, status: 'connected' }
-      });
-      instanceName = fallbackInstance?.instanceName;
-      targetInstanceId = fallbackInstance?.id;
-    }
-
-    if (!instanceName) {
-      const anyInstance = await prisma.waInstance.findFirst({
-        where: { tenantId: req.user.tenantId }
-      });
-      instanceName = anyInstance?.instanceName;
-      targetInstanceId = anyInstance?.id;
-    }
-
-    if (!instanceName) {
-      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
-    }
-
-    // Se o ticket não tinha uma instância associada, vincula a que encontramos
-    if (!ticket.instanceId && targetInstanceId) {
-      await prisma.ticket.update({
-        where: { id },
-        data: { instanceId: targetInstanceId }
-      });
-    }
-
-    const result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody, quotedObj);
+    const { result, instance: usedInstance } = await sendWithInstanceFallback({
+      tenantId: req.user.tenantId,
+      ticketId: id,
+      preferredInstanceId: ticket.instanceId,
+      send: (instance) => {
+        const quoteForInstance = instance.id === ticket.instanceId ? quotedObj : null;
+        return evolutionService.sendText(evolutionUrl, evolutionKey, instance.instanceName, phone, finalBody, quoteForInstance);
+      },
+    });
     const externalId = result?.key?.id || result?.message?.key?.id;
 
     // Auto-atribuição se o ticket não estiver aberto ou estiver sem agente
@@ -690,6 +716,7 @@ async function sendMessage(req, res) {
 
     // Atualiza lastMessageAt para ordenação da lista
     await prisma.ticket.update({ where: { id }, data: { lastMessageAt: new Date() } });
+    if (usedInstance.id !== ticket.instanceId && io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
     res.json(message);
   } catch (err) {
     console.error('[sendMessage] erro:', err.response?.data || err.message);
@@ -728,37 +755,6 @@ async function sendMediaMessage(req, res) {
     // Normaliza o número: se tiver 10 ou 11 dígitos, adiciona 55
     const phone = evolutionService.normalizePhoneNumber(ticket.contact?.phone || '');
 
-    let instanceName = ticket.instance?.instanceName;
-    let targetInstanceId = ticket.instanceId;
-
-    if (!instanceName) {
-      const fallbackInstance = await prisma.waInstance.findFirst({
-        where: { tenantId: req.user.tenantId, status: 'connected' }
-      });
-      instanceName = fallbackInstance?.instanceName;
-      targetInstanceId = fallbackInstance?.id;
-    }
-
-    if (!instanceName) {
-      const anyInstance = await prisma.waInstance.findFirst({
-        where: { tenantId: req.user.tenantId }
-      });
-      instanceName = anyInstance?.instanceName;
-      targetInstanceId = anyInstance?.id;
-    }
-
-    if (!instanceName) {
-      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
-    }
-
-    // Se o ticket não tinha uma instância associada, vincula a que encontramos
-    if (!ticket.instanceId && targetInstanceId) {
-      await prisma.ticket.update({
-        where: { id },
-        data: { instanceId: targetInstanceId }
-      });
-    }
-
     let mediaUrl = `/uploads/media/${file.filename}`;
     let mediaType = 'document';
 
@@ -781,45 +777,51 @@ async function sendMediaMessage(req, res) {
       }
     }
 
-    let result;
-    if (mime.startsWith('image/')) {
-      mediaType = 'image';
-      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-        mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedObj, filePath: file.path
-      });
-    } else if (mime.startsWith('audio/')) {
-      mediaType = 'audio';
-      try {
-        const mediaService = require('../services/mediaService');
-        const oldPath = file.path;
-        const newPath = await mediaService.normalizeAudio(oldPath);
-        const newFilename = path.basename(newPath);
-        mediaUrl = `/uploads/media/${newFilename}`;
-        const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
-        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, oggBase64, quotedObj);
-      } catch (err) {
-        console.error('[audioConvert] erro:', err.message);
-        result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64, quotedObj);
-      }
-    } else if (mime.startsWith('video/')) {
-      mediaType = 'video';
-      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-        mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quotedObj, filePath: file.path
-      });
-    } else {
-      mediaType = 'document';
-      // Para documentos, se não houver legenda extra, mandamos sem legenda para evitar erros na API
-      const docCaption = caption ? finalCaption : undefined;
-      result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-        mediatype: 'document', 
-        media: base64, 
-        mimetype: mime,
-        filename: file.originalname, 
-        caption: docCaption, 
-        quoted: quotedObj,
-        filePath: file.path
-      });
-    }
+    const { result, instance: usedInstance } = await sendWithInstanceFallback({
+      tenantId: req.user.tenantId,
+      ticketId: id,
+      preferredInstanceId: ticket.instanceId,
+      send: async (instance) => {
+        const quoteForInstance = instance.id === ticket.instanceId ? quotedObj : null;
+        if (mime.startsWith('image/')) {
+          mediaType = 'image';
+          return evolutionService.sendMedia(evolutionUrl, evolutionKey, instance.instanceName, phone, {
+            mediatype: 'image', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quoteForInstance, filePath: file.path
+          });
+        } else if (mime.startsWith('audio/')) {
+          mediaType = 'audio';
+          try {
+            const mediaService = require('../services/mediaService');
+            const oldPath = file.path;
+            const newPath = await mediaService.normalizeAudio(oldPath);
+            const newFilename = path.basename(newPath);
+            mediaUrl = `/uploads/media/${newFilename}`;
+            const oggBase64 = (await fs.promises.readFile(newPath)).toString('base64');
+            return evolutionService.sendAudio(evolutionUrl, evolutionKey, instance.instanceName, phone, oggBase64, quoteForInstance);
+          } catch (err) {
+            console.error('[audioConvert] erro:', err.message);
+            return evolutionService.sendAudio(evolutionUrl, evolutionKey, instance.instanceName, phone, base64, quoteForInstance);
+          }
+        } else if (mime.startsWith('video/')) {
+          mediaType = 'video';
+          return evolutionService.sendMedia(evolutionUrl, evolutionKey, instance.instanceName, phone, {
+            mediatype: 'video', media: base64, mimetype: mime, filename: file.originalname, caption: finalCaption, quoted: quoteForInstance, filePath: file.path
+          });
+        }
+
+        mediaType = 'document';
+        const docCaption = caption ? finalCaption : undefined;
+        return evolutionService.sendMedia(evolutionUrl, evolutionKey, instance.instanceName, phone, {
+          mediatype: 'document',
+          media: base64,
+          mimetype: mime,
+          filename: file.originalname,
+          caption: docCaption,
+          quoted: quoteForInstance,
+          filePath: file.path
+        });
+      },
+    });
 
     const externalId = result?.key?.id || result?.message?.key?.id;
 
@@ -848,6 +850,7 @@ async function sendMediaMessage(req, res) {
 
     // Atualiza lastMessageAt para ordenação da lista
     await prisma.ticket.update({ where: { id }, data: { lastMessageAt: new Date() } });
+    if (usedInstance.id !== ticket.instanceId && io) io.to(req.user.tenantId).emit('ticket_updated', { ticketId: id });
 
     if (mediaType === 'audio' && settings?.geminiKey) {
       (async () => {
@@ -1169,70 +1172,45 @@ async function forwardMessage(req, res) {
 
     const phone = evolutionService.normalizePhoneNumber(contact.phone || '');
 
-    let instanceName = ticket.instance?.instanceName;
-    let targetInstanceId = ticket.instanceId;
-
-    if (!instanceName) {
-      const fallbackInstance = await prisma.waInstance.findFirst({
-        where: { tenantId, status: 'connected' }
-      });
-      instanceName = fallbackInstance?.instanceName;
-      targetInstanceId = fallbackInstance?.id;
-    }
-
-    if (!instanceName) {
-      const anyInstance = await prisma.waInstance.findFirst({
-        where: { tenantId }
-      });
-      instanceName = anyInstance?.instanceName;
-      targetInstanceId = anyInstance?.id;
-    }
-
-    if (!instanceName) {
-      return res.status(400).json({ error: 'Nenhuma conexão WhatsApp encontrada ou configurada para esta empresa.' });
-    }
-
-    // Se o ticket não tinha uma instância associada, vincula a que encontramos
-    if (!ticket.instanceId && targetInstanceId) {
-      ticket = await prisma.ticket.update({
-        where: { id: ticket.id },
-        data: { instanceId: targetInstanceId },
-        include: { instance: true }
-      });
-    }
-
-    let result;
     const body = originalMsg.body;
     const mediaUrl = originalMsg.mediaUrl;
     const mediaType = originalMsg.mediaType;
 
-    if (mediaUrl) {
-      const filePath = path.resolve(__dirname, '..', '..', mediaUrl.startsWith('/') ? mediaUrl.substring(1) : mediaUrl);
-      if (fs.existsSync(filePath)) {
-        const base64 = (await fs.promises.readFile(filePath)).toString('base64');
-        const mimetype = getMimeTypeFromFileName(originalMsg.fileName, mediaType);
-        
-        const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
+    const { result } = await sendWithInstanceFallback({
+      tenantId,
+      ticketId: ticket.id,
+      preferredInstanceId: ticket.instanceId,
+      send: async (instance) => {
+        if (mediaUrl) {
+          const filePath = path.resolve(__dirname, '..', '..', mediaUrl.startsWith('/') ? mediaUrl.substring(1) : mediaUrl);
+          if (!fs.existsSync(filePath)) {
+            const err = new Error('Arquivo de mídia não encontrado no servidor');
+            err.statusCode = 400;
+            throw err;
+          }
 
-        if (mediaType === 'audio') {
-           result = await evolutionService.sendAudio(evolutionUrl, evolutionKey, instanceName, phone, base64);
-        } else {
-           result = await evolutionService.sendMedia(evolutionUrl, evolutionKey, instanceName, phone, {
-             mediatype: mediaType === 'document' ? 'document' : mediaType, 
-             media: base64,
-             mimetype,
-             filename: originalMsg.fileName || `${mediaType || 'arquivo'}${path.extname(filePath) || ''}`,
-             caption: finalCaption,
-             filePath
-            });
+          const base64 = (await fs.promises.readFile(filePath)).toString('base64');
+          const mimetype = getMimeTypeFromFileName(originalMsg.fileName, mediaType);
+          const finalCaption = mediaType === 'audio' ? null : `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
+
+          if (mediaType === 'audio') {
+            return evolutionService.sendAudio(evolutionUrl, evolutionKey, instance.instanceName, phone, base64);
+          }
+
+          return evolutionService.sendMedia(evolutionUrl, evolutionKey, instance.instanceName, phone, {
+            mediatype: mediaType === 'document' ? 'document' : mediaType,
+            media: base64,
+            mimetype,
+            filename: originalMsg.fileName || `${mediaType || 'arquivo'}${path.extname(filePath) || ''}`,
+            caption: finalCaption,
+            filePath
+          });
         }
-      } else {
-        return res.status(400).json({ error: 'Arquivo de mídia não encontrado no servidor' });
-      }
-    } else {
-      const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
-      result = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, finalBody);
-    }
+
+        const finalBody = `*Encaminhado por ${agent?.name || 'Agente'}*\n${body || ''}`;
+        return evolutionService.sendText(evolutionUrl, evolutionKey, instance.instanceName, phone, finalBody);
+      },
+    });
 
     const externalId = result?.key?.id || result?.message?.key?.id;
     const newMessage = await prisma.message.create({

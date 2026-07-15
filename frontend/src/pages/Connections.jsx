@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
-import { Plus, QrCode, Smartphone, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Plus, QrCode, RotateCcw, Smartphone, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { toast } from '../utils/toast';
-import { getInstances, createInstance, deleteInstance, getInstanceQrCode } from '../services/api';
+import { getInstances, createInstance, deleteInstance, getInstanceQrCode, repairInstance } from '../services/api';
 import { SOCKET_URL } from '../services/socket';
 
 export default function Connections() {
@@ -13,6 +13,7 @@ export default function Connections() {
   const [name, setName] = useState('');
   const [qrcode, setQrcode] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [repairingId, setRepairingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -75,6 +76,28 @@ export default function Connections() {
     });
   }
 
+  async function handleRepair(inst) {
+    toast.confirm('Recriar a sessao desta conexao? Use quando o QR Code travar ou a Evolution ficar presa.', async () => {
+      setRepairingId(inst.id);
+      setQrcode(null);
+      try {
+        const { data } = await repairInstance(inst.id);
+        setSelectedInst(data.instance || inst);
+        setModal('qrcode');
+        setQrcode(data.qrcode || null);
+        load();
+        if (!data.qrcode) {
+          toast.info('Sessao recriada. Buscando QR Code novamente...');
+          loadQr(inst.id);
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Erro ao recriar sessao');
+      } finally {
+        setRepairingId(null);
+      }
+    });
+  }
+
   return (
     <div style={s.container}>
       <header style={s.header}>
@@ -131,9 +154,14 @@ export default function Connections() {
                       Pronto para uso
                     </div>
                   ) : (
-                    <button style={s.qrBtn} onClick={() => { setSelectedInst(inst); setModal('qrcode'); loadQr(inst.id); }}>
-                      <QrCode size={16} /> Gerar QR Code
-                    </button>
+                    <div style={s.disconnectedActions}>
+                      <button style={s.qrBtn} onClick={() => { setSelectedInst(inst); setModal('qrcode'); loadQr(inst.id); }}>
+                        <QrCode size={16} /> Gerar QR Code
+                      </button>
+                      <button style={s.repairBtn} disabled={repairingId === inst.id} onClick={() => handleRepair(inst)}>
+                        <RotateCcw size={16} /> {repairingId === inst.id ? 'Recriando...' : 'Recriar sessao'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -277,12 +305,27 @@ const s = {
   },
   statusDot: { width: '7px', height: '7px', borderRadius: '50%' },
   cardBody: { marginTop: '0.25rem' },
+  disconnectedActions: { display: 'grid', gap: '0.65rem' },
   qrBtn: {
     width: '100%',
     background: 'var(--accent-light)',
     color: 'var(--accent)',
     border: '1px solid var(--accent-border)',
     padding: '0.85rem',
+    borderRadius: '12px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px'
+  },
+  repairBtn: {
+    width: '100%',
+    background: 'var(--bg-panel)',
+    color: 'var(--text-muted)',
+    border: '1px solid var(--border-color)',
+    padding: '0.75rem',
     borderRadius: '12px',
     fontWeight: 800,
     cursor: 'pointer',

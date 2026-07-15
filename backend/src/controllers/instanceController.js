@@ -90,12 +90,7 @@ async function create(req, res) {
       await evolution.createInstance(evolutionUrl, evolutionKey, instanceName);
     } catch (err) {
       const responseData = err.response?.data;
-      const responseMsg = responseData?.response?.message;
-      const isAlreadyInUse = Array.isArray(responseMsg)
-        ? responseMsg.some(msg => String(msg).includes('already in use'))
-        : String(responseMsg || '').includes('already in use');
-
-      if (isAlreadyInUse) {
+      if (evolution.isInstanceAlreadyInUse(err)) {
         console.log(`[instanceController] Instância "${instanceName}" já existe na Evolution. Prosseguindo com o vínculo no banco de dados.`);
       } else {
         console.error(`[instanceController] Erro ao criar na Evolution:`, responseData || err.message);
@@ -143,6 +138,63 @@ async function getQrCode(req, res) {
   }
 }
 
+async function repair(req, res) {
+  try {
+    const { id } = req.params;
+    const inst = await prisma.waInstance.findFirst({ where: { id, tenantId: req.user.tenantId } });
+    if (!inst) return res.status(404).json({ error: 'Instancia nao encontrada' });
+
+    const { evolutionUrl, evolutionKey } = await getSettings(req.user.tenantId);
+
+    try {
+      const stateData = await evolution.getConnectionState(evolutionUrl, evolutionKey, inst.instanceName);
+      const state = stateData?.instance?.state || stateData?.state;
+      if (state === 'open') {
+        return res.status(400).json({ error: 'Esta conexao ja esta ativa. Desconecte pelo WhatsApp antes de recriar a sessao.' });
+      }
+    } catch {
+      // Se o estado remoto tambem travou, seguimos com a recriacao.
+    }
+
+    try {
+      await evolution.deleteInstance(evolutionUrl, evolutionKey, inst.instanceName);
+    } catch (err) {
+      console.warn('[instanceController] Falha ao remover instancia remota antes do reparo:', err.response?.data || err.message);
+    }
+
+    try {
+      await evolution.createInstance(evolutionUrl, evolutionKey, inst.instanceName);
+    } catch (err) {
+      if (!evolution.isInstanceAlreadyInUse(err)) throw err;
+    }
+
+    const backendUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3002}`;
+    const webhookUrl = `${backendUrl}/api/webhook`;
+    await evolution.setWebhook(evolutionUrl, evolutionKey, inst.instanceName, webhookUrl);
+
+    const updated = await prisma.waInstance.update({
+      where: { id },
+      data: { status: 'disconnected', qrCode: null },
+    });
+
+    let qrData = null;
+    try {
+      qrData = await evolution.getQrCode(evolutionUrl, evolutionKey, inst.instanceName);
+    } catch (err) {
+      console.warn('[instanceController] Reparo concluiu, mas QR Code ainda nao veio:', err.response?.data || err.message);
+    }
+
+    res.json({
+      instance: updated,
+      qrcode: qrData?.base64 || qrData?.qrcode?.base64 || null,
+      pairingCode: qrData?.pairingCode || null,
+    });
+  } catch (err) {
+    console.error('[instanceController] Erro ao reparar instancia:', err.response?.data || err.message);
+    res.status(400).json({ error: err.response?.data?.message || err.message });
+  }
+}
+
 async function remove(req, res) {
   try {
     const { id } = req.params;
@@ -175,4 +227,4 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, create, getQrCode, remove };
+module.exports = { list, create, getQrCode, repair, remove };

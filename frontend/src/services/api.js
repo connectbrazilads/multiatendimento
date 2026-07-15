@@ -64,6 +64,7 @@ export const syncFirebirdContacts = (data = {}) => api.post('/integrations/fireb
 export const getInstances = () => api.get('/instance/list');
 export const getInstanceQrCode = (id) => api.get(`/instance/qrcode/${id}`);
 export const createInstance = (name) => api.post('/instance/create', { name });
+export const repairInstance = (id) => api.post(`/instance/${id}/repair`);
 export const deleteInstance = (id) => api.delete(`/instance/${id}`);
 
 // Contacts
