@@ -667,17 +667,24 @@ export default function LeadScraper() {
                 <div style={s.phonePreviewStage}>
                   <div style={s.chatStageWrap}>
                     <div style={s.chatStageHint}>Como a mensagem deve aparecer no celular</div>
-                    <div style={s.messageBubblePreview}>
-                      {sendImagePreview ? (
-                        <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
-                      ) : null}
-                      {sendMessage.trim() ? (
+                    {sendMessage.trim() ? (
+                      <div style={s.messageBubbleTextPreview}>
                         <div style={s.messageTextPreview}>{sendMessage}</div>
-                      ) : (
+                        <div style={s.messageTimePreview}>agora</div>
+                      </div>
+                    ) : null}
+                    {sendImagePreview ? (
+                      <div style={s.messageBubbleMediaPreview}>
+                        <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
+                        <div style={s.messageTimePreview}>agora</div>
+                      </div>
+                    ) : null}
+                    {!sendMessage.trim() && !sendImagePreview ? (
+                      <div style={s.messageBubbleEmptyPreview}>
                         <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
-                      )}
-                      <div style={s.messageTimePreview}>agora</div>
-                    </div>
+                        <div style={s.messageTimePreview}>agora</div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1244,7 +1251,7 @@ const s = {
     fontWeight: 600,
     paddingLeft: '0.2rem',
   },
-  messageBubblePreview: {
+  messageBubbleTextPreview: {
     width: '100%',
     maxWidth: '430px',
     background: 'linear-gradient(180deg, #0b6b5d, #075E54)',
@@ -1253,12 +1260,35 @@ const s = {
     padding: '0.7rem',
     boxShadow: '0 14px 30px rgba(0,0,0,0.25)',
     border: '1px solid rgba(255,255,255,0.06)',
+    alignSelf: 'flex-end',
+  },
+  messageBubbleMediaPreview: {
+    width: '100%',
+    maxWidth: '430px',
+    background: 'rgba(12, 18, 26, 0.82)',
+    color: '#fff',
+    borderRadius: '16px 16px 4px 16px',
+    padding: '0.7rem',
+    boxShadow: '0 14px 30px rgba(0,0,0,0.22)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    alignSelf: 'flex-end',
+  },
+  messageBubbleEmptyPreview: {
+    width: '100%',
+    maxWidth: '430px',
+    background: 'rgba(12, 18, 26, 0.72)',
+    color: '#fff',
+    borderRadius: '16px 16px 4px 16px',
+    padding: '0.7rem',
+    boxShadow: '0 14px 30px rgba(0,0,0,0.22)',
+    border: '1px dashed rgba(255,255,255,0.08)',
+    alignSelf: 'flex-end',
   },
   messageImagePreview: {
     width: '100%',
     aspectRatio: '4 / 3',
     maxHeight: '310px',
-    objectFit: 'cover',
+    objectFit: 'contain',
     display: 'block',
     borderRadius: '12px',
     background: 'rgba(0,0,0,0.18)',

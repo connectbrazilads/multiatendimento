@@ -247,11 +247,13 @@ async function sendToLeads(req, res) {
   try {
     const tenantId = req.user.tenantId;
     const { leadIds, message, mediaUrl, mediaType, instanceId, delayMinSeconds = 2, delayMaxSeconds = 5 } = req.body;
+    const hasText = Boolean(String(message || '').trim());
+    const hasMedia = Boolean(mediaUrl && mediaType);
 
     if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
       return res.status(400).json({ error: 'Selecione pelo menos um lead' });
     }
-    if (!message && !mediaUrl) {
+    if (!hasText && !hasMedia) {
       return res.status(400).json({ error: 'Informe uma mensagem ou mídia para enviar' });
     }
 
@@ -298,32 +300,55 @@ async function sendToLeads(req, res) {
           continue;
         }
 
-        if (mediaUrl && mediaType) {
-          // Enviar mídia + caption
-          const path = require('path');
-          const fullPath = path.resolve(__dirname, '../../', String(mediaUrl).replace(/^\/+/, ''));
-          await evolutionService.sendMedia(
-            tenant.settings.evolutionUrl,
-            tenant.settings.evolutionKey,
-            instance.instanceName,
-            phone,
-            {
-              mediatype: mediaType === 'image' ? 'image' : 'document',
-              mimetype: mediaType === 'image' ? 'image/jpeg' : 'application/octet-stream',
-              caption: message || '',
-              filePath: fullPath,
-              filename: path.basename(mediaUrl),
-            }
-          );
-        } else {
-          // Enviar somente texto
-          await evolutionService.sendText(
-            tenant.settings.evolutionUrl,
-            tenant.settings.evolutionKey,
-            instance.instanceName,
-            phone,
-            message
-          );
+        const path = require('path');
+        const stepErrors = [];
+        let delivered = false;
+
+        if (hasText) {
+          try {
+            await evolutionService.sendText(
+              tenant.settings.evolutionUrl,
+              tenant.settings.evolutionKey,
+              instance.instanceName,
+              phone,
+              message
+            );
+            delivered = true;
+          } catch (textErr) {
+            stepErrors.push(`texto: ${textErr.message}`);
+          }
+        }
+
+        if (hasMedia) {
+          try {
+            const fullPath = path.resolve(__dirname, '../../', String(mediaUrl).replace(/^\/+/, ''));
+            await evolutionService.sendMedia(
+              tenant.settings.evolutionUrl,
+              tenant.settings.evolutionKey,
+              instance.instanceName,
+              phone,
+              {
+                mediatype: mediaType === 'image' ? 'image' : 'document',
+                mimetype: mediaType === 'image' ? 'image/jpeg' : 'application/octet-stream',
+                caption: '',
+                filePath: fullPath,
+                filename: path.basename(mediaUrl),
+              }
+            );
+            delivered = true;
+          } catch (mediaErr) {
+            stepErrors.push(`mídia: ${mediaErr.message}`);
+          }
+        }
+
+        if (!delivered) {
+          failed++;
+          errors.push(`${lead.name}: ${stepErrors.join(' | ') || 'falha ao enviar'}`);
+          continue;
+        }
+
+        if (stepErrors.length > 0) {
+          errors.push(`${lead.name}: ${stepErrors.join(' | ')}`);
         }
 
         sent++;
@@ -347,7 +372,7 @@ async function sendToLeads(req, res) {
 
     console.log(`[leads] Envio finalizado: ${sent} enviados, ${failed} falhas`);
     res.json({
-      message: `${sent} mensagens enviadas com sucesso. ${failed} falharam.`,
+      message: `${sent} mensagens enviadas com sucesso. ${failed} falharam.${errors.length ? ' Alguns envios tiveram falhas parciais.' : ''}`,
       sent,
       failed,
       instance: instance.instanceName,
