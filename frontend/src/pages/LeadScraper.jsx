@@ -473,17 +473,17 @@ export default function LeadScraper() {
       )}
 
       {/* SEND MODAL */}
+      {/* SEND MODAL */}
       {showSendModal ? (
         <ModalShell
           kicker={selectedAlreadySent > 0 ? 'Reenvio' : 'Envio em massa'}
           title={`${selectedAlreadySent > 0 ? 'Reenviar' : 'Enviar'} WhatsApp para ${selected.size} lead(s)`}
           onClose={() => setShowSendModal(false)}
-          maxWidth="40rem"
+          maxWidth="76rem"
         >
-          <div style={s.modalBody}>
-            {/* Alerta de reenvio */}
+          <div style={s.sendGrid}>
             {selectedAlreadySent > 0 ? (
-              <div style={s.resendAlert}>
+              <div style={{ ...s.resendAlert, gridColumn: '1 / -1' }}>
                 <RotateCcw size={16} />
                 <span>
                   <strong>{selectedAlreadySent}</strong> dos {selected.size} leads selecionados já receberam mensagem anteriormente.
@@ -492,8 +492,7 @@ export default function LeadScraper() {
               </div>
             ) : null}
 
-            {/* Prévia dos leads selecionados */}
-            <div style={s.selectedPreview}>
+            <div style={{ ...s.selectedPreview, gridColumn: '1 / -1' }}>
               <div style={s.previewHeader}>
                 <span style={s.fieldLabel}>Leads selecionados</span>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600 }}>
@@ -524,150 +523,150 @@ export default function LeadScraper() {
               </div>
             </div>
 
-            <div style={s.sendConfigGrid}>
-              <div style={s.field}>
-                <label style={s.fieldLabel}>Instancia de envio</label>
-                <div style={s.selectIconWrap}>
-                  <Smartphone size={16} style={s.selectIcon} />
-                  <select
-                    style={{ ...s.input, paddingLeft: '2.5rem' }}
-                    value={selectedInstanceId}
-                    onChange={(e) => setSelectedInstanceId(e.target.value)}
-                  >
-                    <option value="">Selecione uma instancia</option>
-                    {instances.map((inst) => {
-                      const label = inst.instanceName?.split('_').pop()?.toUpperCase() || inst.instanceName;
-                      return (
-                        <option key={inst.id} value={inst.id} disabled={inst.status !== 'connected'}>
-                          {label} {inst.status === 'connected' ? 'conectada' : 'desconectada'}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.fieldLabel}>Intervalo entre envios (segundos)</label>
-                <div style={s.delayInputs}>
-                  <div style={s.numberInputWrap}>
-                    <Clock size={15} style={s.numberInputIcon} />
-                    <input
-                      style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
-                      type="number"
-                      min={0}
-                      max={300}
-                      value={delayMinSeconds}
-                      onChange={(e) => setDelayMinSeconds(e.target.value)}
-                    />
-                    <span style={s.numberSuffix}>min seg</span>
-                  </div>
-                  <div style={s.numberInputWrap}>
-                    <Clock size={15} style={s.numberInputIcon} />
-                    <input
-                      style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
-                      type="number"
-                      min={0}
-                      max={300}
-                      value={delayMaxSeconds}
-                      onChange={(e) => setDelayMaxSeconds(e.target.value)}
-                    />
-                    <span style={s.numberSuffix}>max seg</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Campo de mensagem */}
-            <div style={s.field}>
-              <label style={s.fieldLabel}>Mensagem</label>
-              <textarea
-                style={s.textarea}
-                rows={5}
-                value={sendMessage}
-                onChange={(e) => setSendMessage(e.target.value)}
-                placeholder="Escreva a mensagem que será enviada para todos os leads selecionados..."
-              />
-              <div style={s.charCount}>{sendMessage.length} caracteres</div>
-            </div>
-
-            {/* Upload de imagem */}
-            <div style={s.field}>
-              <label style={s.fieldLabel}>Imagem / Promoção (opcional)</label>
-              <div style={s.imageUploadArea}>
-                {sendImagePreview ? (
-                  <div style={s.imagePreviewWrap}>
-                    <img src={sendImagePreview} alt="Preview" style={s.imagePreview} />
-                    <button
-                      style={s.removeImageBtn}
-                      onClick={() => {
-                        setSendImage(null);
-                        setSendImagePreview('');
-                      }}
+            <div style={s.sendFormColumn}>
+              <div style={s.sendConfigGrid}>
+                <div style={s.field}>
+                  <label style={s.fieldLabel}>Instancia de envio</label>
+                  <div style={s.selectIconWrap}>
+                    <Smartphone size={16} style={s.selectIcon} />
+                    <select
+                      style={{ ...s.input, paddingLeft: '2.5rem' }}
+                      value={selectedInstanceId}
+                      onChange={(e) => setSelectedInstanceId(e.target.value)}
                     >
-                      <XCircle size={20} />
-                    </button>
-                    <div style={s.imageFileName}>
-                      <Image size={14} />
-                      <span style={s.imageFileNameText}>{sendImage?.name || 'Imagem selecionada'}</span>
+                      <option value="">Selecione uma instancia</option>
+                      {instances.map((inst) => {
+                        const label = inst.instanceName?.split('_').pop()?.toUpperCase() || inst.instanceName;
+                        return (
+                          <option key={inst.id} value={inst.id} disabled={inst.status !== 'connected'}>
+                            {label} {inst.status === 'connected' ? 'conectada' : 'desconectada'}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={s.field}>
+                  <label style={s.fieldLabel}>Intervalo entre envios (segundos)</label>
+                  <div style={s.delayInputs}>
+                    <div style={s.numberInputWrap}>
+                      <Clock size={15} style={s.numberInputIcon} />
+                      <input
+                        style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={delayMinSeconds}
+                        onChange={(e) => setDelayMinSeconds(e.target.value)}
+                      />
+                      <span style={s.numberSuffix}>min seg</span>
+                    </div>
+                    <div style={s.numberInputWrap}>
+                      <Clock size={15} style={s.numberInputIcon} />
+                      <input
+                        style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={delayMaxSeconds}
+                        onChange={(e) => setDelayMaxSeconds(e.target.value)}
+                      />
+                      <span style={s.numberSuffix}>max seg</span>
                     </div>
                   </div>
-                ) : (
-                  <label style={s.imageUploadLabel}>
-                    <Image size={22} />
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Clique para anexar imagem</div>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '2px' }}>PNG, JPG ou WEBP — ideal para flyers e promoções</div>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div style={s.whatsappPreview}>
-              <div style={s.previewHeader}>
-                <span style={s.fieldLabel}>Previa da mensagem</span>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 700 }}>Como sera enviada</span>
-              </div>
-              <div style={s.phonePreviewStage}>
-                <div style={s.messageBubblePreview}>
-                  {sendImagePreview ? (
-                    <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
-                  ) : null}
-                  {sendMessage.trim() ? (
-                    <div style={s.messageTextPreview}>{sendMessage}</div>
-                  ) : (
-                    <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
-                  )}
-                  <div style={s.messageTimePreview}>agora</div>
                 </div>
               </div>
+
+              <div style={s.field}>
+                <label style={s.fieldLabel}>Mensagem</label>
+                <textarea
+                  style={s.textarea}
+                  rows={6}
+                  value={sendMessage}
+                  onChange={(e) => setSendMessage(e.target.value)}
+                  placeholder="Escreva a mensagem que será enviada para todos os leads selecionados..."
+                />
+                <div style={s.charCount}>{sendMessage.length} caracteres</div>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.fieldLabel}>Imagem / Promoção (opcional)</label>
+                <div style={s.imageUploadArea}>
+                  {sendImagePreview ? (
+                    <div style={s.imagePreviewWrap}>
+                      <img src={sendImagePreview} alt="Preview" style={s.imagePreview} />
+                      <button
+                        style={s.removeImageBtn}
+                        onClick={() => {
+                          setSendImage(null);
+                          setSendImagePreview('');
+                        }}
+                      >
+                        <XCircle size={20} />
+                      </button>
+                      <div style={s.imageFileName}>
+                        <Image size={14} />
+                        <span style={s.imageFileNameText}>{sendImage?.name || 'Imagem selecionada'}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={s.imageUploadLabel}>
+                      <Image size={22} />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Clique para anexar imagem</div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '2px' }}>PNG, JPG ou WEBP — ideal para flyers e promoções</div>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleImageChange}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div style={s.modalFooter}>
+                <ActionButton variant="secondary" onClick={() => setShowSendModal(false)} style={{ flex: 1 }}>
+                  Cancelar
+                </ActionButton>
+                <ActionButton onClick={handleSend} disabled={sending} style={{ flex: 2 }}>
+                  {sending ? <Loader size={16} className="spin" /> : <Send size={16} />}
+                  {sending
+                    ? 'Enviando...'
+                    : selectedAlreadySent > 0
+                      ? `Reenviar para ${selected.size} leads`
+                      : `Enviar para ${selected.size} leads`}
+                </ActionButton>
+              </div>
+
+              <div style={s.delayNotice}>
+                O envio aguardara entre {delayMinSeconds || 0} e {delayMaxSeconds || 0} segundos, sorteando um tempo diferente antes de cada proxima mensagem.
+              </div>
             </div>
 
-            {/* Footer */}
-            <div style={s.modalFooter}>
-              <ActionButton variant="secondary" onClick={() => setShowSendModal(false)} style={{ flex: 1 }}>
-                Cancelar
-              </ActionButton>
-              <ActionButton onClick={handleSend} disabled={sending} style={{ flex: 2 }}>
-                {sending ? <Loader size={16} className="spin" /> : <Send size={16} />}
-                {sending
-                  ? 'Enviando...'
-                  : selectedAlreadySent > 0
-                    ? `Reenviar para ${selected.size} leads`
-                    : `Enviar para ${selected.size} leads`}
-              </ActionButton>
-            </div>
-
-            {/* Aviso de delay */}
-            <div style={s.delayNotice}>
-              O envio aguardara entre {delayMinSeconds || 0} e {delayMaxSeconds || 0} segundos, sorteando um tempo diferente antes de cada proxima mensagem.
+            <div style={s.sendPreviewColumn}>
+              <div style={s.whatsappPreview}>
+                <div style={s.previewHeader}>
+                  <span style={s.fieldLabel}>Previa da mensagem</span>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 700 }}>Como sera enviada</span>
+                </div>
+                <div style={s.phonePreviewStage}>
+                  <div style={s.messageBubblePreview}>
+                    {sendImagePreview ? (
+                      <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
+                    ) : null}
+                    {sendMessage.trim() ? (
+                      <div style={s.messageTextPreview}>{sendMessage}</div>
+                    ) : (
+                      <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
+                    )}
+                    <div style={s.messageTimePreview}>agora</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </ModalShell>
@@ -997,6 +996,24 @@ const s = {
     whiteSpace: 'nowrap',
   },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  sendGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '1.25rem',
+    alignItems: 'start',
+  },
+  sendFormColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    minWidth: 0,
+  },
+  sendPreviewColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    minWidth: 0,
+  },
   sendConfigGrid: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr)',
@@ -1115,26 +1132,28 @@ const s = {
     borderRadius: '12px',
     border: '1px solid var(--border-color)',
     overflow: 'hidden',
+    minHeight: '100%',
   },
   phonePreviewStage: {
     padding: '1rem',
     background: 'linear-gradient(135deg, rgba(18, 94, 68, 0.25), rgba(12, 18, 28, 0.8))',
     display: 'flex',
     justifyContent: 'flex-end',
-    minHeight: '180px',
+    alignItems: 'flex-start',
+    minHeight: '360px',
   },
   messageBubblePreview: {
-    width: 'min(100%, 390px)',
+    width: 'min(100%, 430px)',
     background: '#075E54',
     color: '#fff',
     borderRadius: '10px 10px 2px 10px',
-    padding: '0.45rem',
+    padding: '0.55rem',
     boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
   },
   messageImagePreview: {
     width: '100%',
-    maxHeight: '260px',
-    objectFit: 'contain',
+    maxHeight: '320px',
+    objectFit: 'cover',
     display: 'block',
     borderRadius: '7px',
     background: 'rgba(0,0,0,0.22)',
@@ -1144,7 +1163,7 @@ const s = {
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
     wordBreak: 'break-word',
-    fontSize: '0.9rem',
+    fontSize: '0.92rem',
     lineHeight: 1.45,
     padding: '0.15rem 0.2rem 0',
   },
