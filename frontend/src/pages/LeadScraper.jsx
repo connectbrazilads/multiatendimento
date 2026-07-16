@@ -217,6 +217,9 @@ export default function LeadScraper() {
     const lead = leads.find((l) => l.id === id);
     return lead?.sentAt;
   }).length;
+  const selectedInstance = instances.find((inst) => inst.id === selectedInstanceId);
+  const selectedInstanceLabel = selectedInstance?.instanceName?.split('_').pop()?.toUpperCase() || selectedInstance?.instanceName || 'INSTANCIA';
+  const selectedInstanceStatus = selectedInstance?.status === 'connected' ? 'conectada' : 'desconectada';
 
   function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -648,21 +651,33 @@ export default function LeadScraper() {
 
             <div style={s.sendPreviewColumn}>
               <div style={s.whatsappPreview}>
-                <div style={s.previewHeader}>
-                  <span style={s.fieldLabel}>Previa da mensagem</span>
-                  <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 700 }}>Como sera enviada</span>
+                <div style={s.whatsappPreviewHeader}>
+                  <div style={s.whatsappIdentity}>
+                    <div style={s.whatsappAvatar}>{selectedInstanceLabel.slice(0, 2)}</div>
+                    <div>
+                      <div style={s.whatsappTitle}>Previa do WhatsApp</div>
+                      <div style={s.whatsappSubtitle}>{selectedInstanceLabel} {selectedInstanceStatus}</div>
+                    </div>
+                  </div>
+                  <div style={s.whatsappMeta}>
+                    <span style={s.whatsappMetaDot} />
+                    <span>Pronta para envio</span>
+                  </div>
                 </div>
                 <div style={s.phonePreviewStage}>
-                  <div style={s.messageBubblePreview}>
-                    {sendImagePreview ? (
-                      <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
-                    ) : null}
-                    {sendMessage.trim() ? (
-                      <div style={s.messageTextPreview}>{sendMessage}</div>
-                    ) : (
-                      <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
-                    )}
-                    <div style={s.messageTimePreview}>agora</div>
+                  <div style={s.chatStageWrap}>
+                    <div style={s.chatStageHint}>Como a mensagem deve aparecer no celular</div>
+                    <div style={s.messageBubblePreview}>
+                      {sendImagePreview ? (
+                        <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
+                      ) : null}
+                      {sendMessage.trim() ? (
+                        <div style={s.messageTextPreview}>{sendMessage}</div>
+                      ) : (
+                        <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
+                      )}
+                      <div style={s.messageTimePreview}>agora</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1147,30 +1162,105 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
   },
+  whatsappPreviewHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '1rem',
+    padding: '0.95rem 1rem',
+    borderBottom: '1px solid var(--border-color)',
+    background: 'rgba(13, 18, 28, 0.92)',
+  },
+  whatsappIdentity: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    minWidth: 0,
+  },
+  whatsappAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #25D366, #1a8f56)',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: '0.72rem',
+    fontWeight: 900,
+    color: '#07120d',
+    letterSpacing: '0.02em',
+    flexShrink: 0,
+  },
+  whatsappTitle: {
+    fontSize: '0.95rem',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    lineHeight: 1.2,
+  },
+  whatsappSubtitle: {
+    fontSize: '0.74rem',
+    color: 'var(--text-dim)',
+    fontWeight: 600,
+    marginTop: '0.15rem',
+  },
+  whatsappMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    color: 'var(--text-dim)',
+    fontSize: '0.74rem',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  whatsappMetaDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '999px',
+    background: '#25D366',
+    boxShadow: '0 0 0 3px rgba(37, 211, 102, 0.14)',
+  },
   phonePreviewStage: {
     padding: '1rem',
-    background: 'linear-gradient(135deg, rgba(16, 88, 68, 0.28), rgba(11, 15, 24, 0.94))',
+    background:
+      'linear-gradient(135deg, rgba(16, 88, 68, 0.30), rgba(11, 15, 24, 0.95)), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)',
+    backgroundSize: 'auto, 28px 28px, 28px 28px',
     display: 'flex',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     minHeight: '420px',
     flex: 1,
   },
+  chatStageWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.65rem',
+    width: '100%',
+    alignItems: 'flex-end',
+  },
+  chatStageHint: {
+    alignSelf: 'flex-start',
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: '0.73rem',
+    fontWeight: 600,
+    paddingLeft: '0.2rem',
+  },
   messageBubblePreview: {
     width: '100%',
     maxWidth: '430px',
-    background: '#075E54',
+    background: 'linear-gradient(180deg, #0b6b5d, #075E54)',
     color: '#fff',
-    borderRadius: '10px 10px 2px 10px',
-    padding: '0.6rem',
-    boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+    borderRadius: '16px 16px 4px 16px',
+    padding: '0.7rem',
+    boxShadow: '0 14px 30px rgba(0,0,0,0.25)',
+    border: '1px solid rgba(255,255,255,0.06)',
   },
   messageImagePreview: {
     width: '100%',
-    maxHeight: '300px',
-    objectFit: 'contain',
+    aspectRatio: '4 / 3',
+    maxHeight: '310px',
+    objectFit: 'cover',
     display: 'block',
-    borderRadius: '8px',
+    borderRadius: '12px',
     background: 'rgba(0,0,0,0.18)',
     marginBottom: '0.45rem',
   },
@@ -1180,13 +1270,13 @@ const s = {
     wordBreak: 'break-word',
     fontSize: '0.9rem',
     lineHeight: 1.45,
-    padding: '0.15rem 0.2rem 0',
+    padding: '0.1rem 0.2rem 0',
   },
   messageEmptyPreview: {
     color: 'rgba(255,255,255,0.68)',
     fontSize: '0.84rem',
     lineHeight: 1.4,
-    padding: '0.35rem',
+    padding: '0.35rem 0.2rem',
     fontStyle: 'italic',
   },
   messageTimePreview: {
