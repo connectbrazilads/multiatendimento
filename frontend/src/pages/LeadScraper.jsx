@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, Radar, Trash2, Send, CheckSquare, Square, Star,
-  Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, Filter,
+  Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, UserPlus, Smartphone, Clock,
 } from 'lucide-react';
-import { searchLeads, getLeads, deleteLead, deleteAllLeads, sendToLeads, uploadFile } from '../services/api';
+import { searchLeads, getLeads, getLeadInstances, createManualLeads, deleteLead, deleteAllLeads, sendToLeads, uploadFile } from '../services/api';
 import { toast } from '../utils/toast';
 import PageHeader from '../components/ui/PageHeader';
 import ActionButton from '../components/ui/ActionButton';
@@ -13,6 +13,7 @@ import ModalShell from '../components/ui/ModalShell';
 
 export default function LeadScraper() {
   const [leads, setLeads] = useState([]);
+  const [instances, setInstances] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [niche, setNiche] = useState('');
@@ -21,9 +22,15 @@ export default function LeadScraper() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [sendMessage, setSendMessage] = useState('');
   const [sendImage, setSendImage] = useState(null);
   const [sendImagePreview, setSendImagePreview] = useState('');
+  const [selectedInstanceId, setSelectedInstanceId] = useState('');
+  const [delayMinSeconds, setDelayMinSeconds] = useState(8);
+  const [delayMaxSeconds, setDelayMaxSeconds] = useState(25);
+  const [manualContacts, setManualContacts] = useState('');
+  const [savingManual, setSavingManual] = useState(false);
   const [sending, setSending] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'sent' | 'unsent'
 
@@ -42,6 +49,21 @@ export default function LeadScraper() {
   useEffect(() => {
     loadLeads();
   }, [loadLeads]);
+
+  useEffect(() => {
+    async function loadInstances() {
+      try {
+        const { data } = await getLeadInstances();
+        const list = Array.isArray(data) ? data : [];
+        setInstances(list);
+        const connected = list.find((item) => item.status === 'connected') || list[0];
+        if (connected) setSelectedInstanceId((current) => current || connected.id);
+      } catch (err) {
+        console.error('[leads] erro ao carregar instancias:', err);
+      }
+    }
+    loadInstances();
+  }, []);
 
   async function handleSearch() {
     if (!niche.trim()) return toast.error('Informe o nicho/tipo de empresa');
@@ -108,9 +130,41 @@ export default function LeadScraper() {
     setSendImagePreview(URL.createObjectURL(file));
   }
 
+  function parseManualContacts(text) {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split(/[;\t,]/).map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2) return { name: parts[0], phone: parts[1], category: parts[2] || 'Manual' };
+        return { name: parts[0], phone: parts[0], category: 'Manual' };
+      });
+  }
+
+  async function handleAddManualContacts() {
+    const contacts = parseManualContacts(manualContacts);
+    if (contacts.length === 0) return toast.error('Informe pelo menos um contato');
+
+    setSavingManual(true);
+    try {
+      const { data } = await createManualLeads({ leads: contacts });
+      toast.success(data.message || 'Contatos adicionados');
+      setManualContacts('');
+      setShowManualModal(false);
+      loadLeads();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao adicionar contatos');
+    } finally {
+      setSavingManual(false);
+    }
+  }
+
   async function handleSend() {
     if (selected.size === 0) return toast.error('Selecione pelo menos um lead');
     if (!sendMessage.trim() && !sendImage) return toast.error('Escreva uma mensagem ou selecione uma imagem');
+    if (!selectedInstanceId) return toast.error('Escolha uma instancia conectada para o envio');
+    if (Number(delayMaxSeconds) < Number(delayMinSeconds)) return toast.error('O intervalo maximo precisa ser maior ou igual ao minimo');
 
     setSending(true);
     try {
@@ -128,6 +182,9 @@ export default function LeadScraper() {
         message: sendMessage.trim(),
         mediaUrl,
         mediaType,
+        instanceId: selectedInstanceId,
+        delayMinSeconds: Number(delayMinSeconds),
+        delayMaxSeconds: Number(delayMaxSeconds),
       });
 
       toast.success(data.message);
@@ -271,6 +328,10 @@ export default function LeadScraper() {
             </span>
           </div>
           <div style={s.toolbarRight}>
+            <ActionButton variant="secondary" onClick={() => setShowManualModal(true)} style={s.toolBtn}>
+              <UserPlus size={16} />
+              Adicionar manual
+            </ActionButton>
             {leadsWithPhone.length > 0 ? (
               <ActionButton variant="secondary" onClick={toggleSelectAll} style={s.toolBtn}>
                 {selected.size === leadsWithPhone.length ? <CheckSquare size={16} /> : <Square size={16} />}
@@ -463,6 +524,60 @@ export default function LeadScraper() {
               </div>
             </div>
 
+            <div style={s.sendConfigGrid}>
+              <div style={s.field}>
+                <label style={s.fieldLabel}>Instancia de envio</label>
+                <div style={s.selectIconWrap}>
+                  <Smartphone size={16} style={s.selectIcon} />
+                  <select
+                    style={{ ...s.input, paddingLeft: '2.5rem' }}
+                    value={selectedInstanceId}
+                    onChange={(e) => setSelectedInstanceId(e.target.value)}
+                  >
+                    <option value="">Selecione uma instancia</option>
+                    {instances.map((inst) => {
+                      const label = inst.instanceName?.split('_').pop()?.toUpperCase() || inst.instanceName;
+                      return (
+                        <option key={inst.id} value={inst.id} disabled={inst.status !== 'connected'}>
+                          {label} {inst.status === 'connected' ? 'conectada' : 'desconectada'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.fieldLabel}>Intervalo aleatorio</label>
+                <div style={s.delayInputs}>
+                  <div style={s.numberInputWrap}>
+                    <Clock size={15} style={s.numberInputIcon} />
+                    <input
+                      style={{ ...s.input, paddingLeft: '2.3rem' }}
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={delayMinSeconds}
+                      onChange={(e) => setDelayMinSeconds(e.target.value)}
+                    />
+                    <span style={s.numberSuffix}>min s</span>
+                  </div>
+                  <div style={s.numberInputWrap}>
+                    <Clock size={15} style={s.numberInputIcon} />
+                    <input
+                      style={{ ...s.input, paddingLeft: '2.3rem' }}
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={delayMaxSeconds}
+                      onChange={(e) => setDelayMaxSeconds(e.target.value)}
+                    />
+                    <span style={s.numberSuffix}>max s</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Campo de mensagem */}
             <div style={s.field}>
               <label style={s.fieldLabel}>Mensagem</label>
@@ -532,7 +647,39 @@ export default function LeadScraper() {
 
             {/* Aviso de delay */}
             <div style={s.delayNotice}>
-              ⏱ O envio inclui um intervalo de 2-5 segundos entre cada mensagem para proteger seu número contra bloqueios.
+              O envio usara um intervalo aleatorio entre {delayMinSeconds || 0}s e {delayMaxSeconds || 0}s entre mensagens.
+            </div>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {showManualModal ? (
+        <ModalShell
+          kicker="Contatos manuais"
+          title="Adicionar contatos para prospeccao"
+          onClose={() => setShowManualModal(false)}
+          maxWidth="34rem"
+        >
+          <div style={s.modalBody}>
+            <div style={s.field}>
+              <label style={s.fieldLabel}>Lista de contatos</label>
+              <textarea
+                style={s.textarea}
+                rows={9}
+                value={manualContacts}
+                onChange={(e) => setManualContacts(e.target.value)}
+                placeholder={'Um por linha. Ex:\nMaria Silva, 51999999999\nEmpresa X; 1133334444; Restaurante\n5591988887777'}
+              />
+              <div style={s.helpText}>Formatos aceitos: nome, telefone; nome; telefone; categoria; ou apenas telefone.</div>
+            </div>
+            <div style={s.modalFooter}>
+              <ActionButton variant="secondary" onClick={() => setShowManualModal(false)} style={{ flex: 1 }}>
+                Cancelar
+              </ActionButton>
+              <ActionButton onClick={handleAddManualContacts} disabled={savingManual} style={{ flex: 2 }}>
+                {savingManual ? <Loader size={16} className="spin" /> : <UserPlus size={16} />}
+                {savingManual ? 'Salvando...' : 'Adicionar contatos'}
+              </ActionButton>
             </div>
           </div>
         </ModalShell>
@@ -829,6 +976,40 @@ const s = {
     whiteSpace: 'nowrap',
   },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  sendConfigGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '1rem',
+  },
+  selectIconWrap: { position: 'relative' },
+  selectIcon: {
+    position: 'absolute',
+    left: '0.9rem',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: 'var(--text-dim)',
+    pointerEvents: 'none',
+  },
+  delayInputs: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' },
+  numberInputWrap: { position: 'relative' },
+  numberInputIcon: {
+    position: 'absolute',
+    left: '0.85rem',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: 'var(--text-dim)',
+    pointerEvents: 'none',
+  },
+  numberSuffix: {
+    position: 'absolute',
+    right: '0.75rem',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: 'var(--text-dim)',
+    fontSize: '0.68rem',
+    fontWeight: 800,
+    pointerEvents: 'none',
+  },
   textarea: {
     background: 'var(--bg-panel)',
     border: '1px solid var(--border-color)',
@@ -845,6 +1026,12 @@ const s = {
     textAlign: 'right',
     fontSize: '0.72rem',
     color: 'var(--text-dim)',
+    fontWeight: 600,
+  },
+  helpText: {
+    fontSize: '0.74rem',
+    color: 'var(--text-dim)',
+    lineHeight: 1.45,
     fontWeight: 600,
   },
   imageUploadArea: {

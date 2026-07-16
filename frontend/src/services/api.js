@@ -163,6 +163,8 @@ export const getOSList = (filters) => api.get('/os', { params: filters });
 // Leads / Prospecção
 export const searchLeads = (data) => api.post('/leads/search', data);
 export const getLeads = (params) => api.get('/leads', { params });
+export const getLeadInstances = () => api.get('/leads/instances');
+export const createManualLeads = (data) => api.post('/leads/manual', data);
 export const deleteLead = (id) => api.delete(`/leads/${id}`);
 export const deleteAllLeads = () => api.delete('/leads/all');
 export const sendToLeads = (data) => api.post('/leads/send', data);

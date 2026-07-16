@@ -6,7 +6,9 @@ const leadController = require('../controllers/leadController');
 router.use(auth);
 
 router.get('/', leadController.getLeads);
+router.get('/instances', leadController.getLeadInstances);
 router.post('/search', leadController.searchLeads);
+router.post('/manual', leadController.createManualLeads);
 router.post('/send', leadController.sendToLeads);
 router.delete('/all', leadController.deleteAllLeads);
 router.delete('/:id', leadController.deleteLead);

@@ -2,6 +2,20 @@ const prisma = require('../lib/prisma');
 const { scrapeGoogleMaps } = require('../services/scraperService');
 const evolutionService = require('../services/evolutionService');
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function normalizeLeadPhone(phone) {
+  return evolutionService.normalizePhoneNumber(phone || '');
+}
+
+function randomDelayMs(minSeconds = 2, maxSeconds = 5) {
+  const min = Math.max(0, Number(minSeconds) || 0);
+  const max = Math.max(min, Number(maxSeconds) || min);
+  return Math.round((min + Math.random() * (max - min)) * 1000);
+}
+
 // POST /api/leads/search — Buscar leads no Google Maps
 async function searchLeads(req, res) {
   try {
@@ -119,6 +133,24 @@ async function getLeads(req, res) {
   }
 }
 
+async function getLeadInstances(req, res) {
+  try {
+    const tenantId = req.user.tenantId;
+    const instances = await prisma.waInstance.findMany({
+      where: {
+        tenantId,
+        instanceName: { not: { startsWith: 'DELETED_' } },
+      },
+      select: { id: true, instanceName: true, phone: true, status: true },
+      orderBy: { instanceName: 'asc' },
+    });
+    res.json(instances);
+  } catch (err) {
+    console.error('[leads] Erro ao listar instancias:', err.message);
+    res.status(500).json({ error: 'Erro ao listar instancias' });
+  }
+}
+
 // DELETE /api/leads/:id — Deletar um lead
 async function deleteLead(req, res) {
   try {
@@ -146,11 +178,75 @@ async function deleteAllLeads(req, res) {
   }
 }
 
+// POST /api/leads/manual - Adicionar leads manualmente
+async function createManualLeads(req, res) {
+  try {
+    const tenantId = req.user.tenantId;
+    const { leads = [] } = req.body;
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ error: 'Informe pelo menos um contato manual' });
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const savedLeads = [];
+
+    for (const item of leads.slice(0, 500)) {
+      const phone = normalizeLeadPhone(item.phone);
+      const name = String(item.name || item.phone || '').trim();
+      if (!phone || phone.length < 10 || !name) {
+        skipped++;
+        continue;
+      }
+
+      const existing = await prisma.lead.findFirst({ where: { tenantId, phone } });
+      if (existing) {
+        const lead = await prisma.lead.update({
+          where: { id: existing.id },
+          data: {
+            name: name || existing.name,
+            category: item.category || existing.category,
+            query: existing.query || 'manual',
+          },
+        });
+        savedLeads.push(lead);
+        updated++;
+      } else {
+        const lead = await prisma.lead.create({
+          data: {
+            tenantId,
+            placeId: `manual_${phone}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            name,
+            phone,
+            category: item.category || 'Manual',
+            query: 'manual',
+          },
+        });
+        savedLeads.push(lead);
+        created++;
+      }
+    }
+
+    res.json({
+      message: `${created} contatos adicionados, ${updated} atualizados, ${skipped} ignorados.`,
+      created,
+      updated,
+      skipped,
+      leads: savedLeads,
+    });
+  } catch (err) {
+    console.error('[leads] Erro ao adicionar manualmente:', err.message);
+    res.status(500).json({ error: 'Erro ao adicionar contatos: ' + err.message });
+  }
+}
+
 // POST /api/leads/send — Enviar WhatsApp em massa para leads selecionados
 async function sendToLeads(req, res) {
   try {
     const tenantId = req.user.tenantId;
-    const { leadIds, message, mediaUrl, mediaType } = req.body;
+    const { leadIds, message, mediaUrl, mediaType, instanceId, delayMinSeconds = 2, delayMaxSeconds = 5 } = req.body;
 
     if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
       return res.status(400).json({ error: 'Selecione pelo menos um lead' });
@@ -169,10 +265,16 @@ async function sendToLeads(req, res) {
       return res.status(400).json({ error: 'Configure a Evolution API nas configurações antes de enviar' });
     }
 
-    const instance = tenant.instances.find(i => i.status === 'connected') || tenant.instances[0];
+    const connectedInstances = tenant.instances.filter(i => i.status === 'connected');
+    const instance = instanceId
+      ? connectedInstances.find(i => i.id === instanceId)
+      : connectedInstances[0];
     if (!instance) {
-      return res.status(400).json({ error: 'Nenhuma instância WhatsApp conectada' });
+      return res.status(400).json({ error: instanceId ? 'A instância escolhida não está conectada' : 'Nenhuma instância WhatsApp conectada' });
     }
+
+    const minDelay = Math.max(0, Math.min(300, Number(delayMinSeconds) || 0));
+    const maxDelay = Math.max(minDelay, Math.min(300, Number(delayMaxSeconds) || minDelay));
 
     // Busca leads selecionados
     const leads = await prisma.lead.findMany({
@@ -190,7 +292,7 @@ async function sendToLeads(req, res) {
 
     for (const lead of leadsWithPhone) {
       try {
-        const phone = lead.phone.replace(/\D/g, '');
+        const phone = normalizeLeadPhone(lead.phone);
         if (phone.length < 10) {
           failed++;
           continue;
@@ -199,7 +301,7 @@ async function sendToLeads(req, res) {
         if (mediaUrl && mediaType) {
           // Enviar mídia + caption
           const path = require('path');
-          const fullPath = path.resolve(__dirname, '../../', mediaUrl);
+          const fullPath = path.resolve(__dirname, '../../', String(mediaUrl).replace(/^\/+/, ''));
           await evolutionService.sendMedia(
             tenant.settings.evolutionUrl,
             tenant.settings.evolutionKey,
@@ -232,8 +334,10 @@ async function sendToLeads(req, res) {
           data: { sentAt: new Date(), sentCount: { increment: 1 } }
         });
 
-        // Delay entre envios para evitar ban
-        await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+        // Delay aleatorio entre envios para reduzir risco de bloqueio.
+        if (sent + failed < leadsWithPhone.length) {
+          await sleep(randomDelayMs(minDelay, maxDelay));
+        }
       } catch (err) {
         failed++;
         errors.push(`${lead.name}: ${err.message}`);
@@ -246,6 +350,8 @@ async function sendToLeads(req, res) {
       message: `${sent} mensagens enviadas com sucesso. ${failed} falharam.`,
       sent,
       failed,
+      instance: instance.instanceName,
+      delay: { minSeconds: minDelay, maxSeconds: maxDelay },
       errors: errors.slice(0, 5), // Limita erros retornados
     });
   } catch (err) {
@@ -254,4 +360,4 @@ async function sendToLeads(req, res) {
   }
 }
 
-module.exports = { searchLeads, getLeads, deleteLead, deleteAllLeads, sendToLeads };
+module.exports = { searchLeads, getLeads, getLeadInstances, createManualLeads, deleteLead, deleteAllLeads, sendToLeads };
