@@ -130,7 +130,7 @@ export default function Layout() {
         prev.map((inst) => {
           if (inst.instanceName === instance) {
             const isConnected = data?.state === 'open';
-            const isDisconnected = data?.state === 'close' || data?.state === 'connecting';
+            const isDisconnected = data?.state === 'close';
             if (isConnected) return { ...inst, status: 'connected' };
             if (isDisconnected) return { ...inst, status: 'disconnected' };
           }

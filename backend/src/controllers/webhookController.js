@@ -8,6 +8,84 @@ const businessHourService = require('../services/businessHourService');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
+const pendingConnectionChecks = new Map();
+const DISCONNECT_CONFIRMATION_MS = Number(process.env.EVOLUTION_DISCONNECT_CONFIRMATION_MS || 45000);
+
+function clearPendingConnectionCheck(instanceName) {
+  const timer = pendingConnectionChecks.get(instanceName);
+  if (timer) {
+    clearTimeout(timer);
+    pendingConnectionChecks.delete(instanceName);
+  }
+}
+
+function getConnectionStateValue(payload) {
+  return payload?.instance?.state || payload?.state || null;
+}
+
+async function confirmDisconnected(instanceName, waInstanceId) {
+  const waInstance = await prisma.waInstance.findUnique({
+    where: { id: waInstanceId },
+    include: { tenant: { include: { settings: true } } },
+  });
+  if (!waInstance) return;
+
+  const settings = waInstance.tenant?.settings;
+  const evolutionUrl = settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
+  const evolutionKey = settings?.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY;
+  if (!evolutionUrl || !evolutionKey) {
+    console.warn(`[webhook] Nao foi possivel confirmar desconexao de ${instanceName}: Evolution nao configurada.`);
+    return;
+  }
+
+  const stateData = await evolutionService.getConnectionState(evolutionUrl, evolutionKey, instanceName);
+  const state = getConnectionStateValue(stateData);
+
+  if (state === 'open') {
+    const updated = await prisma.waInstance.update({
+      where: { id: waInstance.id },
+      data: { status: 'connected' },
+    });
+    if (io) io.to(updated.tenantId).emit('connection_update', {
+      instance: instanceName,
+      event: 'connection.update',
+      data: { state: 'open', confirmed: true },
+    });
+    return;
+  }
+
+  if (state === 'close') {
+    const updated = await prisma.waInstance.update({
+      where: { id: waInstance.id },
+      data: { status: 'disconnected' },
+    });
+    if (io) io.to(updated.tenantId).emit('connection_update', {
+      instance: instanceName,
+      event: 'connection.update',
+      data: { state: 'close', confirmed: true },
+    });
+
+    const { sendSystemAlert } = require('../services/alertService');
+    sendSystemAlert(updated.tenantId, `A conexao *${instanceName.split('_')[1] || instanceName}* foi desconectada. Verifique o painel para reconectar.`);
+    return;
+  }
+
+  console.log(`[webhook] Desconexao de ${instanceName} nao confirmada. Estado atual: ${state || 'desconhecido'}.`);
+}
+
+function scheduleDisconnectConfirmation(instanceName, waInstanceId) {
+  clearPendingConnectionCheck(instanceName);
+  const timer = setTimeout(async () => {
+    pendingConnectionChecks.delete(instanceName);
+    try {
+      await confirmDisconnected(instanceName, waInstanceId);
+    } catch (err) {
+      console.warn(`[webhook] Falha ao confirmar desconexao de ${instanceName}:`, err.response?.data || err.message);
+    }
+  }, DISCONNECT_CONFIRMATION_MS);
+  pendingConnectionChecks.set(instanceName, timer);
+}
+
 const teamCache = new Map();
 const knowledgeCache = new Map();
 
@@ -616,16 +694,23 @@ async function handleWebhook(req, res) {
         
         // Atualiza status e telefone se disponível no evento de conexão
         const isConnected = ev === 'connection.update' && data?.state === 'open';
+        const shouldConfirmDisconnect = ev === 'connection.update' && (data?.state === 'close' || data?.state === 'connecting');
         let phone = waInstance.phone;
         const owner = data?.owner || data?.ownerJid;
         if (owner && typeof owner === 'string') {
           phone = owner.split('@')[0];
         }
 
+        if (isConnected) {
+          clearPendingConnectionCheck(instance);
+        } else if (shouldConfirmDisconnect) {
+          scheduleDisconnectConfirmation(instance, waInstance.id);
+        }
+
         const updatedInstance = await prisma.waInstance.update({
           where: { id: waInstance.id },
           data: { 
-            status: isConnected ? 'connected' : (data?.state === 'close' ? 'disconnected' : waInstance.status),
+            status: isConnected ? 'connected' : waInstance.status,
             ...(phone && { phone })
           }
         });
@@ -637,9 +722,8 @@ async function handleWebhook(req, res) {
         }
         
         // Se a conexão caiu, avisa o admin
-        if (ev === 'connection.update' && (data.state === 'close' || data.state === 'connecting')) {
-          const { sendSystemAlert } = require('../services/alertService');
-          sendSystemAlert(waInstance.tenantId, `A conexão *${instance.split('_')[1] || instance}* foi desconectada. Verifique o painel para reconectar.`);
+        if (shouldConfirmDisconnect) {
+          console.log(`[webhook] ${instance} reportou ${data?.state}; confirmando em ${DISCONNECT_CONFIRMATION_MS}ms antes de marcar como desconectado.`);
         }
       }
       return;
