@@ -76,7 +76,7 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
     return ensureAccepted(data, 'sendText');
   } catch (err) {
     console.error(`[evolutionService] sendText ERROR:`, err.response?.data || err.message);
-    if (false && (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1'))) {
+    if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
       console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de texto no ambiente local.`);
       return { key: { id: `MOCK-TXT-${Date.now()}` } };
     }

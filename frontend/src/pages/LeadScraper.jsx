@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, Radar, Trash2, Send, CheckSquare, Square, Star,
-  Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, UserPlus, Smartphone, Clock,
+  Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, UserPlus, Smartphone, Clock, Save,
 } from 'lucide-react';
 import { searchLeads, getLeads, getLeadInstances, createManualLeads, deleteLead, deleteAllLeads, sendToLeads, uploadFile } from '../services/api';
 import { toast } from '../utils/toast';
@@ -10,6 +10,34 @@ import ActionButton from '../components/ui/ActionButton';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import EmptyState from '../components/ui/EmptyState';
 import ModalShell from '../components/ui/ModalShell';
+
+const TEMPLATE_STORAGE_KEY = 'lead-scraper-send-templates-v1';
+
+function readStoredTemplates() {
+  try {
+    if (typeof window === 'undefined') return [];
+    const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Não foi possível ler a imagem'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function dataUrlToFile(dataUrl, fileName = 'template.png') {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: blob.type || 'image/png' });
+}
 
 export default function LeadScraper() {
   const [leads, setLeads] = useState([]);
@@ -26,6 +54,9 @@ export default function LeadScraper() {
   const [sendMessage, setSendMessage] = useState('');
   const [sendImage, setSendImage] = useState(null);
   const [sendImagePreview, setSendImagePreview] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [templateName, setTemplateName] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [selectedInstanceId, setSelectedInstanceId] = useState('');
   const [delayMinSeconds, setDelayMinSeconds] = useState(8);
   const [delayMaxSeconds, setDelayMaxSeconds] = useState(25);
@@ -64,6 +95,15 @@ export default function LeadScraper() {
     }
     loadInstances();
   }, []);
+
+  useEffect(() => {
+    setTemplates(readStoredTemplates());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+  }, [templates]);
 
   async function handleSearch() {
     if (!niche.trim()) return toast.error('Informe o nicho/tipo de empresa');
@@ -128,6 +168,83 @@ export default function LeadScraper() {
     if (!file) return;
     setSendImage(file);
     setSendImagePreview(URL.createObjectURL(file));
+    setSelectedTemplateId('');
+  }
+
+  function clearComposer() {
+    setSendMessage('');
+    setSendImage(null);
+    setSendImagePreview('');
+    setTemplateName('');
+    setSelectedTemplateId('');
+  }
+
+  async function handleSaveTemplate() {
+    try {
+      const name = templateName.trim();
+      if (!name) return toast.error('Informe um nome para o template');
+      if (!sendMessage.trim() && !sendImage) return toast.error('Escreva uma mensagem ou selecione uma imagem');
+
+      let imageDataUrl = '';
+      let imageName = '';
+      let imageType = '';
+
+      if (sendImage) {
+        imageDataUrl = await fileToDataUrl(sendImage);
+        imageName = sendImage.name || 'template.png';
+        imageType = sendImage.type || '';
+      }
+
+      const nextTemplate = {
+        id: selectedTemplateId || `${Date.now()}`,
+        name,
+        message: sendMessage,
+        imageDataUrl,
+        imageName,
+        imageType,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setTemplates((prev) => {
+        const filtered = prev.filter((item) => item.id !== nextTemplate.id && item.name !== name);
+        return [nextTemplate, ...filtered].slice(0, 20);
+      });
+      setSelectedTemplateId(nextTemplate.id);
+      toast.success('Template salvo');
+    } catch (err) {
+      toast.error(err.message || 'Erro ao salvar template');
+    }
+  }
+
+  async function handleApplyTemplate(templateId) {
+    try {
+      const template = templates.find((item) => item.id === templateId);
+      if (!template) return;
+
+      setSelectedTemplateId(template.id);
+      setTemplateName(template.name || '');
+      setSendMessage(template.message || '');
+
+      if (template.imageDataUrl) {
+        const file = await dataUrlToFile(template.imageDataUrl, template.imageName || 'template.png');
+        setSendImage(file);
+        setSendImagePreview(template.imageDataUrl);
+      } else {
+        setSendImage(null);
+        setSendImagePreview('');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Erro ao carregar template');
+    }
+  }
+
+  function handleDeleteTemplate(templateId) {
+    setTemplates((prev) => prev.filter((item) => item.id !== templateId));
+    if (selectedTemplateId === templateId) {
+      setSelectedTemplateId('');
+      setTemplateName('');
+    }
+    toast.success('Template removido');
   }
 
   function parseManualContacts(text) {
@@ -192,6 +309,8 @@ export default function LeadScraper() {
       setSendMessage('');
       setSendImage(null);
       setSendImagePreview('');
+      setTemplateName('');
+      setSelectedTemplateId('');
       setSelected(new Set());
       loadLeads(); // Recarrega para mostrar status atualizado
     } catch (err) {
@@ -581,12 +700,67 @@ export default function LeadScraper() {
               </div>
 
               <div style={s.field}>
+                <div style={s.templateRow}>
+                  <div style={s.templateField}>
+                    <label style={s.fieldLabel}>Template salvo</label>
+                    <select
+                      style={s.input}
+                      value={selectedTemplateId}
+                      onChange={(e) => { void handleApplyTemplate(e.target.value); }}
+                    >
+                      <option value="">Escolha um template</option>
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={s.templateField}>
+                    <label style={s.fieldLabel}>Nome do template</label>
+                    <input
+                      style={s.input}
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="Ex: promoção de mídia"
+                    />
+                  </div>
+                </div>
+                <div style={s.templateActions}>
+                  <ActionButton variant="secondary" onClick={() => void handleSaveTemplate()} style={s.templateActionBtn}>
+                    <Save size={16} />
+                    Salvar template
+                  </ActionButton>
+                  <ActionButton
+                    variant="secondary"
+                    onClick={() => handleDeleteTemplate(selectedTemplateId)}
+                    disabled={!selectedTemplateId}
+                    style={s.templateActionBtn}
+                  >
+                    <Trash2 size={16} />
+                    Remover
+                  </ActionButton>
+                  <ActionButton
+                    variant="secondary"
+                    onClick={clearComposer}
+                    style={s.templateActionBtn}
+                  >
+                    <XCircle size={16} />
+                    Limpar
+                  </ActionButton>
+                </div>
+              </div>
+
+              <div style={s.field}>
                 <label style={s.fieldLabel}>Mensagem</label>
                 <textarea
                   style={s.textarea}
                   rows={6}
                   value={sendMessage}
-                  onChange={(e) => setSendMessage(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedTemplateId('');
+                    setSendMessage(e.target.value);
+                  }}
                   placeholder="Escreva a mensagem que será enviada para todos os leads selecionados..."
                 />
                 <div style={s.charCount}>{sendMessage.length} caracteres</div>
@@ -603,6 +777,7 @@ export default function LeadScraper() {
                         onClick={() => {
                           setSendImage(null);
                           setSendImagePreview('');
+                          setSelectedTemplateId('');
                         }}
                       >
                         <XCircle size={20} />
@@ -1019,6 +1194,10 @@ const s = {
     whiteSpace: 'nowrap',
   },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  templateRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' },
+  templateField: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
+  templateActions: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap' },
+  templateActionBtn: { flex: '1 1 160px' },
   sendGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
