@@ -88,6 +88,10 @@ function scheduleDisconnectConfirmation(instanceName, waInstanceId) {
 
 const teamCache = new Map();
 const knowledgeCache = new Map();
+const HUMAN_ONLY_INSTANCE_PATTERNS = String(process.env.HUMAN_ONLY_INSTANCE_PATTERNS || 'captacao,captação,lead,leads,locacao,locação,comercial,vendas')
+  .split(',')
+  .map((value) => value.trim().toLowerCase())
+  .filter(Boolean);
 
 function getCacheEntry(cache, key, ttlMs) {
   const entry = cache.get(key);
@@ -139,6 +143,15 @@ function shouldUseKnowledgeSearch(message) {
     || normalized.includes('configur')
     || normalized.includes('instal')
     || normalized.includes('erro');
+}
+
+function isHumanOnlyInstance(instanceName = '') {
+  const normalized = String(instanceName).toLowerCase();
+  return HUMAN_ONLY_INSTANCE_PATTERNS.some((pattern) => pattern && normalized.includes(pattern));
+}
+
+function shouldUseBotForInstance(instanceName, tenantSettings) {
+  return Boolean(tenantSettings?.botEnabled) && !isHumanOnlyInstance(instanceName);
 }
 
 function isLikelyEquipmentModel(message) {
@@ -478,12 +491,13 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
   });
 
   if (!ticket) {
+    const useBotForInstance = shouldUseBotForInstance(instance, tenant.settings);
     ticket = await prisma.ticket.create({
       data: {
         tenantId: tenant.id,
         instanceId: waInstance.id,
         contactId: contact.id,
-        status: fromMe ? 'open' : (!isGroup && tenant.settings?.botEnabled ? 'bot' : 'pending'),
+        status: fromMe ? 'open' : (!isGroup && useBotForInstance ? 'bot' : 'pending'),
       }
     });
     if (io) io.to(tenant.id).emit('new_ticket', ticket);
@@ -496,17 +510,24 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
 
   if (ticket.status === 'resolved') {
     // Se o ticket já existia mas estava resolvido, REABRE ele para evitar duplicação na lista
+    const useBotForInstance = shouldUseBotForInstance(instance, tenant.settings);
     ticket = await prisma.ticket.update({
       where: { id: ticket.id },
-      data: { status: !isGroup && tenant.settings?.botEnabled ? 'bot' : 'pending', updatedAt: new Date(), lastMessageAt: new Date(), unreadCount: { increment: 1 } }
+      data: { status: !isGroup && useBotForInstance ? 'bot' : 'pending', updatedAt: new Date(), lastMessageAt: new Date(), unreadCount: { increment: 1 } }
     });
     if (io) io.to(tenant.id).emit('ticket_updated', ticket);
     console.log(`[webhook] Ticket ${ticket.id} reaberto para evitar duplicação.`);
   } else if (!fromMe) {
     // Incrementa unreadCount para mensagens de clientes em tickets já abertos
+    const useBotForInstance = shouldUseBotForInstance(instance, tenant.settings);
     ticket = await prisma.ticket.update({
       where: { id: ticket.id },
-      data: { unreadCount: { increment: 1 }, updatedAt: new Date(), lastMessageAt: new Date() }
+      data: {
+        unreadCount: { increment: 1 },
+        updatedAt: new Date(),
+        lastMessageAt: new Date(),
+        ...(ticket.status === 'bot' && !useBotForInstance ? { status: 'pending' } : {}),
+      }
     });
     if (io) io.to(tenant.id).emit('ticket_updated', ticket);
   } else {
@@ -544,6 +565,8 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
       });
     }
   }
+
+  const useBotForInstance = shouldUseBotForInstance(instance, tenant.settings);
 
   // --- Lógica de Horário de Atendimento ---
   if (!isHistorical) {
@@ -627,7 +650,7 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
       
       if (io) io.to(tenant.id).emit('message_updated', { ticket, message: updated, contact });
 
-      if (!isHistorical && ticket.status === 'bot' && tenant.settings?.botEnabled && transcription) {
+      if (!isHistorical && ticket.status === 'bot' && useBotForInstance && transcription) {
         if (pendingReplies[ticket.id]) clearTimeout(pendingReplies[ticket.id]);
         
         pendingReplies[ticket.id] = setTimeout(async () => {
@@ -654,7 +677,7 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
     console.warn('[socket] aviso: objeto io não inicializado no webhookController');
   }
 
-  if (!isHistorical && ticket.status === 'bot' && tenant.settings?.botEnabled && tenant.settings?.geminiKey && !fromMe) {
+  if (!isHistorical && ticket.status === 'bot' && useBotForInstance && tenant.settings?.geminiKey && !fromMe) {
     console.log(`[bot] Iniciando debounce para ticket ${ticket.id} (12s)...`);
     if (pendingReplies[ticket.id]) {
       clearTimeout(pendingReplies[ticket.id]);
@@ -663,7 +686,7 @@ async function processSingleMessage(msg, instance, waInstance, tenant, isHistori
     pendingReplies[ticket.id] = setTimeout(async () => {
       try {
         console.log(`[bot] Executando resposta para ticket ${ticket.id}`);
-        if (ticket.status === 'bot' && tenant.settings?.botEnabled && !fromMe && !media) {
+        if (ticket.status === 'bot' && useBotForInstance && !fromMe && !media) {
           await handleBotReply(tenant, waInstance, ticket, contact, body, message);
         } else if (media?.type === 'image' || media?.type === 'audio') {
           console.log(`[bot] Mídia detectada, aguardando transcrição/visão para responder.`);

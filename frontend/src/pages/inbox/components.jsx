@@ -137,6 +137,12 @@ function getStatusMeta(status) {
       background: 'var(--warning-light)',
       border: '1px solid var(--warning-light)',
     },
+    bot: {
+      label: 'Aguardando',
+      color: 'var(--warning)',
+      background: 'var(--warning-light)',
+      border: '1px solid var(--warning-light)',
+    },
     open: {
       label: 'Atendimento',
       color: 'var(--success)',

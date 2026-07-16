@@ -38,9 +38,9 @@ export function mergeMessagePages(current, incoming, prepend = false) {
 }
 
 export function statusLabel(status) {
-  return { pending: 'Aguardando', open: 'Atendimento', resolved: 'Resolvido' }[status] || status;
+  return { pending: 'Aguardando', bot: 'Aguardando', open: 'Atendimento', resolved: 'Resolvido' }[status] || status;
 }
 
 export function statusColor(status) {
-  return { pending: 'var(--warning)', open: 'var(--success)', resolved: 'var(--text-dim)' }[status] || 'var(--text-dim)';
+  return { pending: 'var(--warning)', bot: 'var(--warning)', open: 'var(--success)', resolved: 'var(--text-dim)' }[status] || 'var(--text-dim)';
 }
