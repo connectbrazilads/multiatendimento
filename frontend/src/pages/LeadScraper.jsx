@@ -548,31 +548,31 @@ export default function LeadScraper() {
               </div>
 
               <div style={s.field}>
-                <label style={s.fieldLabel}>Intervalo aleatorio</label>
+                <label style={s.fieldLabel}>Intervalo entre envios (segundos)</label>
                 <div style={s.delayInputs}>
                   <div style={s.numberInputWrap}>
                     <Clock size={15} style={s.numberInputIcon} />
                     <input
-                      style={{ ...s.input, paddingLeft: '2.3rem' }}
+                      style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
                       type="number"
                       min={0}
                       max={300}
                       value={delayMinSeconds}
                       onChange={(e) => setDelayMinSeconds(e.target.value)}
                     />
-                    <span style={s.numberSuffix}>min s</span>
+                    <span style={s.numberSuffix}>min seg</span>
                   </div>
                   <div style={s.numberInputWrap}>
                     <Clock size={15} style={s.numberInputIcon} />
                     <input
-                      style={{ ...s.input, paddingLeft: '2.3rem' }}
+                      style={{ ...s.input, paddingLeft: '2.3rem', paddingRight: '4.25rem' }}
                       type="number"
                       min={0}
                       max={300}
                       value={delayMaxSeconds}
                       onChange={(e) => setDelayMaxSeconds(e.target.value)}
                     />
-                    <span style={s.numberSuffix}>max s</span>
+                    <span style={s.numberSuffix}>max seg</span>
                   </div>
                 </div>
               </div>
@@ -647,7 +647,7 @@ export default function LeadScraper() {
 
             {/* Aviso de delay */}
             <div style={s.delayNotice}>
-              O envio usara um intervalo aleatorio entre {delayMinSeconds || 0}s e {delayMaxSeconds || 0}s entre mensagens.
+              O envio aguardara entre {delayMinSeconds || 0} e {delayMaxSeconds || 0} segundos, sorteando um tempo diferente antes de cada proxima mensagem.
             </div>
           </div>
         </ModalShell>
@@ -1002,11 +1002,11 @@ const s = {
   },
   numberSuffix: {
     position: 'absolute',
-    right: '0.75rem',
+    right: '0.7rem',
     top: '50%',
     transform: 'translateY(-50%)',
     color: 'var(--text-dim)',
-    fontSize: '0.68rem',
+    fontSize: '0.66rem',
     fontWeight: 800,
     pointerEvents: 'none',
   },
