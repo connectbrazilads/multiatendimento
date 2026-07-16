@@ -92,7 +92,10 @@ async function sendMediaMultipart(url, key, instanceName, phone, { mediatype, mi
   form.append('mimetype', mimetype);
   form.append('caption', caption || '');
   form.append('fileName', filename || path.basename(filePath) || 'arquivo');
-  form.append('media', fs.createReadStream(filePath));
+  form.append('media', fs.createReadStream(filePath), {
+    filename: filename || path.basename(filePath) || 'arquivo',
+    contentType: mimetype || 'application/octet-stream'
+  });
 
   if (quoted) {
     const qPayload = buildQuotedPayload(quoted);
@@ -134,6 +137,21 @@ async function sendMediaJson(url, key, instanceName, phone, { mediatype, media, 
 }
 
 async function sendMedia(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted, filePath }) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      return await sendMediaMultipart(url, key, instanceName, phone, {
+        mediatype,
+        mimetype,
+        filename,
+        caption,
+        quoted,
+        filePath
+      });
+    } catch (err) {
+      console.warn('[evolutionService] sendMedia multipart falhou, tentando JSON/base64...', err.response?.data || err.message);
+    }
+  }
+
   try {
     return await sendMediaJson(url, key, instanceName, phone, {
       mediatype,
@@ -144,23 +162,6 @@ async function sendMedia(url, key, instanceName, phone, { mediatype, media, mime
       quoted
     });
   } catch (err) {
-    console.warn('[evolutionService] sendMedia JSON/base64 falhou, tentando multipart...', err.response?.data || err.message);
-
-    if (filePath && fs.existsSync(filePath)) {
-      try {
-        return await sendMediaMultipart(url, key, instanceName, phone, {
-          mediatype,
-          mimetype,
-          filename,
-          caption,
-          quoted,
-          filePath
-        });
-      } catch (multipartErr) {
-        console.warn('[evolutionService] sendMedia multipart falhou:', multipartErr.response?.data || multipartErr.message);
-      }
-    }
-
     if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
       console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de mídia no ambiente local.`);
       return { key: { id: `MOCK-MED-${Date.now()}` } };
