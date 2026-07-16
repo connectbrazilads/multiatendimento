@@ -473,7 +473,6 @@ export default function LeadScraper() {
       )}
 
       {/* SEND MODAL */}
-      {/* SEND MODAL */}
       {showSendModal ? (
         <ModalShell
           kicker={selectedAlreadySent > 0 ? 'Reenvio' : 'Envio em massa'}
@@ -964,6 +963,8 @@ const s = {
     borderRadius: '12px',
     border: '1px solid var(--border-color)',
     overflow: 'hidden',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   previewHeader: {
     display: 'flex',
@@ -999,7 +1000,7 @@ const s = {
   sendGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '1.25rem',
+    gap: '1rem',
     alignItems: 'start',
   },
   sendFormColumn: {
@@ -1007,12 +1008,20 @@ const s = {
     flexDirection: 'column',
     gap: '1rem',
     minWidth: 0,
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '1rem',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    background: 'linear-gradient(180deg, rgba(18, 24, 37, 0.88), rgba(14, 18, 30, 0.98))',
   },
   sendPreviewColumn: {
     display: 'flex',
     flexDirection: 'column',
     gap: '1rem',
     minWidth: 0,
+    width: '100%',
+    boxSizing: 'border-box',
   },
   sendConfigGrid: {
     display: 'grid',
@@ -1128,42 +1137,48 @@ const s = {
     flex: 1,
   },
   whatsappPreview: {
-    background: 'var(--bg-base)',
-    borderRadius: '12px',
+    background: 'linear-gradient(180deg, rgba(16, 22, 35, 0.96), rgba(13, 17, 28, 0.98))',
+    borderRadius: '16px',
     border: '1px solid var(--border-color)',
     overflow: 'hidden',
     minHeight: '100%',
+    width: '100%',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
   },
   phonePreviewStage: {
     padding: '1rem',
-    background: 'linear-gradient(135deg, rgba(18, 94, 68, 0.25), rgba(12, 18, 28, 0.8))',
+    background: 'linear-gradient(135deg, rgba(16, 88, 68, 0.28), rgba(11, 15, 24, 0.94))',
     display: 'flex',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    minHeight: '360px',
+    minHeight: '420px',
+    flex: 1,
   },
   messageBubblePreview: {
-    width: 'min(100%, 430px)',
+    width: '100%',
+    maxWidth: '430px',
     background: '#075E54',
     color: '#fff',
     borderRadius: '10px 10px 2px 10px',
-    padding: '0.55rem',
+    padding: '0.6rem',
     boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
   },
   messageImagePreview: {
     width: '100%',
-    maxHeight: '320px',
-    objectFit: 'cover',
+    maxHeight: '300px',
+    objectFit: 'contain',
     display: 'block',
-    borderRadius: '7px',
-    background: 'rgba(0,0,0,0.22)',
+    borderRadius: '8px',
+    background: 'rgba(0,0,0,0.18)',
     marginBottom: '0.45rem',
   },
   messageTextPreview: {
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
     wordBreak: 'break-word',
-    fontSize: '0.92rem',
+    fontSize: '0.9rem',
     lineHeight: 1.45,
     padding: '0.15rem 0.2rem 0',
   },
