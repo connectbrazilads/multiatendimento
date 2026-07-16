@@ -283,34 +283,36 @@ export default function LeadScraper() {
     if (!selectedInstanceId) return toast.error('Escolha uma instancia conectada para o envio');
     if (Number(delayMaxSeconds) < Number(delayMinSeconds)) return toast.error('O intervalo maximo precisa ser maior ou igual ao minimo');
 
-    setSending(true);
-    try {
-      let mediaUrl = null;
-      let mediaType = null;
+    const payload = {
+      leadIds: Array.from(selected),
+      message: sendMessage.trim(),
+      mediaUrl: null,
+      mediaType: null,
+      instanceId: selectedInstanceId,
+      delayMinSeconds: Number(delayMinSeconds),
+      delayMaxSeconds: Number(delayMaxSeconds),
+    };
 
-      if (sendImage) {
-        const uploadRes = await uploadFile(sendImage);
-        mediaUrl = uploadRes.data.url;
-        mediaType = 'image';
+    let previewImage = sendImage;
+
+    setSending(true);
+    setShowSendModal(false);
+    setSendMessage('');
+    setSendImage(null);
+    setSendImagePreview('');
+    setTemplateName('');
+    setSelectedTemplateId('');
+
+    try {
+      if (previewImage) {
+        const uploadRes = await uploadFile(previewImage);
+        payload.mediaUrl = uploadRes.data.url;
+        payload.mediaType = 'image';
       }
 
-      const { data } = await sendToLeads({
-        leadIds: Array.from(selected),
-        message: sendMessage.trim(),
-        mediaUrl,
-        mediaType,
-        instanceId: selectedInstanceId,
-        delayMinSeconds: Number(delayMinSeconds),
-        delayMaxSeconds: Number(delayMaxSeconds),
-      });
+      const { data } = await sendToLeads(payload);
 
       toast.success(data.message);
-      setShowSendModal(false);
-      setSendMessage('');
-      setSendImage(null);
-      setSendImagePreview('');
-      setTemplateName('');
-      setSelectedTemplateId('');
       setSelected(new Set());
       loadLeads(); // Recarrega para mostrar status atualizado
     } catch (err) {
