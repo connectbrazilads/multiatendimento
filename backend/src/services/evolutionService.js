@@ -89,7 +89,6 @@ async function sendMediaMultipart(url, key, instanceName, phone, { mediatype, mi
   const form = new FormData();
   form.append('number', phone);
   form.append('mediatype', mediatype);
-  form.append('mimetype', mimetype);
   form.append('caption', caption || '');
   form.append('fileName', filename || path.basename(filePath) || 'arquivo');
   form.append('media', fs.createReadStream(filePath), {
