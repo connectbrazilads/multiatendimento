@@ -304,7 +304,7 @@ async function sendToLeads(req, res) {
         const stepErrors = [];
         let delivered = false;
 
-        if (hasText) {
+        if (hasText && !hasMedia) {
           try {
             await evolutionService.sendText(
               tenant.settings.evolutionUrl,
@@ -322,6 +322,10 @@ async function sendToLeads(req, res) {
         if (hasMedia) {
           try {
             const fullPath = path.resolve(__dirname, '../../', String(mediaUrl).replace(/^\/+/, ''));
+            const fs = require('fs');
+            if (!fs.existsSync(fullPath)) {
+              throw new Error(`arquivo de mídia não encontrado em ${fullPath}`);
+            }
             await evolutionService.sendMedia(
               tenant.settings.evolutionUrl,
               tenant.settings.evolutionKey,
@@ -330,7 +334,7 @@ async function sendToLeads(req, res) {
               {
                 mediatype: mediaType === 'image' ? 'image' : 'document',
                 mimetype: mediaType === 'image' ? 'image/jpeg' : 'application/octet-stream',
-                caption: '',
+                caption: hasText ? message : '',
                 filePath: fullPath,
                 filename: path.basename(mediaUrl),
               }

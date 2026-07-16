@@ -76,7 +76,7 @@ async function sendText(url, key, instanceName, phone, text, quoted = null) {
     return ensureAccepted(data, 'sendText');
   } catch (err) {
     console.error(`[evolutionService] sendText ERROR:`, err.response?.data || err.message);
-    if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
+    if (false && (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1'))) {
       console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de texto no ambiente local.`);
       return { key: { id: `MOCK-TXT-${Date.now()}` } };
     }
@@ -137,6 +137,8 @@ async function sendMediaJson(url, key, instanceName, phone, { mediatype, media, 
 }
 
 async function sendMedia(url, key, instanceName, phone, { mediatype, media, mimetype, filename, caption, quoted, filePath }) {
+  let multipartError = null;
+
   if (filePath && fs.existsSync(filePath)) {
     try {
       return await sendMediaMultipart(url, key, instanceName, phone, {
@@ -148,23 +150,28 @@ async function sendMedia(url, key, instanceName, phone, { mediatype, media, mime
         filePath
       });
     } catch (err) {
+      multipartError = err;
       console.warn('[evolutionService] sendMedia multipart falhou, tentando JSON/base64...', err.response?.data || err.message);
     }
   }
 
   try {
+    const mediaPayload = media || (filePath && fs.existsSync(filePath)
+      ? (await fs.promises.readFile(filePath)).toString('base64')
+      : media);
+
     return await sendMediaJson(url, key, instanceName, phone, {
       mediatype,
-      media,
+      media: mediaPayload,
       mimetype,
       filename,
       caption,
       quoted
     });
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production' || url.includes('localhost') || url.includes('127.0.0.1')) {
-      console.warn(`[evolutionService] [DEV MOCK] Simulação de envio de mídia no ambiente local.`);
-      return { key: { id: `MOCK-MED-${Date.now()}` } };
+    if (multipartError) {
+      console.warn('[evolutionService] sendMedia falhou em multipart e JSON/base64.');
+      err.message = `multipart: ${multipartError.response?.data?.message || multipartError.message}; json/base64: ${err.response?.data?.message || err.message}`;
     }
     throw err;
   }
