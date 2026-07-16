@@ -609,7 +609,7 @@ export default function LeadScraper() {
                     </button>
                     <div style={s.imageFileName}>
                       <Image size={14} />
-                      {sendImage?.name}
+                      <span style={s.imageFileNameText}>{sendImage?.name || 'Imagem selecionada'}</span>
                     </div>
                   </div>
                 ) : (
@@ -627,6 +627,26 @@ export default function LeadScraper() {
                     />
                   </label>
                 )}
+              </div>
+            </div>
+
+            <div style={s.whatsappPreview}>
+              <div style={s.previewHeader}>
+                <span style={s.fieldLabel}>Previa da mensagem</span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 700 }}>Como sera enviada</span>
+              </div>
+              <div style={s.phonePreviewStage}>
+                <div style={s.messageBubblePreview}>
+                  {sendImagePreview ? (
+                    <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
+                  ) : null}
+                  {sendMessage.trim() ? (
+                    <div style={s.messageTextPreview}>{sendMessage}</div>
+                  ) : (
+                    <div style={s.messageEmptyPreview}>Digite uma mensagem ou anexe uma imagem para visualizar a previa.</div>
+                  )}
+                  <div style={s.messageTimePreview}>agora</div>
+                </div>
               </div>
             </div>
 
@@ -925,6 +945,7 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: '1.25rem',
+    overflowX: 'hidden',
   },
   resendAlert: {
     display: 'flex',
@@ -978,7 +999,7 @@ const s = {
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   sendConfigGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gridTemplateColumns: 'minmax(0, 1fr)',
     gap: '1rem',
   },
   selectIconWrap: { position: 'relative' },
@@ -990,7 +1011,7 @@ const s = {
     color: 'var(--text-dim)',
     pointerEvents: 'none',
   },
-  delayInputs: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' },
+  delayInputs: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem' },
   numberInputWrap: { position: 'relative' },
   numberInputIcon: {
     position: 'absolute',
@@ -1009,6 +1030,7 @@ const s = {
     fontSize: '0.66rem',
     fontWeight: 800,
     pointerEvents: 'none',
+    whiteSpace: 'nowrap',
   },
   textarea: {
     background: 'var(--bg-panel)',
@@ -1079,6 +1101,66 @@ const s = {
     fontWeight: 600,
     background: 'var(--bg-panel)',
     borderTop: '1px solid var(--border-color)',
+  },
+  imageFileNameText: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    display: 'block',
+    flex: 1,
+  },
+  whatsappPreview: {
+    background: 'var(--bg-base)',
+    borderRadius: '12px',
+    border: '1px solid var(--border-color)',
+    overflow: 'hidden',
+  },
+  phonePreviewStage: {
+    padding: '1rem',
+    background: 'linear-gradient(135deg, rgba(18, 94, 68, 0.25), rgba(12, 18, 28, 0.8))',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    minHeight: '180px',
+  },
+  messageBubblePreview: {
+    width: 'min(100%, 390px)',
+    background: '#075E54',
+    color: '#fff',
+    borderRadius: '10px 10px 2px 10px',
+    padding: '0.45rem',
+    boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+  },
+  messageImagePreview: {
+    width: '100%',
+    maxHeight: '260px',
+    objectFit: 'contain',
+    display: 'block',
+    borderRadius: '7px',
+    background: 'rgba(0,0,0,0.22)',
+    marginBottom: '0.45rem',
+  },
+  messageTextPreview: {
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+    fontSize: '0.9rem',
+    lineHeight: 1.45,
+    padding: '0.15rem 0.2rem 0',
+  },
+  messageEmptyPreview: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: '0.84rem',
+    lineHeight: 1.4,
+    padding: '0.35rem',
+    fontStyle: 'italic',
+  },
+  messageTimePreview: {
+    textAlign: 'right',
+    color: 'rgba(255,255,255,0.66)',
+    fontSize: '0.68rem',
+    marginTop: '0.25rem',
+    paddingRight: '0.15rem',
   },
   modalFooter: {
     display: 'flex',
