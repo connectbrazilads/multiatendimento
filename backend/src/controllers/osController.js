@@ -106,13 +106,13 @@ async function getOSList(req, res) {
   const orders = await prisma.serviceOrder.findMany({
     where,
     include: {
-      contact: true,
+      contact: { include: { crmCustomer: true } },
       equipment: {
         include: {
           contact: true
         }
       },
-      user: { select: { name: true } },
+      user: { select: { name: true, firebirdSupportName: true } },
       closedBy: { select: { name: true } }
     },
     orderBy: { createdAt: 'desc' }
@@ -121,11 +121,32 @@ async function getOSList(req, res) {
 }
 
 async function createOS(req, res) {
-  const { contactId, equipmentId, ticketId, defect, status, cdOstp, nmsuportet } = req.body;
+  const { contactId, equipmentId, ticketId, defect, status, cdOstp, nmsuportet, attendantName } = req.body;
   const { tenantId } = req.user;
 
   try {
-    const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId } });
+    const normalizedAttendantName = String(attendantName || '').trim();
+    if (!normalizedAttendantName) {
+      return res.status(400).json({ error: 'Selecione o atendente do ILUX que esta abrindo a O.S.' });
+    }
+
+    const [equipment, attendant] = await Promise.all([
+      prisma.equipment.findFirst({ where: { id: equipmentId, tenantId, contactId } }),
+      prisma.crmTechnician.findFirst({
+        where: {
+          tenantId,
+          isActive: true,
+          name: { equals: normalizedAttendantName, mode: 'insensitive' }
+        }
+      })
+    ]);
+
+    if (!equipment) {
+      return res.status(400).json({ error: 'Equipamento invalido para este cliente.' });
+    }
+    if (!attendant) {
+      return res.status(400).json({ error: 'O atendente selecionado nao esta ativo ou nao existe no ILUX.' });
+    }
     const isFirebird = equipment?.externalSource === 'firebird';
 
     const os = await prisma.serviceOrder.create({
@@ -139,6 +160,7 @@ async function createOS(req, res) {
         status: status || 'PENDENTE',
         cdOstp,
         nmsuportet,
+        attendantName: attendant.name,
         externalSource: isFirebird ? 'firebird' : 'manual',
         externalId: null
       },
@@ -165,11 +187,21 @@ async function getOSTypes(req, res) {
 
 async function getOSTechnicians(req, res) {
   try {
-    const techs = await prisma.crmTechnician.findMany({
-      where: { tenantId: req.user.tenantId, isActive: true },
-      orderBy: { name: 'asc' }
-    });
-    res.json(techs);
+    const [techs, user] = await Promise.all([
+      prisma.crmTechnician.findMany({
+        where: { tenantId: req.user.tenantId, isActive: true },
+        orderBy: { name: 'asc' }
+      }),
+      prisma.user.findFirst({
+        where: { id: req.user.userId, tenantId: req.user.tenantId },
+        select: { name: true, firebirdSupportName: true }
+      })
+    ]);
+    const preferredName = (user?.firebirdSupportName || user?.name || '').trim().toLocaleLowerCase('pt-BR');
+    res.json(techs.map((tech) => ({
+      ...tech,
+      isCurrentAttendant: Boolean(preferredName) && tech.name.trim().toLocaleLowerCase('pt-BR') === preferredName
+    })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -209,7 +241,7 @@ async function generatePdf(req, res) {
   const os = await prisma.serviceOrder.findFirst({
     where: { id, tenantId: req.user.tenantId },
     include: { 
-      contact: true, 
+      contact: { include: { crmCustomer: true } },
       equipment: true, 
       tenant: { include: { settings: true } },
       user: true 
@@ -249,6 +281,7 @@ async function generatePdf(req, res) {
             }
           ]
         },
+        include: { crmCustomer: true },
         orderBy: {
           createdAt: 'desc'
         }
@@ -263,10 +296,10 @@ async function generatePdf(req, res) {
   }
 
   // Busca dados estruturados adicionais do cliente e equipamento no CRM
-  let crmCustomer = null;
+  let crmCustomer = clientData.crmCustomer || os.contact.crmCustomer || null;
   let crmEquipment = null;
   try {
-    if (clientData.externalId) {
+    if (!crmCustomer && clientData.externalId) {
       crmCustomer = await prisma.crmCustomer.findFirst({
         where: {
           tenantId: req.user.tenantId,
@@ -302,8 +335,12 @@ async function generatePdf(req, res) {
           tenantId: req.user.tenantId,
           externalSource: 'firebird',
           externalId: os.equipment.externalId
-        }
+        },
+        include: { customer: true }
       });
+    }
+    if (!crmCustomer && crmEquipment?.customer) {
+      crmCustomer = crmEquipment.customer;
     }
   } catch (err) {
     console.error('[generatePdf] erro ao buscar dados estruturados adicionais:', err);
@@ -354,15 +391,21 @@ async function generatePdf(req, res) {
     };
 
     // Identificação do atendente com fallback para o usuário atual que está gerando o documento
-    let attendantName = os.user ? (os.user.firebirdSupportName || os.user.name) : 'N/A';
-    if ((attendantName === 'N/A' || !os.user) && req.user?.userId) {
-      const activeUser = await prisma.user.findUnique({
-        where: { id: req.user.userId }
-      });
-      if (activeUser) {
-        attendantName = activeUser.firebirdSupportName || activeUser.name;
-      }
-    }
+    const attendantName = os.attendantName || os.user?.firebirdSupportName || os.user?.name || 'N/A';
+    const customerAddress = crmCustomer?.address
+      || clientData.address
+      || os.contact.address
+      || crmEquipment?.address
+      || os.equipment.address
+      || crmCustomer?.raw?.endereco
+      || crmCustomer?.raw?.ENDERECO
+      || 'N/A';
+    const customerNeighborhood = crmCustomer?.neighborhood
+      || crmCustomer?.raw?.bairro
+      || crmCustomer?.raw?.BAIRRO
+      || crmEquipment?.raw?.bairro
+      || crmEquipment?.raw?.BAIRRO
+      || 'N/A';
 
     // Tradução limpa do tipo de O.S.
     let displayOsType = 'ATENDIMENTO AVULSO';
@@ -484,15 +527,15 @@ async function generatePdf(req, res) {
                 {}
               ],
               [
-                { text: [{ text: 'Endereço: ', style: 'label' }, { text: crmCustomer?.address || clientData.address || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Endereço: ', style: 'label' }, { text: customerAddress, style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Equipamento: ', style: 'label' }, { text: os.equipment.externalId ? `${os.equipment.externalId} - ${os.equipment.model || 'N/A'}` : 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'Bairro: ', style: 'label' }, { text: crmCustomer?.neighborhood || 'N/A', style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Bairro: ', style: 'label' }, { text: customerNeighborhood, style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Modelo: ', style: 'label' }, { text: os.equipment.model || 'N/A', style: 'value' }] }
               ],
               [
-                { text: [{ text: 'Cidade: ', style: 'label' }, { text: crmCustomer?.city ? `${crmCustomer.city} (${crmCustomer.state || 'RS'})` : (clientData.city ? `${clientData.city} (${clientData.state || 'RS'})` : 'N/A'), style: 'value' }], border: [true, false, true, true] },
+                { text: [{ text: 'Cidade: ', style: 'label' }, { text: crmCustomer?.city ? `${crmCustomer.city} (${crmCustomer.state || ''})` : (clientData.city ? `${clientData.city} (${clientData.state || ''})` : (crmEquipment?.city ? `${crmEquipment.city} (${crmEquipment.state || ''})` : 'N/A')), style: 'value' }], border: [true, false, true, true] },
                 { text: [{ text: 'Série: ', style: 'label' }, { text: os.equipment.serialNumber || 'N/A', style: 'value' }] }
               ],
               [
@@ -656,7 +699,7 @@ async function generatePdf(req, res) {
               stack: [
                 { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#333333' }] },
                 { text: 'ASSINATURA DO TÉCNICO', style: 'signatureLabel', margin: [0, 4, 0, 0] },
-                { text: attendantName.toUpperCase(), fontSize: 6.5, color: '#999' }
+                { text: (os.nmsuportet || 'N/A').toUpperCase(), fontSize: 6.5, color: '#999' }
               ],
               alignment: 'center'
             }

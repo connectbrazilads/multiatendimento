@@ -8,7 +8,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drafting, setDrafting] = useState(false);
-  const [formData, setFormData] = useState({ equipmentId: '', defect: '', cdOstp: '', nmsuportet: '' });
+  const [formData, setFormData] = useState({ equipmentId: '', defect: '', cdOstp: '', nmsuportet: '', attendantName: '' });
 
   useEffect(() => {
     loadData();
@@ -46,12 +46,14 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
 
       const foundTech = resTechs.data.find(t => t.name.toUpperCase().includes('ROBSON'))
         || null;
+      const currentAttendant = resTechs.data.find(t => t.isCurrentAttendant) || null;
 
       setFormData({
         defect: defect || '',
         equipmentId: equipmentId || (resEquips.data.length === 1 ? resEquips.data[0].id : ''),
         cdOstp: foundType ? foundType.code : '',
-        nmsuportet: foundTech ? foundTech.name : ''
+        nmsuportet: foundTech ? foundTech.name : '',
+        attendantName: currentAttendant ? currentAttendant.name : ''
       });
     } catch (e) {
       console.error(e);
@@ -64,6 +66,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
   async function handleSave() {
     if (!formData.equipmentId) return alert('Selecione um equipamento');
     if (!formData.cdOstp) return alert('Selecione o tipo de O.S.');
+    if (!formData.attendantName) return alert('Selecione quem esta abrindo a O.S.');
     if (!formData.defect) return alert('Informe o defeito reportado');
     try {
       const res = await api.post('/os', {
@@ -73,12 +76,13 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
         defect: formData.defect,
         status: 'PENDENTE',
         cdOstp: formData.cdOstp,
-        nmsuportet: formData.nmsuportet
+        nmsuportet: formData.nmsuportet,
+        attendantName: formData.attendantName
       });
       
       onCreated(res.data);
     } catch (e) {
-      alert('Erro ao criar O.S.');
+      alert(e.response?.data?.error || 'Erro ao criar O.S.');
     }
   }
 
@@ -126,6 +130,18 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
               <option value="">Selecione o tipo...</option>
               {osTypes.map(t => (
                 <option key={t.id} value={t.code}>{t.name} ({t.code})</option>
+              ))}
+            </select>
+
+            <label style={s.label}>ATENDENTE QUE ESTÁ ABRINDO A O.S.</label>
+            <select
+              style={s.input}
+              value={formData.attendantName}
+              onChange={e => setFormData({...formData, attendantName: e.target.value})}
+            >
+              <option value="">Selecione o atendente do ILUX...</option>
+              {technicians.map(t => (
+                <option key={`attendant-${t.id}`} value={t.name}>{t.name}</option>
               ))}
             </select>
 

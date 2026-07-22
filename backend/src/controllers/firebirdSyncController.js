@@ -576,7 +576,7 @@ async function getPendingCommands(req, res) {
         cdOstp: os.cdOstp || '02',
         nmsuportet: os.nmsuportet || '',
         defect: os.defect || '',
-        attendantName: os.user?.firebirdSupportName || os.user?.name || '',
+        attendantName: os.attendantName || os.user?.firebirdSupportName || os.user?.name || '',
         // duplicados do cliente
         nmCliente: os.contact.crmCustomer?.name || os.contact.name || '',
         endereco: os.contact.crmCustomer?.address || os.contact.address || '',
