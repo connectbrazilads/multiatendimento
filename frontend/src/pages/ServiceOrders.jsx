@@ -312,7 +312,7 @@ export default function ServiceOrders() {
                     </div>
                   ) : (
                     <div style={{fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <span>{os.user?.name || 'Atendente'}</span>
+                      <span>{os.attendantName || os.user?.firebirdSupportName || os.user?.name || 'Atendente'}</span>
                       <span style={{
                         display: 'flex', alignItems: 'center', gap: '4px',
                         color: daysSince(os.createdAt) >= 3 ? '#ff4d4f' : daysSince(os.createdAt) >= 1 ? '#faad14' : 'var(--text-dim)',

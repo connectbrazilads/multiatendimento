@@ -421,6 +421,7 @@ model ServiceOrder {
   technicalNotes String?    // Notas do técnico (peças trocadas, pendências)
   meters         String?    // Medidores em JSON (ex: {"mono": 1000, "cor": 500})
   userId         String?    // Atendente que criou a O.S.
+  attendantName  String?    // Nome do atendente selecionado na lista sincronizada do ILUX
 
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
