@@ -35,7 +35,7 @@ from reportlab.platypus import (
 )
 from xml.sax.saxutils import escape
 
-from financial_document_index import FinancialDocumentIndex, friendly_filename
+from financial_document_index import DOCUMENT_LABELS, FinancialDocumentIndex, friendly_filename
 
 
 if getattr(sys, "frozen", False):
@@ -183,12 +183,18 @@ class AppConfig:
     log_max_bytes: int = 5 * 1024 * 1024
     log_backup_count: int = 5
     log_level: str = "INFO"
-    billing_folder_path: str = r"C:\ILUX\boletos_enviar"
     own_cnpj: str = "35.692.721/0001-94"
     billing_send_policy: str = "Somente Marcados"
     financial_document_folders: list[str] = field(default_factory=list)
     financial_document_index_file: Path = field(default_factory=lambda: ROOT / "financial-documents-index.json")
     financial_document_scan_seconds: int = 600
+    # Envio automatico de cobranca pelo WhatsApp, construido sobre o indice de
+    # documentos financeiros (substitui a antiga pasta "boletos_enviar" que
+    # movia arquivos e identificava o cliente so pelo CNPJ solto no texto).
+    billing_auto_send_enabled: bool = False
+    billing_auto_send_test_mode: bool = True
+    billing_auto_send_document_types: list[str] = field(default_factory=lambda: ["invoice", "statement", "boleto"])
+    billing_auto_send_ledger_file: Path = field(default_factory=lambda: ROOT / "billing-auto-send-ledger.json")
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -253,7 +259,6 @@ class AppConfig:
             log_max_bytes=env_int("LOG_MAX_BYTES", 5 * 1024 * 1024),
             log_backup_count=env_int("LOG_BACKUP_COUNT", 5),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
-            billing_folder_path=os.getenv("BILLING_FOLDER_PATH", r"C:\ILUX\boletos_enviar"),
             own_cnpj=os.getenv("OWN_CNPJ", "35.692.721/0001-94"),
             billing_send_policy=os.getenv("BILLING_SEND_POLICY", "Somente Marcados"),
             financial_document_folders=env_folders("FINANCIAL_DOCUMENT_FOLDERS"),
@@ -262,6 +267,13 @@ class AppConfig:
                 ROOT / "financial-documents-index.json",
             ),
             financial_document_scan_seconds=env_int("FINANCIAL_DOCUMENT_SCAN_SECONDS", 600),
+            billing_auto_send_enabled=env_bool("BILLING_AUTO_SEND_ENABLED", False),
+            billing_auto_send_test_mode=env_bool("BILLING_AUTO_SEND_TEST_MODE", True),
+            billing_auto_send_document_types=env_folders("BILLING_AUTO_SEND_DOCUMENT_TYPES") or ["invoice", "statement", "boleto"],
+            billing_auto_send_ledger_file=resolve_path(
+                os.getenv("BILLING_AUTO_SEND_LEDGER_FILE", "billing-auto-send-ledger.json"),
+                ROOT / "billing-auto-send-ledger.json",
+            ),
         )
 
 
@@ -343,6 +355,54 @@ class CommandResultStore:
                 encoding="utf-8",
             )
             temporary.replace(self.path)
+
+
+class BillingSendLedger:
+    """Durable record of automatic WhatsApp billing sends.
+
+    Keyed by receivable + the combined sha256 of every document sent for it --
+    never by where the PDF sits on disk. A reissued document (different hash)
+    is treated as new and can be sent again; the exact same file content is
+    never sent twice, even across agent restarts.
+    """
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.lock = threading.Lock()
+        self.data: dict[str, dict[str, Any]] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                self.data = raw
+        except Exception as exc:
+            logging.warning("Falha ao ler o controle de envios automaticos %s: %s", self.path, exc)
+
+    def _save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(self.path)
+
+    @staticmethod
+    def key(receivable_id: Any, combined_hash: str) -> str:
+        return f"{receivable_id}:{combined_hash}"
+
+    def already_sent(self, receivable_id: Any, combined_hash: str) -> bool:
+        with self.lock:
+            return self.key(receivable_id, combined_hash) in self.data
+
+    def record(self, receivable_id: Any, combined_hash: str, info: dict[str, Any]) -> None:
+        with self.lock:
+            self.data[self.key(receivable_id, combined_hash)] = {
+                **info,
+                "sentAt": datetime.now().isoformat(timespec="seconds"),
+            }
+            self._save()
 
 
 class CRMClient:
@@ -428,10 +488,16 @@ class CRMClient:
                         self.report_command_result(cmd_id, success=True, result=command_result)
                         logging.info("O.S. criada no Firebird com sucesso. SEQOS: %s", seq_os)
                     elif cmd_type == "PROCESS_BILLING":
-                        logging.info("Comando PROCESS_BILLING recebido sob demanda. Processando...")
-                        self.process_billing_folder()
-                        self.report_command_result(cmd_id, success=True)
-                        logging.info("Comando PROCESS_BILLING processado com sucesso.")
+                        # A pasta separada de cobrancas foi aposentada: o envio automatico
+                        # agora nasce do indice de Documentos financeiros (ver
+                        # run_billing_automation). Este comando so existe para instalacoes
+                        # antigas que ainda tenham o botao na tela; nao ha mais o que rodar.
+                        logging.info("Comando PROCESS_BILLING recebido, mas esse fluxo foi aposentado.")
+                        self.report_command_result(
+                            cmd_id,
+                            success=True,
+                            result={"message": "Fluxo antigo aposentado. O envio automatico agora usa o indice de Documentos financeiros."},
+                        )
                     elif cmd_type == "FETCH_BILLING_PDF":
                         logging.info("Buscando PDF do boleto %s sob demanda...", payload.get("receivableExternalId"))
                         command_result = repo.fetch_billing_pdf(payload)
@@ -492,169 +558,34 @@ class CRMClient:
         except Exception as e:
             logging.error("Falha ao enviar ping: %s", e)
 
-    def process_billing_folder(self) -> None:
-        folder_path = self.config.billing_folder_path
-        if not folder_path or not os.path.exists(folder_path):
-            logging.warning("Pasta de cobranças não configurada ou não existe: %s", folder_path)
-            return
-
-        import shutil
-        try:
-            from pypdf import PdfReader
-        except ImportError:
-            logging.error("Biblioteca pypdf não encontrada. Por favor, execute 'pip install pypdf'.")
-            return
-
-        # Regexes para CNPJ/CPF
-        cnpj_pattern = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\b\d{14}\b')
-        cpf_pattern = re.compile(r'\d{3}\.\d{3}\.\d{3}-\d{2}|\b\d{11}\b')
-
-        own_cnpj_clean = re.sub(r'\D', '', self.config.own_cnpj)
-
-        try:
-            files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
-        except Exception as err:
-            logging.error("Erro ao listar pasta de cobranças: %s", err)
-            return
-
-        if not files:
-            return
-
-        logging.info("Encontrados %d arquivos PDF na pasta de cobranças", len(files))
-
-        # Agrupamento por CPF/CNPJ
-        grouped_files = {}  # { cpfCnpj: [filepaths] }
-        unidentified_files = []
-
-        for filename in files:
-            filepath = os.path.join(folder_path, filename)
-            try:
-                text = ""
-                with open(filepath, 'rb') as f:
-                    reader = PdfReader(f)
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text += page_text + "\n"
-                
-                cnpjs = cnpj_pattern.findall(text)
-                cpfs = cpf_pattern.findall(text)
-
-                customer_id = None
-
-                # Filtra CNPJ do emitente
-                for cnpj_val in cnpjs:
-                    cleaned = re.sub(r'\D', '', cnpj_val)
-                    if cleaned != own_cnpj_clean:
-                        customer_id = cleaned
-                        break
-
-                if not customer_id:
-                    # Filtra CPF
-                    for cpf_val in cpfs:
-                        cleaned = re.sub(r'\D', '', cpf_val)
-                        customer_id = cleaned
-                        break
-
-                if customer_id:
-                    grouped_files.setdefault(customer_id, []).append(filepath)
-                else:
-                    logging.warning("Não foi possível identificar o CPF/CNPJ no arquivo %s", filename)
-                    unidentified_files.append(filepath)
-
-            except Exception as e:
-                logging.error("Erro ao ler PDF %s: %s", filename, e)
-                unidentified_files.append(filepath)
-
-        # Processar arquivos não identificados movendo para 'erros'
-        if unidentified_files:
-            error_dir = os.path.join(folder_path, "erros")
-            os.makedirs(error_dir, exist_ok=True)
-            for filepath in unidentified_files:
-                dest = os.path.join(error_dir, os.path.basename(filepath))
-                try:
-                    shutil.move(filepath, dest)
-                    logging.info("Arquivo com erro movido para a pasta de erros: %s", os.path.basename(filepath))
-                except Exception as mv_err:
-                    logging.error("Erro ao mover arquivo com erro %s: %s", filepath, mv_err)
-
-        if not grouped_files:
-            return
-
-        # Enviar arquivos agrupados por cliente
-        url = f"{self.config.crm_base_url}/api/integrations/firebird/send-billing"
-        
-        # Mapeamento do mês para pasta de arquivo
-        meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-        now = datetime.now()
-        month_name = meses[now.month - 1]
-        dest_folder_name = f"Enviados - {month_name} {now.year}"
-        dest_dir = os.path.join(folder_path, dest_folder_name)
-
-        for customer_id, filepaths in grouped_files.items():
-            logging.info("Enviando lote de %d arquivos para o cliente %s", len(filepaths), customer_id)
-            
-            files_payload = []
-            opened_files = []
-            try:
-                for fp in filepaths:
-                    f = open(fp, 'rb')
-                    opened_files.append(f)
-                    files_payload.append(('media', (os.path.basename(fp), f, 'application/pdf')))
-
-                data = {
-                    'tenantSlug': self.config.crm_tenant_slug,
-                    'cpfCnpj': customer_id,
-                    'sendPolicy': self.config.billing_send_policy
-                }
-                headers = {
-                    'x-firebird-token': self.config.crm_sync_token
-                }
-                # Usa requests.post diretamente para evitar que o Content-Type: application/json da sessão
-                # interfira na geração dos boundaries do multipart/form-data.
-                response = requests.post(url, files=files_payload, data=data, headers=headers, timeout=120)
-                response.raise_for_status()
-                
-                # Fechar arquivos antes de mover
-                for f in opened_files:
-                    try:
-                        f.close()
-                    except Exception:
-                        pass
-                opened_files = []
-                
-                # Se deu certo, move os arquivos para a pasta de arquivos do mês
-                os.makedirs(dest_dir, exist_ok=True)
-                for fp in filepaths:
-                    shutil.move(fp, os.path.join(dest_dir, os.path.basename(fp)))
-                
-                logging.info("Lote enviado com sucesso para %s. Arquivos arquivados em %s", customer_id, dest_folder_name)
-
-            except Exception as e:
-                logging.error("Falha ao enviar lote de cobrança para %s: %s", customer_id, e)
-                # Fechar arquivos antes de mover para pasta de erros
-                for f in opened_files:
-                    try:
-                        f.close()
-                    except Exception:
-                        pass
-                opened_files = []
-
-                # Se falhou, move os arquivos para a pasta de erros
-                error_dir = os.path.join(folder_path, "erros")
-                os.makedirs(error_dir, exist_ok=True)
-                for fp in filepaths:
-                    try:
-                        shutil.move(fp, os.path.join(error_dir, os.path.basename(fp)))
-                    except Exception as mv_err:
-                        logging.error("Erro ao mover arquivo com erro %s para pasta de erros: %s", fp, mv_err)
-            finally:
-                for f in opened_files:
-                    try:
-                        f.close()
-                    except Exception:
-                        pass
-
+    def send_billing_package(self, package: dict[str, Any]) -> dict[str, Any]:
+        """Delivers one automatic billing package (already matched and deduped
+        by find_ready_billing_packages) to the backend, which enforces the
+        per-contact WhatsApp opt-in and sends it the same way the CRM's manual
+        'Reenviar' button does.
+        """
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/auto-send-billing"
+        documents = []
+        for document in package["documents"]:
+            pdf_bytes = Path(document["path"]).read_bytes()
+            documents.append({
+                "documentType": document["documentType"],
+                "fileName": document["fileName"],
+                "mimeType": "application/pdf",
+                "pdfBase64": base64.b64encode(pdf_bytes).decode("ascii"),
+            })
+        response = self.session.post(
+            url,
+            json={
+                "tenantSlug": self.config.crm_tenant_slug,
+                "receivableExternalId": str(package["receivableExternalId"]),
+                "sendPolicy": self.config.billing_send_policy,
+                "documents": documents,
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json()
 
 class FirebirdRepository:
     def __init__(self, config: AppConfig):
@@ -672,6 +603,85 @@ class FirebirdRepository:
 
     def scan_financial_documents(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int]:
         return self.financial_document_index().scan(on_progress=on_progress)
+
+    def find_ready_billing_packages(
+        self,
+        document_types: list[str],
+        ledger: "BillingSendLedger",
+    ) -> list[dict[str, Any]]:
+        """Open receivables whose configured document types (e.g. boleto + nota
+        fiscal + demonstrativo) all match, unambiguously, a PDF already in the
+        financial document index -- and that were not sent before for this
+        exact combination of file contents.
+
+        Pure detection: never touches the network, never moves a file. Sending
+        is the caller's job (see run_billing_automation).
+        """
+        index = self.financial_document_index()
+        if not index.entries or not document_types:
+            return []
+
+        packages: list[dict[str, Any]] = []
+        for row in self.fetch_open_receivables_for_billing():
+            receivable_id = row.get("seqreceita")
+            context = {
+                "customer_cnpj": row.get("customer_cnpj"),
+                "customer_cpf": row.get("customer_cpf"),
+                "customer_name": row.get("customer_name"),
+                "invoice_number": row.get("invoice_number"),
+                "seqdemonstrativo": row.get("seqdemonstrativo"),
+                "dtemissaonfs": row.get("dtemissaonfs"),
+                "dtemissaorec": row.get("dtemissaorec"),
+                "dtvectorec": row.get("dtvectorec"),
+                "valreceita": row.get("valreceita"),
+                "seqreceita": receivable_id,
+            }
+
+            matches: dict[str, Any] = {}
+            for document_type in document_types:
+                try:
+                    match = index.find(document_type, context)
+                except ValueError as exc:
+                    # Ambiguous match: exactly the case find() protects the manual
+                    # "Visualizar/Baixar" flow from too. An automatic send must be
+                    # even more conservative, so the whole package is skipped and
+                    # flagged for someone to look at (it already surfaces in the
+                    # CRM's "documentos precisam de revisao" panel).
+                    logging.warning(
+                        "Envio automatico: titulo %s tem %s ambiguo, pulando ate revisao manual (%s)",
+                        receivable_id, document_type, exc,
+                    )
+                    matches = {}
+                    break
+                if match is None:
+                    matches = {}
+                    break
+                matches[document_type] = match
+
+            if len(matches) != len(document_types):
+                continue
+
+            combined_hash = ":".join(sorted(match.sha256 for match in matches.values()))
+            if ledger.already_sent(receivable_id, combined_hash):
+                continue
+
+            packages.append({
+                "receivableExternalId": receivable_id,
+                "customerName": row.get("customer_name"),
+                "customerCnpj": row.get("customer_cnpj"),
+                "customerCpf": row.get("customer_cpf"),
+                "combinedHash": combined_hash,
+                "documents": [
+                    {
+                        "documentType": document_type,
+                        "path": match.path,
+                        "sha256": match.sha256,
+                        "fileName": friendly_filename(document_type, context),
+                    }
+                    for document_type, match in matches.items()
+                ],
+            })
+        return packages
 
     def connect(self):
         if not self.config.firebird_database:
@@ -933,6 +943,32 @@ class FirebirdRepository:
             left join CE_BOLETO b on b.SEQRECEITA = r.SEQRECEITA
             left join INFSAIDA nf on nf.SEQINCNFS = r.SEQINCNFS
             left join IXLDEMOFAT demo on demo.SEQDEMONSTRATIVO = r.SEQDEMONSTRATIVO
+            where r.DTPAGTOREC is null
+              and coalesce(r.VALRECEITAPAGA, 0) < coalesce(r.VALRECEITA, 0)
+            order by r.DTVECTOREC, r.SEQRECEITA
+        """
+        yield from self._rows(sql, ())
+
+    def fetch_open_receivables_for_billing(self, limit: int = 5000) -> Iterator[dict[str, Any]]:
+        """Open (unpaid) receivables with the customer's CNPJ/CPF attached.
+
+        Used by the automatic WhatsApp sending to match newly indexed PDFs
+        against real titles -- same eligibility rule as fetch_open_receivables,
+        with the extra fields FinancialDocumentIndex.find() needs (customer
+        document, invoice number, dates, value) so no per-title round trip is
+        required while scanning.
+        """
+        sql = f"""
+            select first {max(1, int(limit))}
+                r.SEQRECEITA, r.SEQINCNFS, r.SEQDEMONSTRATIVO,
+                coalesce(nf.NRNFSAIDA, r.NUMNF) as INVOICE_NUMBER,
+                r.DTEMISSAOREC, r.DTVECTOREC, r.VALRECEITA,
+                nf.DTEMISSAONFS,
+                cli.CDCLIENTE, cli.NMCLIENTE as CUSTOMER_NAME,
+                cli.CNPJ as CUSTOMER_CNPJ, cli.CPF as CUSTOMER_CPF
+            from IRECEITAS r
+            join ICLIENTES cli on cli.CDCLIENTE = r.CDCLIENTE
+            left join INFSAIDA nf on nf.SEQINCNFS = r.SEQINCNFS
             where r.DTPAGTOREC is null
               and coalesce(r.VALRECEITAPAGA, 0) < coalesce(r.VALRECEITA, 0)
             order by r.DTVECTOREC, r.SEQRECEITA
@@ -2306,10 +2342,6 @@ def run_cycle(
         ):
             return
 
-    # Process billing files
-    logging.info("Verificando pasta de cobranças...")
-    crm.process_billing_folder()
-
     # Inform backend that agent is alive
     crm.send_ping()
 
@@ -2329,10 +2361,69 @@ def run_command_listener(config: AppConfig, stop_event: threading.Event | None =
             time.sleep(2)
 
 
+def run_billing_automation(
+    repo: FirebirdRepository,
+    crm: CRMClient,
+    config: AppConfig,
+    ledger: "BillingSendLedger",
+) -> dict[str, int]:
+    """One pass of the automatic WhatsApp billing send.
+
+    Finds open receivables whose configured documents (billing_auto_send_document_types
+    -- boleto, nota fiscal and/or demonstrativo) are all matched, unambiguously, in the
+    financial document index, and sends (or, in test mode, only logs) the ones not sent
+    before. Never touches the original PDFs; every send is recorded in the local ledger
+    keyed by file content, not by folder location, so nothing is ever sent twice.
+    """
+    if not config.billing_auto_send_enabled:
+        return {"ready": 0, "sent": 0, "failed": 0}
+
+    packages = repo.find_ready_billing_packages(config.billing_auto_send_document_types, ledger)
+    sent = failed = 0
+    for package in packages:
+        labels = ", ".join(
+            DOCUMENT_LABELS.get(document["documentType"], document["documentType"])
+            for document in package["documents"]
+        )
+        who = package["customerName"] or package["customerCnpj"] or "cliente"
+        description = f"{labels} para {who} (titulo #{package['receivableExternalId']})"
+        ledger_info = {
+            "customerName": package["customerName"],
+            "documentTypes": [document["documentType"] for document in package["documents"]],
+            "testMode": config.billing_auto_send_test_mode,
+        }
+        if config.billing_auto_send_test_mode:
+            logging.info(
+                "[TESTE] Enviaria automaticamente pelo WhatsApp: %s. "
+                "Nada foi enviado -- desligue o modo teste na aba Documentos financeiros quando validar.",
+                description,
+            )
+            ledger.record(package["receivableExternalId"], package["combinedHash"], ledger_info)
+            sent += 1
+            continue
+        try:
+            result = crm.send_billing_package(package)
+            logging.info("Envio automatico realizado: %s -- %s", description, result.get("message") or "ok")
+            ledger.record(package["receivableExternalId"], package["combinedHash"], ledger_info)
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            logging.error("Falha no envio automatico de %s: %s", description, exc)
+    return {"ready": len(packages), "sent": sent, "failed": failed}
+
+
 def run_financial_document_monitor(config: AppConfig, stop_event: threading.Event | None = None) -> None:
     if not config.financial_document_folders:
         return
     repo = FirebirdRepository(config)
+    crm = CRMClient(config)
+    # Test-mode sends never touch the real ledger: flipping test mode off later
+    # re-evaluates everything seen during testing and sends it for real, instead
+    # of silently treating "we logged it" as "we sent it".
+    ledger_path = config.billing_auto_send_ledger_file
+    if config.billing_auto_send_test_mode:
+        ledger_path = ledger_path.with_name(f"{ledger_path.stem}-teste{ledger_path.suffix}")
+    ledger = BillingSendLedger(ledger_path)
     while stop_event is None or not stop_event.is_set():
         try:
             # Reuses the same live progress the manual "Indexar agora" button uses,
@@ -2348,6 +2439,19 @@ def run_financial_document_monitor(config: AppConfig, stop_event: threading.Even
             )
         except Exception as exc:
             logging.exception("Falha ao atualizar o indice de documentos financeiros: %s", exc)
+
+        try:
+            billing_stats = run_billing_automation(repo, crm, config, ledger)
+            if billing_stats["ready"]:
+                logging.info(
+                    "Envio automatico de cobrancas: %s pronto(s), %s enviado(s)/testado(s), %s falha(s).",
+                    billing_stats["ready"],
+                    billing_stats["sent"],
+                    billing_stats["failed"],
+                )
+        except Exception as exc:
+            logging.exception("Falha no envio automatico de cobrancas: %s", exc)
+
         wait_seconds = max(60, config.financial_document_scan_seconds)
         if stop_event is not None:
             if stop_event.wait(wait_seconds):

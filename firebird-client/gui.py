@@ -140,19 +140,26 @@ class AgentGUI(ctk.CTk):
         self._section_title(
             frame,
             "Sincronização e automações",
-            "Controle a frequência do agente e preserve o fluxo existente de boletos enviados pelo iLux.",
+            "Controle a frequência do agente.",
             0,
         )
         self.interval_entry = self._input(frame, "Intervalo de sincronização (segundos)", 2)
-        self.billing_folder_entry = self._input(frame, "Pasta atual de boletos para WhatsApp", 4)
-        ctk.CTkLabel(frame, text="Enviar boletos para").grid(row=6, column=0, sticky="w", padx=10, pady=(8, 2))
+        ctk.CTkLabel(frame, text="Enviar cobranças automáticas para").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 2))
         self.policy_var = ctk.StringVar(value="Somente Marcados")
         self.policy_menu = ctk.CTkOptionMenu(
             frame,
             variable=self.policy_var,
             values=["Somente Marcados", "Todos"],
         )
-        self.policy_menu.grid(row=7, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.policy_menu.grid(row=5, column=0, sticky="ew", padx=10, pady=(0, 4))
+        ctk.CTkLabel(
+            frame,
+            text="\"Somente Marcados\" respeita o \"Enviar Faturas no WhatsApp\" de cada contato. Vale para o envio automático configurado na aba Documentos financeiros.",
+            text_color="#94a3b8",
+            justify="left",
+            wraplength=760,
+            font=ctk.CTkFont(size=11),
+        ).grid(row=6, column=0, sticky="ew", padx=10, pady=(0, 10))
         self.autostart_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
             frame,
@@ -197,6 +204,44 @@ class AgentGUI(ctk.CTk):
             font=ctk.CTkFont(size=11),
         ).grid(row=6, column=0, sticky="w", padx=10, pady=(2, 8))
 
+        self._section_title(
+            frame,
+            "Envio automático de cobranças pelo WhatsApp",
+            "Quando um pacote completo (dos tipos marcados abaixo) for encontrado sem ambiguidade para um "
+            "título em aberto e ainda não tiver sido enviado, o agente manda pelo WhatsApp sozinho -- sem "
+            "mover o arquivo original. Substitui a antiga pasta separada de boletos.",
+            7,
+        )
+        self.auto_send_enabled_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            frame,
+            text="Ativar envio automático",
+            variable=self.auto_send_enabled_var,
+        ).grid(row=9, column=0, padx=10, pady=(2, 4), sticky="w")
+
+        self.auto_send_test_mode_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            frame,
+            text="Modo teste (só registra no log o que enviaria, não envia de verdade)",
+            variable=self.auto_send_test_mode_var,
+        ).grid(row=10, column=0, padx=10, pady=(0, 8), sticky="w")
+
+        types_row = ctk.CTkFrame(frame, fg_color="transparent")
+        types_row.grid(row=11, column=0, padx=10, pady=(0, 4), sticky="ew")
+        ctk.CTkLabel(types_row, text="Documentos que compõem o pacote:").grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        self.auto_send_invoice_var = ctk.BooleanVar(value=True)
+        self.auto_send_statement_var = ctk.BooleanVar(value=True)
+        self.auto_send_boleto_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(types_row, text="Nota Fiscal", variable=self.auto_send_invoice_var).grid(row=1, column=0, padx=(0, 12), sticky="w")
+        ctk.CTkCheckBox(types_row, text="Demonstrativo", variable=self.auto_send_statement_var).grid(row=1, column=1, padx=(0, 12), sticky="w")
+        ctk.CTkCheckBox(types_row, text="Boleto", variable=self.auto_send_boleto_var).grid(row=1, column=2, sticky="w")
+        ctk.CTkLabel(
+            frame,
+            text="Só envia quando TODOS os tipos marcados estiverem prontos e identificados para o mesmo título.",
+            text_color="#94a3b8",
+            font=ctk.CTkFont(size=11),
+        ).grid(row=12, column=0, sticky="w", padx=10, pady=(2, 8))
+
         self.document_status = ctk.CTkLabel(
             frame,
             text="Nenhuma indexação realizada nesta sessão.",
@@ -205,7 +250,7 @@ class AgentGUI(ctk.CTk):
             anchor="w",
             wraplength=760,
         )
-        self.document_status.grid(row=7, column=0, padx=10, pady=14, sticky="ew")
+        self.document_status.grid(row=13, column=0, padx=10, pady=14, sticky="ew")
 
     def _create_logs_tab(self):
         tab = self.tabs.tab("Logs")
@@ -220,7 +265,6 @@ class AgentGUI(ctk.CTk):
         self.db_path_entry.insert(0, os.getenv("FIREBIRD_DATABASE", ""))
         self.login_entry.insert(0, os.getenv("FIREBIRD_USER", "SYSDBA"))
         self.password_entry.insert(0, os.getenv("FIREBIRD_PASSWORD", ""))
-        self.billing_folder_entry.insert(0, os.getenv("BILLING_FOLDER_PATH", ""))
         self.policy_var.set(os.getenv("BILLING_SEND_POLICY", "Somente Marcados"))
         self.interval_entry.insert(0, os.getenv("SYNC_INTERVAL_SECONDS", "300"))
         self.autostart_var.set(os.getenv("AUTOSTART_WINDOWS", "False").lower() == "true")
@@ -233,6 +277,19 @@ class AgentGUI(ctk.CTk):
         if isinstance(folders, list):
             self.financial_folders_text.insert("1.0", "\n".join(str(item) for item in folders))
         self.financial_scan_interval_entry.insert(0, os.getenv("FINANCIAL_DOCUMENT_SCAN_SECONDS", "600"))
+
+        self.auto_send_enabled_var.set(os.getenv("BILLING_AUTO_SEND_ENABLED", "False").lower() == "true")
+        self.auto_send_test_mode_var.set(os.getenv("BILLING_AUTO_SEND_TEST_MODE", "True").lower() == "true")
+        raw_document_types = os.getenv("BILLING_AUTO_SEND_DOCUMENT_TYPES", "")
+        try:
+            document_types = json.loads(raw_document_types) if raw_document_types else ["invoice", "statement", "boleto"]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            document_types = [item.strip() for item in raw_document_types.split("|") if item.strip()]
+        if not isinstance(document_types, list):
+            document_types = ["invoice", "statement", "boleto"]
+        self.auto_send_invoice_var.set("invoice" in document_types)
+        self.auto_send_statement_var.set("statement" in document_types)
+        self.auto_send_boleto_var.set("boleto" in document_types)
 
         # The index can be tens of MB after the first large scan (e.g. 15k PDFs), so
         # reading/parsing it happens off the UI thread -- otherwise reopening the
@@ -276,12 +333,14 @@ class AgentGUI(ctk.CTk):
             "FIREBIRD_DATABASE": self.db_path_entry.get(),
             "FIREBIRD_USER": self.login_entry.get(),
             "FIREBIRD_PASSWORD": self.password_entry.get(),
-            "BILLING_FOLDER_PATH": self.billing_folder_entry.get(),
             "BILLING_SEND_POLICY": self.policy_var.get(),
             "SYNC_INTERVAL_SECONDS": self.interval_entry.get(),
             "AUTOSTART_WINDOWS": str(self.autostart_var.get()),
             "FINANCIAL_DOCUMENT_FOLDERS": json.dumps(self._folders(), ensure_ascii=False),
             "FINANCIAL_DOCUMENT_SCAN_SECONDS": str(self._financial_scan_interval()),
+            "BILLING_AUTO_SEND_ENABLED": str(self.auto_send_enabled_var.get()),
+            "BILLING_AUTO_SEND_TEST_MODE": str(self.auto_send_test_mode_var.get()),
+            "BILLING_AUTO_SEND_DOCUMENT_TYPES": json.dumps(self._auto_send_document_types(), ensure_ascii=False),
             "AGENT_WINDOW_GEOMETRY": self.geometry(),
         }
         for key, value in settings.items():
@@ -296,6 +355,16 @@ class AgentGUI(ctk.CTk):
         except (TypeError, ValueError):
             return 600
         return max(60, value)
+
+    def _auto_send_document_types(self):
+        types = []
+        if self.auto_send_invoice_var.get():
+            types.append("invoice")
+        if self.auto_send_statement_var.get():
+            types.append("statement")
+        if self.auto_send_boleto_var.get():
+            types.append("boleto")
+        return types
 
     def add_financial_folder(self):
         selected = filedialog.askdirectory(title="Selecione a pasta de documentos financeiros", mustexist=True)
@@ -439,12 +508,21 @@ class AgentGUI(ctk.CTk):
             def emit(self, record):
                 self.gui.after(0, self.gui.log_message_raw, self.format(record))
 
+        config = agent_main.AppConfig.from_env()
+        try:
+            # configure_logging() sets up the same rotating file (logs/client.log)
+            # the CLI entrypoint uses. Without this, the Logs tab only ever showed
+            # the current session -- closing the agent lost everything, which
+            # makes validating the auto-send test mode over a few days impossible.
+            agent_main.configure_logging(config)
+        except Exception:
+            logging.exception("Falha ao configurar o log em arquivo do agente.")
+
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
         handler = TextBoxLogHandler(self)
         logger.addHandler(handler)
         try:
-            config = agent_main.AppConfig.from_env()
             state = agent_main.StateStore(config.state_file)
             self.command_stop_event = threading.Event()
             threading.Thread(

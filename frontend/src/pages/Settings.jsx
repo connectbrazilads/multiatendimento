@@ -18,7 +18,6 @@ import {
   getMediaUrl,
   testFirebirdConnection,
   syncFirebirdContacts,
-  triggerBillingProcess,
   getBillingLogs,
 } from '../services/api';
 import Users from './Users';
@@ -78,7 +77,6 @@ export default function Settings() {
     billingMessageTemplate: '',
   });
   const [billingLogs, setBillingLogs] = useState([]);
-  const [triggeringBilling, setTriggeringBilling] = useState(false);
   const [tenant, setTenant] = useState(null);
   const [hours, setHours] = useState([]);
   const [instances, setInstances] = useState([]);
@@ -278,19 +276,6 @@ export default function Settings() {
       setBillingLogs(data);
     } catch (err) {
       console.error('Erro ao carregar logs de faturamento:', err);
-    }
-  }
-
-  async function handleTriggerBilling() {
-    setTriggeringBilling(true);
-    try {
-      await triggerBillingProcess();
-      toast.success('Envio de cobranças disparado! O client processará os PDFs em instantes.');
-      setTimeout(loadBillingLogs, 4000);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao disparar envio de cobranças');
-    } finally {
-      setTriggeringBilling(false);
     }
   }
 
@@ -1056,11 +1041,7 @@ export default function Settings() {
           <div style={s.card}>
             <h2 style={s.cardTitle}>Logs de Envio de Faturas (Últimos 100)</h2>
             <div style={s.form}>
-              <div style={{ ...s.integrationActions, marginBottom: '1rem' }}>
-                <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff', marginTop: 0 }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
-                  {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
-                </button>
-              </div>
+              <p style={{ ...s.hint, marginBottom: '1rem' }}>O envio de cobranças agora é automático, a partir da pasta configurada no agente (Documentos financeiros). Este histórico mostra os envios feitos.</p>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {billingLogs.length === 0 ? (
                   <p style={s.hint}>Nenhum log de envio registrado.</p>
@@ -1166,11 +1147,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div style={s.integrationActions}>
-                <button type="button" style={{ ...s.saveBtn, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }} onClick={handleTriggerBilling} disabled={triggeringBilling}>
-                  {triggeringBilling ? 'Enfileirando...' : 'Enviar Cobranças Agora'}
-                </button>
-              </div>
+              <p style={s.hint}>O envio de cobranças agora é automático, a partir da pasta configurada no agente (Documentos financeiros). Este histórico mostra os envios feitos.</p>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
                 {saving ? 'Salvando...' : 'Salvar configurações'}

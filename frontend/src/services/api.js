@@ -202,7 +202,6 @@ export const getCrmEquipments = (params = {}) => api.get('/crm/equipments', { pa
 export const getCrmFlaggedDocuments = () => api.get('/crm/financial/flagged-documents', { timeout: 15000 });
 
 // Billing Integration (Automação de Cobranças)
-export const triggerBillingProcess = () => api.post('/integrations/firebird/trigger-billing-process');
 export const getBillingLogs = () => api.get('/integrations/firebird/billing-logs');
 
 export default api;
