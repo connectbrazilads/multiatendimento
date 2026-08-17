@@ -43,6 +43,7 @@ import {
   getCrmReceivableDocuments,
   getCrmCustomers,
   getCrmSummary,
+  getCrmFlaggedDocuments,
   prepareCrmReceivableDocument,
   sendCrmReceivableDocuments,
   sendOSManagerCopy,
@@ -61,8 +62,18 @@ export default function CRM() {
   const [modalError, setModalError] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [flaggedDocuments, setFlaggedDocuments] = useState([]);
+  const [flaggedExpanded, setFlaggedExpanded] = useState(false);
 
   useEffect(() => { load(''); }, []);
+  useEffect(() => {
+    // Reativo: só existe aqui o que alguém já tentou abrir e falhou (documento
+    // ambíguo ou ainda não localizado nas pastas). Usuário sem acesso financeiro
+    // recebe 403 do backend - o painel simplesmente não aparece para ele.
+    getCrmFlaggedDocuments()
+      .then((response) => setFlaggedDocuments(arrayOf(response.data?.items)))
+      .catch(() => {});
+  }, []);
 
   async function load(search = q) {
     setLoading(true);
@@ -169,6 +180,40 @@ export default function CRM() {
           formatted
         />
       </div>
+
+      {flaggedDocuments.length ? (
+        <div style={s.flaggedPanel}>
+          <button type="button" style={s.flaggedHeader} onClick={() => setFlaggedExpanded((current) => !current)} aria-expanded={flaggedExpanded}>
+            <span style={s.flaggedHeaderMain}>
+              <Siren size={18} />
+              <strong>{flaggedDocuments.length} documento(s) financeiro(s) precisam de revisão</strong>
+            </span>
+            <ChevronDown size={16} style={{ transform: flaggedExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
+          {flaggedExpanded ? (
+            <div style={s.flaggedList}>
+              {flaggedDocuments.map((item) => {
+                const clickable = Boolean(item.customerId);
+                const Wrapper = clickable ? 'button' : 'div';
+                return (
+                  <Wrapper
+                    key={item.id}
+                    {...(clickable ? { type: 'button', onClick: () => openCustomer({ id: item.customerId }, 'financial') } : {})}
+                    style={{ ...s.flaggedItem, ...(clickable ? {} : s.flaggedItemDisabled) }}
+                  >
+                    <div style={s.flaggedItemMain}>
+                      <strong>{item.customerName}</strong>
+                      <span>{documentTypeLabel(item.documentType)}{item.invoiceNumber ? ` · NF ${item.invoiceNumber}` : ''}</span>
+                      <small>{item.error || 'Documento não localizado nas pastas monitoradas.'}</small>
+                    </div>
+                    {clickable ? <ChevronRight size={16} /> : <span style={s.flaggedItemHint}>Título não localizado</span>}
+                  </Wrapper>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <form className="crm-search" style={s.searchBar} onSubmit={submitSearch}>
         <Search size={19} color="var(--text-dim)" />
@@ -1165,6 +1210,10 @@ const BILLING_DOCUMENTS = [
   { type: 'boleto', label: 'Boleto' },
 ];
 
+function documentTypeLabel(type) {
+  return BILLING_DOCUMENTS.find((item) => item.type === type)?.label || 'Documento';
+}
+
 function normalizeBillingDocuments(documents, receivable) {
   const received = new Map(arrayOf(documents).map((item) => [item.type, item]));
   const fallbackAvailability = {
@@ -1247,6 +1296,14 @@ const s = {
   warningIcon: { color: '#f59e0b', background: 'rgba(245,158,11,.12)' },
   statLabel: { color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.035em' },
   statValue: { color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: 700, marginTop: 2 },
+  flaggedPanel: { border: '1px solid rgba(245,158,11,.35)', background: 'rgba(245,158,11,.06)', borderRadius: 14, marginBottom: '1.1rem', overflow: 'hidden' },
+  flaggedHeader: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.7rem', padding: '0.85rem 1rem', background: 'none', border: 'none', color: '#fbbf24', cursor: 'pointer', fontFamily: 'inherit' },
+  flaggedHeaderMain: { display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' },
+  flaggedList: { display: 'grid', gap: '0.5rem', padding: '0 1rem 1rem' },
+  flaggedItem: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.7rem', padding: '0.7rem 0.85rem', borderRadius: 11, border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-main)', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer' },
+  flaggedItemDisabled: { cursor: 'default', opacity: 0.75 },
+  flaggedItemMain: { display: 'grid', gap: 2, minWidth: 0 },
+  flaggedItemHint: { color: 'var(--text-dim)', fontSize: '0.72rem', flexShrink: 0 },
   searchBar: { display: 'flex', alignItems: 'center', gap: '0.7rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '0.7rem', marginBottom: '0.6rem' },
   searchInput: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-main)', fontSize: '0.93rem' },
   clearSearch: { display: 'grid', placeItems: 'center', color: 'var(--text-muted)', background: 'transparent', border: 0, cursor: 'pointer' },

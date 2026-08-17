@@ -1132,6 +1132,74 @@ async function sendReceivableDocuments(req, res) {
   }
 }
 
+async function listFlaggedBillingDocuments(req, res) {
+  try {
+    const tenantId = req.user.tenantId;
+    if (!canViewFinancial(req.user)) {
+      const error = new Error('Informacoes financeiras disponiveis apenas para administradores.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Reactive by design: this reuses the same request log every document click
+    // already writes (billingDocumentService.completeDocumentRequest), so a
+    // failed/ambiguous lookup is never lost, and a successful retry clears it
+    // automatically - no separate "resolved" bookkeeping to keep in sync.
+    const failedRequests = await prisma.externalSyncRecord.findMany({
+      where: {
+        tenantId,
+        source: 'crm',
+        entity: billingDocuments.REQUEST_ENTITY,
+        payload: { path: ['status'], equals: 'failed' },
+      },
+      orderBy: { receivedAt: 'desc' },
+      take: 200,
+      select: { id: true, payload: true },
+    });
+    if (!failedRequests.length) return res.json({ items: [] });
+
+    const receivableIds = [...new Set(
+      failedRequests.map((record) => text(record.payload?.receivableExternalId)).filter(Boolean),
+    )];
+    const receivableRecords = receivableIds.length ? await prisma.externalSyncRecord.findMany({
+      where: { tenantId, source: 'firebird', entity: 'receivables', externalId: { in: receivableIds } },
+      select: { externalId: true, payload: true },
+    }) : [];
+    const receivableByExternalId = new Map(receivableRecords.map((record) => [record.externalId, normalizeReceivable(record)]));
+
+    const clientExternalIds = [...new Set(
+      [...receivableByExternalId.values()].map((item) => text(item.clientExternalId)).filter(Boolean),
+    )];
+    const customers = clientExternalIds.length ? await prisma.crmCustomer.findMany({
+      where: { tenantId, externalId: { in: clientExternalIds } },
+      select: { id: true, externalId: true, name: true, fantasyName: true },
+    }) : [];
+    const customerByExternalId = new Map(customers.map((customer) => [text(customer.externalId), customer]));
+
+    const items = failedRequests.map((record) => {
+      const payload = record.payload || {};
+      const receivableExternalId = text(payload.receivableExternalId);
+      const receivable = receivableExternalId ? receivableByExternalId.get(receivableExternalId) : null;
+      const customer = receivable ? customerByExternalId.get(text(receivable.clientExternalId)) : null;
+      return {
+        id: record.id,
+        documentType: payload.documentType || null,
+        invoiceNumber: payload.invoiceNumber || receivable?.invoiceNumber || null,
+        receivableExternalId,
+        error: payload.error || null,
+        requestedAt: payload.requestedAt || null,
+        completedAt: payload.completedAt || null,
+        customerId: customer?.id || null,
+        customerName: customer?.fantasyName || customer?.name || payload.customerName || 'Cliente não identificado',
+      };
+    });
+
+    return res.json({ items });
+  } catch (error) {
+    return sendFinancialError(res, error);
+  }
+}
+
 function isOrderClosedForAnalytics(order) {
   return order.status === 'FINALIZADA' || Boolean(order.closedAt);
 }
@@ -1184,5 +1252,6 @@ module.exports = {
   getReceivableDocuments,
   getReceivableDocument,
   sendReceivableDocuments,
+  listFlaggedBillingDocuments,
   listEquipments,
 };
