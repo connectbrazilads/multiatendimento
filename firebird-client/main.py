@@ -2346,6 +2346,34 @@ def run_cycle(
     crm.send_ping()
 
 
+def run_service_order_history_backfill(config: AppConfig) -> dict[str, Any]:
+    """Ressincroniza o historico completo de O.S. (sem tocar em outros cursores).
+
+    Numa instalacao nova, sync_service_orders_incremental so importa uma janela
+    recente (ultimas 250 O.S.) e nunca preenche o historico anterior -- o
+    cursor so anda para frente. Isso zera SO o cursor de serviceOrders e reusa
+    sync_entity(), que ja pagina, envia em lotes e salva progresso
+    incrementalmente (resumivel se interrompido).
+    """
+    repo = FirebirdRepository(config)
+    crm = CRMClient(config)
+    state = StateStore(config.state_file)
+    previous_cursor = state.get_cursor("serviceOrders")
+    state.set_cursor("serviceOrders", 0)
+    state.save()
+    try:
+        ok = sync_entity(repo, crm, state, "serviceOrders", config.batch_size)
+    except Exception:
+        # Nao deixa o cursor zerado se algo explodir antes do primeiro lote --
+        # sync_entity ja salva progresso incremental, entao so restauramos o
+        # cursor anterior se ele nao avancou nada (evita perder progresso real).
+        if state.get_cursor("serviceOrders") == 0:
+            state.set_cursor("serviceOrders", previous_cursor)
+            state.save()
+        raise
+    return {"ok": ok, "finalCursor": state.get_cursor("serviceOrders")}
+
+
 def run_command_listener(config: AppConfig, stop_event: threading.Event | None = None) -> None:
     """Keep an outbound HTTPS request ready for immediate CRM commands."""
     repo = FirebirdRepository(config)

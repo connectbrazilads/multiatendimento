@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 import pystray
@@ -166,6 +166,22 @@ class AgentGUI(ctk.CTk):
             text="Iniciar o agente com o Windows",
             variable=self.autostart_var,
         ).grid(row=8, column=0, padx=10, pady=14, sticky="w")
+
+        self._section_title(
+            frame,
+            "Histórico completo de O.S.",
+            "Numa instalação nova, o agente traz só as últimas 250 ordens de serviço. Use o botão "
+            "abaixo para trazer também o histórico completo (cerca de 19 mil registros). É uma "
+            "operação pesada de execução única -- pode demorar bastante -- e não afeta a "
+            "sincronização normal de contatos, equipamentos, contratos ou financeiro.",
+            9,
+        )
+        self.os_backfill_btn = ctk.CTkButton(
+            frame,
+            text="Sincronizar histórico completo de O.S.",
+            command=self.backfill_service_order_history,
+        )
+        self.os_backfill_btn.grid(row=11, column=0, padx=10, pady=(0, 14), sticky="w")
 
     def _create_documents_tab(self):
         frame = self._scrollable_tab("Documentos financeiros")
@@ -427,6 +443,45 @@ class AgentGUI(ctk.CTk):
             self.after(0, self.log_message, message)
         finally:
             self.after(0, lambda: self.index_btn.configure(state="normal", text="Indexar agora"))
+
+    def backfill_service_order_history(self):
+        confirmed = messagebox.askyesno(
+            "Sincronizar histórico completo de O.S.",
+            "Isso vai baixar TODO o histórico de ordens de serviço do iLux de uma vez só "
+            "(cerca de 19 mil registros) e enviar para o CRM. Pode demorar bastante e usar "
+            "bastante rede/banco durante a execução. Os demais cursores (contatos, "
+            "equipamentos, contratos, financeiro) não são afetados.\n\n"
+            "Deseja continuar?",
+        )
+        if not confirmed:
+            return
+        self.save_settings(log=False)
+        self.os_backfill_btn.configure(state="disabled", text="Sincronizando histórico...")
+        self.log_message("Iniciando sincronização do histórico completo de O.S...")
+        threading.Thread(target=self._service_order_backfill_worker, daemon=True).start()
+
+    def _service_order_backfill_worker(self):
+        try:
+            import main as agent_main
+
+            config = agent_main.AppConfig.from_env()
+            result = agent_main.run_service_order_history_backfill(config)
+            message = (
+                f"Histórico completo de O.S. sincronizado com sucesso "
+                f"(cursor final: {result.get('finalCursor')})."
+                if result.get("ok")
+                else "Sincronização do histórico completo de O.S. foi interrompida antes de terminar."
+            )
+            self.after(0, self.log_message, message)
+        except Exception as exc:
+            self.after(0, self.log_message, f"Falha ao sincronizar histórico completo de O.S.: {exc}")
+        finally:
+            self.after(
+                0,
+                lambda: self.os_backfill_btn.configure(
+                    state="normal", text="Sincronizar histórico completo de O.S."
+                ),
+            )
 
     def set_startup(self, enable):
         startup_path = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
