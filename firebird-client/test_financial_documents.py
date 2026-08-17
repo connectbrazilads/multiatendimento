@@ -1,9 +1,12 @@
 import base64
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from pypdf import PdfReader
 
+import financial_document_index as fdi
 from main import AppConfig, FirebirdRepository, format_date_br, format_money_br
 
 
@@ -83,6 +86,32 @@ class FinancialDocumentTests(unittest.TestCase):
                 "receivableExternalId": 18741,
                 "documentType": "arquivo-desconhecido",
             })
+
+    def test_on_demand_fetch_does_not_block_behind_a_running_scan(self):
+        """Regression: a click in the CRM (FETCH_BILLING_DOCUMENT) used to call
+        FinancialDocumentIndex.scan() directly, which can take many minutes on a
+        large folder and, once scans became mutually exclusive, would hang this
+        interactive request -- and every other queued agent command -- behind
+        whatever scan (manual button or background monitor) was already running.
+        The on-demand path must fail fast with a clear message instead."""
+        with tempfile.TemporaryDirectory() as tmp:
+            config = AppConfig(
+                financial_document_folders=[tmp],
+                financial_document_index_file=Path(tmp) / "index.json",
+            )
+            repo = FirebirdRepository(config)
+            index = repo.financial_document_index()
+            lock = fdi._lock_for(index.cache_path)
+            lock.acquire()  # simulate a scan already running elsewhere
+            try:
+                with patch.object(repo, "_fetch_billing_document_context", return_value=self.context):
+                    with self.assertRaisesRegex(ValueError, "sendo construido"):
+                        repo.fetch_billing_document({
+                            "receivableExternalId": 18741,
+                            "documentType": "invoice",
+                        })
+            finally:
+                lock.release()
 
 
 if __name__ == "__main__":

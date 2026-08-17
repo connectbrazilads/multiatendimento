@@ -168,6 +168,26 @@ class FinancialDocumentIndexProgressTest(unittest.TestCase):
         # per concurrent caller.
         self.assertEqual(call_count["n"], 2)
 
+    def test_scan_if_idle_skips_instead_of_waiting_when_another_scan_is_running(self):
+        cache = self.root / "index.json"
+        index = FinancialDocumentIndex([str(self.root)], cache)
+        lock = fdi._lock_for(index.cache_path)
+        lock.acquire()  # simulate a scan already running elsewhere (button or monitor)
+        try:
+            with patch.object(fdi, "_extract_pdf") as extract:
+                result = index.scan_if_idle()
+        finally:
+            lock.release()
+        self.assertIsNone(result)
+        extract.assert_not_called()
+
+    def test_scan_if_idle_scans_normally_when_nothing_else_is_running(self):
+        cache = self.root / "index.json"
+        index = FinancialDocumentIndex([str(self.root)], cache)
+        stats = index.scan_if_idle()
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats["total"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

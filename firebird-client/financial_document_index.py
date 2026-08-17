@@ -167,7 +167,7 @@ class FinancialDocumentIndex:
         )
         temporary.replace(self.cache_path)
 
-    def scan(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int]:
+    def _reporter(self, on_progress: Callable[[str], None] | None) -> Callable[[str], None]:
         def report(message: str) -> None:
             if on_progress:
                 try:
@@ -175,6 +175,10 @@ class FinancialDocumentIndex:
                 except Exception:
                     logging.exception("Falha ao reportar progresso da indexacao financeira")
 
+        return report
+
+    def scan(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int]:
+        report = self._reporter(on_progress)
         lock = _lock_for(self.cache_path)
         if not lock.acquire(blocking=False):
             report("Ja existe uma indexacao em andamento (agente ou botao); aguardando ela terminar...")
@@ -184,6 +188,22 @@ class FinancialDocumentIndex:
             self._load()
         try:
             return self._scan_locked(report)
+        finally:
+            lock.release()
+
+    def scan_if_idle(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int] | None:
+        """Best-effort top-up used by interactive, on-demand lookups (a document
+        opened from the CRM). It must never make a user wait behind a scan that
+        is already running in the background or from the manual button -- on a
+        large folder that can take many minutes, far longer than any reasonable
+        request timeout. Returns the scan stats, or None if it was skipped
+        because another scan already holds the lock.
+        """
+        lock = _lock_for(self.cache_path)
+        if not lock.acquire(blocking=False):
+            return None
+        try:
+            return self._scan_locked(self._reporter(on_progress))
         finally:
             lock.release()
 

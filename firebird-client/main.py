@@ -1094,19 +1094,33 @@ class FirebirdRepository:
         if not self.config.financial_document_folders:
             return None
         if not index.entries:
-            stats = index.scan()
-            logging.info("Indice financeiro criado: %s documento(s).", stats["total"])
+            # This is an interactive, on-demand request (a click in the CRM), so it
+            # must never block for the full duration of a large first scan -- that
+            # can take many minutes on a folder with thousands of PDFs and would
+            # hang this command (and every other queued command behind it) well
+            # past any reasonable timeout. scan_if_idle() only scans if nothing
+            # else is already scanning; otherwise it returns immediately.
+            stats = index.scan_if_idle()
+            if stats is not None:
+                logging.info("Indice financeiro criado: %s documento(s).", stats["total"])
+            if not index.entries:
+                raise ValueError(
+                    "O indice de documentos financeiros ainda esta sendo construido pelo agente "
+                    "(primeira leitura da pasta pode levar alguns minutos). Tente novamente em instantes."
+                )
         match = index.find(document_type, context)
         if match is None:
-            # Capture files exported after the last synchronization before declaring
-            # that the official document is unavailable.
-            stats = index.scan()
-            logging.info(
-                "Indice financeiro atualizado sob demanda: %s novo(s), %s alterado(s).",
-                stats["added"],
-                stats["updated"],
-            )
-            match = index.find(document_type, context)
+            # Best-effort top-up so a file exported after the last sync is picked
+            # up right away -- but again, never block behind a scan already
+            # running elsewhere.
+            stats = index.scan_if_idle()
+            if stats is not None:
+                logging.info(
+                    "Indice financeiro atualizado sob demanda: %s novo(s), %s alterado(s).",
+                    stats["added"],
+                    stats["updated"],
+                )
+                match = index.find(document_type, context)
         if match is None:
             return None
 

@@ -544,7 +544,9 @@ function FinancialTab({ financial, customerId, ticketId }) {
   const [documentsData, setDocumentsData] = useState(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState('');
-  const [documentAction, setDocumentAction] = useState('');
+  // Keyed by document type (invoice/statement/boleto) so a slow request for one
+  // document (e.g. waiting on the iLux agent) never blocks clicking the others.
+  const [documentActions, setDocumentActions] = useState({});
   const [checkedDocuments, setCheckedDocuments] = useState([]);
   const [showSendConfirmation, setShowSendConfirmation] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
@@ -600,10 +602,10 @@ function FinancialTab({ financial, customerId, ticketId }) {
   }
 
   async function accessDocument(billingDocument, mode) {
-    if (!billingDocument?.type || billingDocument.available === false || documentAction) return;
+    if (!billingDocument?.type || billingDocument.available === false || documentActions[billingDocument.type]) return;
     const preview = mode === 'open' ? window.open('about:blank', '_blank') : null;
     if (preview) preview.opener = null;
-    setDocumentAction(`${billingDocument.type}:${mode}`);
+    setDocumentActions((current) => ({ ...current, [billingDocument.type]: mode }));
     try {
       let prepared = billingDocument;
       if (!billingDocument.mediaUrl || billingDocument.status !== 'ready') {
@@ -637,7 +639,11 @@ function FinancialTab({ financial, customerId, ticketId }) {
       if (preview) preview.close();
       toast.error(error.response?.data?.error || error.message || 'Não foi possível recuperar o documento.');
     } finally {
-      setDocumentAction('');
+      setDocumentActions((current) => {
+        const next = { ...current };
+        delete next[billingDocument.type];
+        return next;
+      });
     }
   }
 
@@ -744,7 +750,7 @@ function FinancialTab({ financial, customerId, ticketId }) {
 
                 <div style={s.documentList}>
                   {documents.map((document) => {
-                    const busy = documentAction.startsWith(`${document.type}:`);
+                    const busy = Boolean(documentActions[document.type]);
                     return (
                       <article className="crm-document-card" key={document.type} style={{ ...s.documentCard, ...(document.available === false ? s.documentUnavailable : {}) }}>
                         <label style={s.documentSelect}>
