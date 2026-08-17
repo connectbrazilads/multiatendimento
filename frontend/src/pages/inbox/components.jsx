@@ -897,6 +897,16 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           )}
           </div>
           </div>
+          <button
+            type="button"
+            className="inbox-control"
+            onClick={() => copyText(contactPhone, 'Telefone copiado')}
+            style={{ ...styles.infoPhone, ...styles.infoPhoneButton, marginTop: '0.4rem' }}
+            title="Copiar telefone"
+            aria-label={`Copiar telefone ${contactPhone}`}
+          >
+            {contactPhone}
+          </button>
           {linkedCrm ? (
             <button
               type="button"
@@ -912,16 +922,6 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               CRM {contact.fantasyName}
             </div>
           ) : null}
-          <button
-            type="button"
-            className="inbox-control"
-            onClick={() => copyText(contactPhone, 'Telefone copiado')}
-            style={{ ...styles.infoPhone, ...styles.infoPhoneButton }}
-            title="Copiar telefone"
-            aria-label={`Copiar telefone ${contactPhone}`}
-          >
-            {contactPhone}
-          </button>
           <div style={styles.infoBadgeRow}>
             <span
               style={{

@@ -353,7 +353,6 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
             <Tab active={activeTab === 'units'} icon={<MapPinned size={16} />} label={`Unidades (${arrayOf(customer360.units).length})`} onClick={() => setActiveTab('units')} />
             <Tab active={activeTab === 'contacts'} icon={<Phone size={16} />} label={`Contatos (${arrayOf(customer360.contacts).length})`} onClick={() => setActiveTab('contacts')} />
             <Tab active={activeTab === 'financial'} icon={<CreditCard size={16} />} label="Financeiro" onClick={() => setActiveTab('financial')} />
-            <Tab active={activeTab === 'raw'} icon={<Database size={16} />} label="Técnico" onClick={() => setActiveTab('raw')} />
           </div>
         </nav>
 
@@ -368,7 +367,6 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
           {!loading && activeTab === 'contracts' ? <ContractsTab contracts={contracts} /> : null}
           {!loading && activeTab === 'financial' ? <FinancialTab financial={customer360.financial} customerId={customer.id} ticketId={customer360.quickActions?.ticketId} /> : null}
           {!loading && activeTab === 'os' ? <OsTab serviceOrders={serviceOrders} onRefresh={onRetry} /> : null}
-          {!loading && activeTab === 'raw' ? <RawFieldsTab title="Campos originais do cliente no ILUX" raw={customer.raw} /> : null}
         </div>
 
         <footer style={s.modalFooter}>
@@ -1013,17 +1011,6 @@ function OsTab({ serviceOrders, onRefresh }) {
         {!filtered.length ? <div style={s.noFilterResult}>Nenhuma O.S. neste filtro.</div> : null}
       </div>
     </div>
-  );
-}
-
-function RawFieldsTab({ title, raw }) {
-  const entries = raw && typeof raw === 'object' ? Object.entries(raw) : [];
-  return (
-    <section style={s.rawPanel}>
-      <div style={s.technicalNotice}><Database size={18} /><div><strong>Área técnica</strong><span>Estes são os campos originais recebidos do Firebird. Use-os somente para conferência e suporte.</span></div></div>
-      <h3 style={{ margin: 0 }}>{title}</h3>
-      {!entries.length ? <div style={s.emptyState}>Nenhum campo bruto armazenado para este registro.</div> : <RawTable entries={entries} />}
-    </section>
   );
 }
 
