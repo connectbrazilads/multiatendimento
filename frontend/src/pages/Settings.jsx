@@ -98,58 +98,51 @@ export default function Settings() {
   }, []);
 
   async function load() {
-    try {
-      const { data } = await getSettings();
-      setForm((current) => ({ ...current, ...data }));
-    } catch {
-      // sem configuracoes ainda
+    // As 7 chamadas eram feitas uma depois da outra (await em sequência), então
+    // o tempo total era a SOMA de todas -- por isso a tela demorava ~15s. Elas
+    // não dependem uma da outra, então rodam em paralelo agora: o tempo total
+    // passa a ser o da mais lenta, não a soma de todas.
+    const [settingsResult, meResult, instancesResult, quickResponsesResult, tagsResult, hoursResult, billingLogsResult] = await Promise.allSettled([
+      getSettings(),
+      getMe(),
+      getInstances(),
+      getQuickResponses(),
+      getTags(),
+      getBusinessHours(),
+      getBillingLogs(),
+    ]);
+
+    if (settingsResult.status === 'fulfilled') {
+      setForm((current) => ({ ...current, ...settingsResult.value.data }));
     }
 
-    try {
-      const { data } = await getMe();
-      setProfile({ name: data.name, email: data.email, password: '' });
-      setTenant(data.tenant);
-    } catch {
-      // erro ao carregar perfil
+    if (meResult.status === 'fulfilled') {
+      setProfile({ name: meResult.value.data.name, email: meResult.value.data.email, password: '' });
+      setTenant(meResult.value.data.tenant);
     }
 
-    try {
-      const { data } = await getInstances();
-      setInstances(Array.isArray(data) ? data : []);
-    } catch {
+    if (instancesResult.status === 'fulfilled') {
+      setInstances(Array.isArray(instancesResult.value.data) ? instancesResult.value.data : []);
+    } else {
       setInstances([]);
     }
 
-    try {
-      const { data } = await getQuickResponses();
-      setQuickResponses(data);
-    } catch {
-      // erro ao carregar respostas rapidas
+    if (quickResponsesResult.status === 'fulfilled') {
+      setQuickResponses(quickResponsesResult.value.data);
     }
 
-    try {
-      const { data } = await getTags();
-      setTags(data);
-    } catch {
-      // erro ao carregar etiquetas
+    if (tagsResult.status === 'fulfilled') {
+      setTags(tagsResult.value.data);
     }
 
-    try {
-      const { data } = await getBusinessHours();
-      if (data && data.length > 0) {
-        setHours(data);
-      } else {
-        setHours([0, 1, 2, 3, 4, 5, 6].map((day) => ({ dayOfWeek: day, start: '08:00', end: '18:00', active: true })));
-      }
-    } catch {
-      // erro ao carregar horarios
+    if (hoursResult.status === 'fulfilled' && hoursResult.value.data && hoursResult.value.data.length > 0) {
+      setHours(hoursResult.value.data);
+    } else {
+      setHours([0, 1, 2, 3, 4, 5, 6].map((day) => ({ dayOfWeek: day, start: '08:00', end: '18:00', active: true })));
     }
 
-    try {
-      const { data } = await getBillingLogs();
-      setBillingLogs(data);
-    } catch {
-      // erro ao carregar logs
+    if (billingLogsResult.status === 'fulfilled') {
+      setBillingLogs(billingLogsResult.value.data);
     }
   }
 
