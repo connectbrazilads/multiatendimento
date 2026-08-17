@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import firebirdsql
 import requests
@@ -670,8 +670,8 @@ class FirebirdRepository:
             )
         return self._financial_index
 
-    def scan_financial_documents(self) -> dict[str, int]:
-        return self.financial_document_index().scan()
+    def scan_financial_documents(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int]:
+        return self.financial_document_index().scan(on_progress=on_progress)
 
     def connect(self):
         if not self.config.firebird_database:
@@ -2321,7 +2321,10 @@ def run_financial_document_monitor(config: AppConfig, stop_event: threading.Even
     repo = FirebirdRepository(config)
     while stop_event is None or not stop_event.is_set():
         try:
-            stats = repo.scan_financial_documents()
+            # Reuses the same live progress the manual "Indexar agora" button uses,
+            # so a slow/large folder shows heartbeats in Logs instead of going quiet
+            # for the whole duration of a periodic background scan.
+            stats = repo.scan_financial_documents(on_progress=logging.info)
             logging.info(
                 "Documentos financeiros: %s indexado(s), %s novo(s), %s atualizado(s), %s erro(s).",
                 stats["total"],

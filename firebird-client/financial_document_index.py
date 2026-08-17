@@ -5,14 +5,24 @@ import json
 import logging
 import re
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from pypdf import PdfReader
+
+
+# How often (in seconds) to emit a "still working" progress update while
+# waiting on PDF extraction. Without this, a slow/unresponsive network share
+# can leave the UI silent for many minutes with no way to tell a genuine hang
+# apart from a slow-but-healthy scan.
+HEARTBEAT_SECONDS = 5
+# How many files to walk/stat between progress updates during the listing
+# phase (also mostly network I/O against UNC shares).
+LISTING_PROGRESS_EVERY = 200
 
 
 DOCUMENT_LABELS = {
@@ -136,14 +146,23 @@ class FinancialDocumentIndex:
         )
         temporary.replace(self.cache_path)
 
-    def scan(self) -> dict[str, int]:
+    def scan(self, on_progress: Callable[[str], None] | None = None) -> dict[str, int]:
+        def report(message: str) -> None:
+            if on_progress:
+                try:
+                    on_progress(message)
+                except Exception:
+                    logging.exception("Falha ao reportar progresso da indexacao financeira")
+
         seen: set[str] = set()
         added = updated = errors = 0
         pending: list[tuple[str, Path, Any, bool]] = []
         for root in self.roots:
             if not root.exists() or not root.is_dir():
                 logging.warning("Pasta financeira indisponivel: %s", root)
+                report(f"Pasta indisponivel: {root}")
                 continue
+            report(f"Verificando pasta {root}...")
             try:
                 pdfs = root.rglob("*.pdf")
                 for path in pdfs:
@@ -158,36 +177,65 @@ class FinancialDocumentIndex:
                     except Exception as exc:
                         errors += 1
                         logging.warning("Nao foi possivel consultar %s: %s", path, exc)
+                    if len(seen) % LISTING_PROGRESS_EVERY == 0:
+                        report(f"Verificando pasta {root}: {len(seen)} PDF(s) encontrados ate agora...")
             except Exception as exc:
                 errors += 1
                 logging.warning("Falha ao percorrer a pasta financeira %s: %s", root, exc)
+                report(f"Falha ao acessar {root}: {exc}")
+
+        total_pending = len(pending)
+        if total_pending:
+            report(f"{len(seen)} PDF(s) encontrados, {total_pending} novo(s) ou alterado(s). Lendo conteudo...")
+        else:
+            report(f"{len(seen)} PDF(s) encontrados, nenhum novo ou alterado desde a ultima indexacao.")
 
         # PDF extraction is mostly file I/O. A small worker pool significantly reduces
         # the first scan over UNC shares without saturating the customer's server.
         with ThreadPoolExecutor(max_workers=4, thread_name_prefix="financial-pdf") as executor:
             jobs = {executor.submit(_extract_pdf, path): (key, path, stat, existed) for key, path, stat, existed in pending}
+            remaining = set(jobs)
             completed = 0
-            for future in as_completed(jobs):
-                key, path, stat, existed = jobs[future]
-                try:
-                    extracted = future.result()
-                    self.entries[key] = {
-                        "path": str(path),
-                        "size": stat.st_size,
-                        "mtimeNs": stat.st_mtime_ns,
-                        **extracted,
-                    }
-                    if existed:
-                        updated += 1
-                    else:
-                        added += 1
-                except Exception as exc:
-                    errors += 1
-                    logging.warning("Nao foi possivel indexar %s: %s", path, exc)
-                completed += 1
-                if completed % 100 == 0:
-                    self.last_scan = datetime.now().isoformat(timespec="seconds")
-                    self._save()
+            last_reported = 0
+            # `wait(..., timeout=...)` instead of `as_completed(jobs)` so a single slow
+            # or unresponsive file (common on flaky UNC shares) can never leave the GUI
+            # silent indefinitely: every HEARTBEAT_SECONDS we emit progress even if
+            # nothing new finished, and files that do finish are recorded immediately.
+            while remaining:
+                done, remaining = wait(remaining, timeout=HEARTBEAT_SECONDS)
+                if not done:
+                    report(
+                        f"Lendo PDFs: {completed}/{total_pending} concluido(s). "
+                        "Alguns arquivos na rede estao demorando mais que o normal, mas o processo continua."
+                    )
+                    last_reported = completed
+                    continue
+                for future in done:
+                    key, path, stat, existed = jobs[future]
+                    try:
+                        extracted = future.result()
+                        self.entries[key] = {
+                            "path": str(path),
+                            "size": stat.st_size,
+                            "mtimeNs": stat.st_mtime_ns,
+                            **extracted,
+                        }
+                        if existed:
+                            updated += 1
+                        else:
+                            added += 1
+                    except Exception as exc:
+                        errors += 1
+                        logging.warning("Nao foi possivel indexar %s: %s", path, exc)
+                    completed += 1
+                    if completed % 100 == 0:
+                        self.last_scan = datetime.now().isoformat(timespec="seconds")
+                        self._save()
+                # Files can finish faster than HEARTBEAT_SECONDS on a healthy network;
+                # throttle so a fast scan doesn't flood the GUI/log with an update per file.
+                if completed - last_reported >= 20 or not remaining:
+                    report(f"Lendo PDFs: {completed}/{total_pending} concluido(s)...")
+                    last_reported = completed
 
         configured_roots = [str(root).casefold() for root in self.roots]
         for key in list(self.entries):
@@ -196,6 +244,7 @@ class FinancialDocumentIndex:
 
         self.last_scan = datetime.now().isoformat(timespec="seconds")
         self._save()
+        report("Indexacao concluida.")
         return {"total": len(self.entries), "added": added, "updated": updated, "errors": errors}
 
     def find(self, document_type: str, context: dict[str, Any]) -> MatchResult | None:

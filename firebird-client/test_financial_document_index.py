@@ -1,9 +1,12 @@
 import tempfile
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from reportlab.pdfgen import canvas
 
+import financial_document_index as fdi
 from financial_document_index import FinancialDocumentIndex
 
 
@@ -79,6 +82,56 @@ class FinancialDocumentIndexTest(unittest.TestCase):
         index.scan()
         wrong = {**self.context, "customer_cnpj": "87.130.589/0001-20"}
         self.assertIsNone(index.find("invoice", wrong))
+
+
+class FinancialDocumentIndexProgressTest(unittest.TestCase):
+    """Covers the live progress reporting used by the agent GUI so a scan over a
+    large or slow (UNC) folder never looks frozen with no feedback."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        make_pdf(self.root / "a.pdf", ["Fatura de Locacao de Bens Moveis", "Fatura 1"])
+        make_pdf(self.root / "b.pdf", ["Fatura de Locacao de Bens Moveis", "Fatura 2"])
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_reports_progress_milestones_and_final_completion(self):
+        index = FinancialDocumentIndex([str(self.root)], self.root / "index.json")
+        messages = []
+        index.scan(on_progress=messages.append)
+        self.assertTrue(any("PDF(s) encontrados" in m for m in messages))
+        self.assertTrue(any("Lendo PDFs" in m for m in messages))
+        self.assertEqual(messages[-1], "Indexacao concluida.")
+
+    def test_missing_folder_is_reported_instead_of_failing_silently(self):
+        missing = self.root / "nao-existe"
+        index = FinancialDocumentIndex([str(missing)], self.root / "index.json")
+        messages = []
+        index.scan(on_progress=messages.append)
+        self.assertTrue(any("indisponivel" in m for m in messages))
+
+    def test_a_slow_file_still_yields_heartbeat_progress_instead_of_hanging_silently(self):
+        original_extract = fdi._extract_pdf
+
+        def slow_extract(path):
+            if path.name == "a.pdf":
+                time.sleep(0.3)
+            return original_extract(path)
+
+        index = FinancialDocumentIndex([str(self.root)], self.root / "index.json")
+        messages = []
+        with patch.object(fdi, "HEARTBEAT_SECONDS", 0.05), \
+             patch.object(fdi, "_extract_pdf", side_effect=slow_extract):
+            stats = index.scan(on_progress=messages.append)
+
+        self.assertEqual(stats["errors"], 0)
+        self.assertEqual(stats["added"], 2)
+        self.assertTrue(
+            any("demorando mais" in m for m in messages),
+            f"esperava ao menos um aviso de heartbeat, mensagens recebidas: {messages}",
+        )
 
 
 if __name__ == "__main__":

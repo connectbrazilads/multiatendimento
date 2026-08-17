@@ -281,8 +281,12 @@ class AgentGUI(ctk.CTk):
         try:
             import main as agent_main
 
+            def on_progress(text):
+                self.after(0, lambda text=text: self.document_status.configure(text=text, text_color="#eabf32"))
+                self.after(0, self.log_message, text)
+
             config = agent_main.AppConfig.from_env()
-            stats = agent_main.FirebirdRepository(config).scan_financial_documents()
+            stats = agent_main.FirebirdRepository(config).scan_financial_documents(on_progress=on_progress)
             message = (
                 f"Indexação concluída: {stats['total']} documento(s), "
                 f"{stats['added']} novo(s), {stats['updated']} atualizado(s), "
