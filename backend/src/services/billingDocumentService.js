@@ -14,6 +14,7 @@ const DOCUMENT_LABELS = Object.freeze({
 const REQUEST_ENTITY = 'billingDocumentRequest';
 const REQUEST_TIMEOUT_MS = 90_000;
 const MAX_PDF_SIZE = 20 * 1024 * 1024;
+const DOCUMENT_REQUEST_VERSION = 'official-v1';
 
 let io = null;
 
@@ -38,7 +39,9 @@ function safePart(value, fallback) {
 }
 
 function requestExternalId(receivableExternalId, documentType) {
-  return `${receivableExternalId}:${documentType}`;
+  // Version the cache so PDFs rendered by the former synthetic layouts are
+  // never reused after switching to official iLux exports.
+  return `${DOCUMENT_REQUEST_VERSION}:${receivableExternalId}:${documentType}`;
 }
 
 function assertDocumentType(documentType) {

@@ -21,9 +21,9 @@ test('nao anuncia boleto ausente como disponivel', () => {
 });
 
 test('gera chaves independentes por titulo e tipo de documento', () => {
-  assert.equal(_private.requestExternalId('18741', 'invoice'), '18741:invoice');
-  assert.equal(_private.requestExternalId('18741', 'statement'), '18741:statement');
-  assert.equal(_private.requestExternalId('18741', 'boleto'), '18741:boleto');
+  assert.equal(_private.requestExternalId('18741', 'invoice'), 'official-v1:18741:invoice');
+  assert.equal(_private.requestExternalId('18741', 'statement'), 'official-v1:18741:statement');
+  assert.equal(_private.requestExternalId('18741', 'boleto'), 'official-v1:18741:boleto');
 });
 
 test('gera nomes legiveis e seguros para envio no WhatsApp', () => {

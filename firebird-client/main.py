@@ -35,6 +35,8 @@ from reportlab.platypus import (
 )
 from xml.sax.saxutils import escape
 
+from financial_document_index import FinancialDocumentIndex, friendly_filename
+
 
 if getattr(sys, "frozen", False):
     ROOT = Path(sys.executable).resolve().parent
@@ -184,6 +186,9 @@ class AppConfig:
     billing_folder_path: str = r"C:\ILUX\boletos_enviar"
     own_cnpj: str = "35.692.721/0001-94"
     billing_send_policy: str = "Somente Marcados"
+    financial_document_folders: list[str] = field(default_factory=list)
+    financial_document_index_file: Path = field(default_factory=lambda: ROOT / "financial-documents-index.json")
+    financial_document_scan_seconds: int = 600
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -206,6 +211,18 @@ class AppConfig:
             if not path.is_absolute():
                 path = ROOT / path
             return path
+
+        def env_folders(name: str) -> list[str]:
+            value = os.getenv(name, "").strip()
+            if not value:
+                return []
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+            return [item.strip() for item in re.split(r"[|\n]+", value) if item.strip()]
 
         state_file = Path(os.getenv("STATE_FILE", "state.json"))
         if not state_file.is_absolute():
@@ -239,6 +256,12 @@ class AppConfig:
             billing_folder_path=os.getenv("BILLING_FOLDER_PATH", r"C:\ILUX\boletos_enviar"),
             own_cnpj=os.getenv("OWN_CNPJ", "35.692.721/0001-94"),
             billing_send_policy=os.getenv("BILLING_SEND_POLICY", "Somente Marcados"),
+            financial_document_folders=env_folders("FINANCIAL_DOCUMENT_FOLDERS"),
+            financial_document_index_file=resolve_path(
+                os.getenv("FINANCIAL_DOCUMENT_INDEX_FILE", "financial-documents-index.json"),
+                ROOT / "financial-documents-index.json",
+            ),
+            financial_document_scan_seconds=env_int("FINANCIAL_DOCUMENT_SCAN_SECONDS", 600),
         )
 
 
@@ -636,6 +659,19 @@ class CRMClient:
 class FirebirdRepository:
     def __init__(self, config: AppConfig):
         self.config = config
+        self._financial_index: FinancialDocumentIndex | None = None
+
+    def financial_document_index(self) -> FinancialDocumentIndex:
+        if self._financial_index is None:
+            self._financial_index = FinancialDocumentIndex(
+                self.config.financial_document_folders,
+                self.config.financial_document_index_file,
+                self.config.own_cnpj,
+            )
+        return self._financial_index
+
+    def scan_financial_documents(self) -> dict[str, int]:
+        return self.financial_document_index().scan()
 
     def connect(self):
         if not self.config.firebird_database:
@@ -1008,10 +1044,10 @@ class FirebirdRepository:
         }
 
     def fetch_billing_document(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Return one document from the financial package linked to a receivable.
+        """Return the official PDF exported by iLux for one receivable.
 
-        Keeping each document in an independent command avoids oversized callbacks and
-        lets the CRM retry only the document that failed.
+        File names are deliberately ignored. The local index matches the PDF contents
+        against the customer, document number, dates and amount stored in Firebird.
         """
         document_type = str(payload.get("documentType") or "").strip().lower()
         aliases = {
@@ -1023,32 +1059,75 @@ class FirebirdRepository:
             "boleto": "boleto",
         }
         document_type = aliases.get(document_type, document_type)
-        if document_type == "boleto":
-            return self.fetch_billing_pdf(payload)
-        if document_type not in {"invoice", "statement"}:
+        if document_type not in {"invoice", "statement", "boleto"}:
             raise ValueError("Tipo de documento invalido. Use invoice, statement ou boleto.")
 
         context = self._fetch_billing_document_context(payload)
+        official = self._fetch_official_financial_document(document_type, context)
+        if official:
+            return official
+
+        # The bank API remains a safe fallback for boletos that have not yet been
+        # exported through Documentos em Lote. Invoice/statement must never silently
+        # fall back to a synthetic layout.
+        if document_type == "boleto":
+            return self.fetch_billing_pdf(payload)
         if document_type == "invoice":
             if not context.get("seqincnfs"):
                 raise ValueError("Nota fiscal nao vinculada a este titulo no iLux.")
-            items = self._fetch_invoice_items(int(context["seqincnfs"]))
-            pdf = self._render_invoice_pdf(context, items)
-            prefix = "NF"
+            label = "Nota/Fatura"
         else:
             if not context.get("seqdemonstrativo"):
                 raise ValueError("Demonstrativo nao vinculado a este titulo no iLux.")
-            items = self._fetch_statement_items(int(context["seqdemonstrativo"]))
-            pdf = self._render_statement_pdf(context, items)
-            prefix = "DEMONSTRATIVO"
+            label = "Demonstrativo"
+        raise ValueError(
+            f"{label} oficial ainda nao localizado nas pastas monitoradas. "
+            "Gere o documento em lote no iLux e execute uma nova indexacao no agente."
+        )
 
-        invoice = safe_pdf_filename_part(context.get("invoice_number"), str(context["seqreceita"]))
-        customer = safe_pdf_filename_part(context.get("customer_name"))
+    def _fetch_official_financial_document(
+        self,
+        document_type: str,
+        context: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        index = self.financial_document_index()
+        if not self.config.financial_document_folders:
+            return None
+        if not index.entries:
+            stats = index.scan()
+            logging.info("Indice financeiro criado: %s documento(s).", stats["total"])
+        match = index.find(document_type, context)
+        if match is None:
+            # Capture files exported after the last synchronization before declaring
+            # that the official document is unavailable.
+            stats = index.scan()
+            logging.info(
+                "Indice financeiro atualizado sob demanda: %s novo(s), %s alterado(s).",
+                stats["added"],
+                stats["updated"],
+            )
+            match = index.find(document_type, context)
+        if match is None:
+            return None
+
+        pdf = match.path.read_bytes()
+        if not pdf.startswith(b"%PDF"):
+            raise ValueError("O arquivo oficial localizado nao e um PDF valido.")
+        if len(pdf) > 20 * 1024 * 1024:
+            raise ValueError("O documento oficial excede o limite de 20 MB.")
+        logging.info(
+            "Documento oficial localizado (%s, score %s): %s",
+            document_type,
+            match.score,
+            match.path,
+        )
         return {
             "pdfBase64": base64.b64encode(pdf).decode("ascii"),
-            "fileName": f"{prefix} {invoice} - {customer}.pdf",
+            "fileName": friendly_filename(document_type, context),
             "mimeType": "application/pdf",
             "documentType": document_type,
+            "source": "ilux-export-folder",
+            "sha256": match.sha256,
         }
 
     def _fetch_billing_document_context(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -2236,6 +2315,30 @@ def run_command_listener(config: AppConfig, stop_event: threading.Event | None =
             time.sleep(2)
 
 
+def run_financial_document_monitor(config: AppConfig, stop_event: threading.Event | None = None) -> None:
+    if not config.financial_document_folders:
+        return
+    repo = FirebirdRepository(config)
+    while stop_event is None or not stop_event.is_set():
+        try:
+            stats = repo.scan_financial_documents()
+            logging.info(
+                "Documentos financeiros: %s indexado(s), %s novo(s), %s atualizado(s), %s erro(s).",
+                stats["total"],
+                stats["added"],
+                stats["updated"],
+                stats["errors"],
+            )
+        except Exception as exc:
+            logging.exception("Falha ao atualizar o indice de documentos financeiros: %s", exc)
+        wait_seconds = max(60, config.financial_document_scan_seconds)
+        if stop_event is not None:
+            if stop_event.wait(wait_seconds):
+                return
+        else:
+            time.sleep(wait_seconds)
+
+
 def inspect_schema(config: AppConfig) -> Path:
     repo = FirebirdRepository(config)
     report = repo.inspect_schema()
@@ -2323,6 +2426,12 @@ def main() -> None:
         daemon=True,
     )
     command_thread.start()
+    threading.Thread(
+        target=run_financial_document_monitor,
+        args=(config,),
+        name="financial-document-monitor",
+        daemon=True,
+    ).start()
 
     while True:
         try:

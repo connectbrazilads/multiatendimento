@@ -11,6 +11,7 @@ PyInstaller.__main__.run([
     '--windowed',         # No console window
     '--onefile',          # Pack everything into a single .exe
     '--hidden-import=main',
+    '--hidden-import=financial_document_index',
     '--exclude-module=chardet',
     f'--add-data={customtkinter_folder};customtkinter/',
     '--clean'

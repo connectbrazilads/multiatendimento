@@ -68,17 +68,14 @@ class FinancialDocumentTests(unittest.TestCase):
         self.assert_valid_pdf(pdf)
         self.assertGreaterEqual(len(PdfReader(__import__("io").BytesIO(pdf)).pages), 2)
 
-    def test_unified_command_returns_expected_contract(self):
+    def test_unified_command_does_not_fall_back_to_a_synthetic_pdf(self):
         with patch.object(self.repo, "_fetch_billing_document_context", return_value=self.context), \
-             patch.object(self.repo, "_fetch_invoice_items", return_value=[]):
-            result = self.repo.fetch_billing_document({
-                "receivableExternalId": 18741,
-                "documentType": "invoice",
-            })
-        self.assertEqual(result["documentType"], "invoice")
-        self.assertEqual(result["mimeType"], "application/pdf")
-        self.assertIn("NF 14494", result["fileName"])
-        self.assert_valid_pdf(base64.b64decode(result["pdfBase64"]))
+             patch.object(self.repo, "_fetch_official_financial_document", return_value=None):
+            with self.assertRaisesRegex(ValueError, "oficial ainda nao localizado"):
+                self.repo.fetch_billing_document({
+                    "receivableExternalId": 18741,
+                    "documentType": "invoice",
+                })
 
     def test_unknown_document_type_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Tipo de documento invalido"):
