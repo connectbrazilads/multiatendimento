@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import re
+import threading
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -23,6 +24,26 @@ HEARTBEAT_SECONDS = 5
 # How many files to walk/stat between progress updates during the listing
 # phase (also mostly network I/O against UNC shares).
 LISTING_PROGRESS_EVERY = 200
+
+# The manual "Indexar agora" button and the periodic background monitor each
+# build their own FinancialDocumentIndex instance, so a plain instance lock
+# would not stop them from scanning the same folder at the same time (which
+# would read every PDF twice over the network for no benefit). Instead we
+# keep one lock per cache file: whoever gets there first scans for real, and
+# whoever is waiting simply reloads the cache that scan just wrote and finds
+# nothing left to do.
+_scan_locks: dict[str, threading.Lock] = {}
+_scan_locks_guard = threading.Lock()
+
+
+def _lock_for(cache_path: Path) -> threading.Lock:
+    key = str(cache_path.resolve())
+    with _scan_locks_guard:
+        lock = _scan_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _scan_locks[key] = lock
+        return lock
 
 
 DOCUMENT_LABELS = {
@@ -154,6 +175,19 @@ class FinancialDocumentIndex:
                 except Exception:
                     logging.exception("Falha ao reportar progresso da indexacao financeira")
 
+        lock = _lock_for(self.cache_path)
+        if not lock.acquire(blocking=False):
+            report("Ja existe uma indexacao em andamento (agente ou botao); aguardando ela terminar...")
+            lock.acquire()
+            # The scan we waited on may have just rewritten the shared cache file;
+            # reload it so this call sees that work instead of redoing it.
+            self._load()
+        try:
+            return self._scan_locked(report)
+        finally:
+            lock.release()
+
+    def _scan_locked(self, report: Callable[[str], None]) -> dict[str, int]:
         seen: set[str] = set()
         added = updated = errors = 0
         pending: list[tuple[str, Path, Any, bool]] = []

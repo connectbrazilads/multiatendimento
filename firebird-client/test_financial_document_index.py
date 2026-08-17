@@ -1,4 +1,5 @@
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -132,6 +133,40 @@ class FinancialDocumentIndexProgressTest(unittest.TestCase):
             any("demorando mais" in m for m in messages),
             f"esperava ao menos um aviso de heartbeat, mensagens recebidas: {messages}",
         )
+
+    def test_concurrent_scans_on_the_same_folder_do_not_read_each_pdf_twice(self):
+        """Regression: the manual 'Indexar agora' button and the automatic
+        background monitor each build their own FinancialDocumentIndex over the
+        same cache file. Without a shared lock, starting the agent while a
+        manual scan is still running used to kick off a second full read of
+        every PDF at the same time."""
+        original_extract = fdi._extract_pdf
+        call_count = {"n": 0}
+        call_lock = threading.Lock()
+
+        def counting_extract(path):
+            with call_lock:
+                call_count["n"] += 1
+            time.sleep(0.05)
+            return original_extract(path)
+
+        cache = self.root / "index.json"
+        index_a = FinancialDocumentIndex([str(self.root)], cache)
+        index_b = FinancialDocumentIndex([str(self.root)], cache)
+
+        with patch.object(fdi, "_extract_pdf", side_effect=counting_extract):
+            threads = [
+                threading.Thread(target=index_a.scan),
+                threading.Thread(target=index_b.scan),
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        # 2 real PDFs on disk: each must be read exactly once in total, not once
+        # per concurrent caller.
+        self.assertEqual(call_count["n"], 2)
 
 
 if __name__ == "__main__":
