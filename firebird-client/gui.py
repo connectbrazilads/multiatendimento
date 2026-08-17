@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 
@@ -183,6 +184,19 @@ class AgentGUI(ctk.CTk):
         self.index_btn = ctk.CTkButton(actions, text="Indexar agora", command=self.index_financial_folders)
         self.index_btn.grid(row=0, column=2, padx=(4, 0), sticky="ew")
 
+        interval_row = ctk.CTkFrame(frame, fg_color="transparent")
+        interval_row.grid(row=5, column=0, padx=10, pady=(6, 0), sticky="ew")
+        interval_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(interval_row, text="Verificar automaticamente a cada (segundos)").grid(row=0, column=0, sticky="w")
+        self.financial_scan_interval_entry = ctk.CTkEntry(interval_row, width=100, placeholder_text="600")
+        self.financial_scan_interval_entry.grid(row=0, column=1, sticky="e", padx=(8, 0))
+        ctk.CTkLabel(
+            frame,
+            text="Só vale enquanto o agente estiver em execução. Mínimo 60s; padrão 600s (10 min).",
+            text_color="#94a3b8",
+            font=ctk.CTkFont(size=11),
+        ).grid(row=6, column=0, sticky="w", padx=10, pady=(2, 8))
+
         self.document_status = ctk.CTkLabel(
             frame,
             text="Nenhuma indexação realizada nesta sessão.",
@@ -191,7 +205,7 @@ class AgentGUI(ctk.CTk):
             anchor="w",
             wraplength=760,
         )
-        self.document_status.grid(row=5, column=0, padx=10, pady=14, sticky="ew")
+        self.document_status.grid(row=7, column=0, padx=10, pady=14, sticky="ew")
 
     def _create_logs_tab(self):
         tab = self.tabs.tab("Logs")
@@ -218,6 +232,41 @@ class AgentGUI(ctk.CTk):
             folders = [item.strip() for item in raw_folders.split("|") if item.strip()]
         if isinstance(folders, list):
             self.financial_folders_text.insert("1.0", "\n".join(str(item) for item in folders))
+        self.financial_scan_interval_entry.insert(0, os.getenv("FINANCIAL_DOCUMENT_SCAN_SECONDS", "600"))
+
+        # The index can be tens of MB after the first large scan (e.g. 15k PDFs), so
+        # reading/parsing it happens off the UI thread -- otherwise reopening the
+        # agent would freeze for a moment right on startup, the exact "looks stuck"
+        # problem this whole area was fixed for earlier.
+        threading.Thread(target=self._load_persisted_financial_index_status, daemon=True).start()
+
+    def _load_persisted_financial_index_status(self):
+        try:
+            import main as agent_main
+
+            config = agent_main.AppConfig.from_env()
+            path = config.financial_document_index_file
+            if not path.exists():
+                return
+            data = json.loads(path.read_text(encoding="utf-8"))
+            entries = data.get("entries") if isinstance(data, dict) else None
+            if not isinstance(entries, dict):
+                return
+            total = len(entries)
+            last_scan = data.get("lastScan") if isinstance(data, dict) else None
+            when = ""
+            if last_scan:
+                try:
+                    when = f" em {datetime.fromisoformat(last_scan).strftime('%d/%m/%Y %H:%M')}"
+                except ValueError:
+                    when = f" em {last_scan}"
+            message = (
+                f"Última indexação salva: {total} documento(s) indexado(s){when}. "
+                "Clique em 'Indexar agora' para verificar novidades."
+            )
+            self.after(0, lambda: self.document_status.configure(text=message, text_color="#94a3b8"))
+        except Exception as exc:
+            logging.warning("Nao foi possivel ler o status salvo do indice financeiro: %s", exc)
 
     def save_settings(self, log=True):
         if not ENV_FILE.exists():
@@ -232,6 +281,7 @@ class AgentGUI(ctk.CTk):
             "SYNC_INTERVAL_SECONDS": self.interval_entry.get(),
             "AUTOSTART_WINDOWS": str(self.autostart_var.get()),
             "FINANCIAL_DOCUMENT_FOLDERS": json.dumps(self._folders(), ensure_ascii=False),
+            "FINANCIAL_DOCUMENT_SCAN_SECONDS": str(self._financial_scan_interval()),
             "AGENT_WINDOW_GEOMETRY": self.geometry(),
         }
         for key, value in settings.items():
@@ -239,6 +289,13 @@ class AgentGUI(ctk.CTk):
         self.set_startup(self.autostart_var.get())
         if log:
             self.log_message("Configurações salvas com sucesso.")
+
+    def _financial_scan_interval(self):
+        try:
+            value = int(self.financial_scan_interval_entry.get().strip())
+        except (TypeError, ValueError):
+            return 600
+        return max(60, value)
 
     def add_financial_folder(self):
         selected = filedialog.askdirectory(title="Selecione a pasta de documentos financeiros", mustexist=True)

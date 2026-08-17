@@ -238,9 +238,9 @@ export default function CRM() {
   );
 }
 
-export function CrmCustomerProfileModal({ customerId, initialCustomer, onClose, onOpenConversation, onOpenServiceOrder }) {
+export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTab = 'overview', onClose, onOpenConversation, onOpenServiceOrder }) {
   const [customer, setCustomer] = useState(initialCustomer || null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [loading, setLoading] = useState(true);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [error, setError] = useState('');
@@ -365,7 +365,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
           {!loading && activeTab === 'contacts' ? <ContactsTab contacts={arrayOf(customer360.contacts)} /> : null}
           {!loading && activeTab === 'equipments' ? <EquipmentsTab equipments={equipments} evolution={arrayOf(customer360.equipmentEvolution)} /> : null}
           {!loading && activeTab === 'contracts' ? <ContractsTab contracts={contracts} /> : null}
-          {!loading && activeTab === 'financial' ? <FinancialTab financial={customer360.financial} customerId={customer.id} ticketId={customer360.quickActions?.ticketId} /> : null}
+          {!loading && activeTab === 'financial' ? <FinancialTab financial={customer360.financial} loading={relatedLoading} customerId={customer.id} ticketId={customer360.quickActions?.ticketId} /> : null}
           {!loading && activeTab === 'os' ? <OsTab serviceOrders={serviceOrders} onRefresh={onRetry} /> : null}
         </div>
 
@@ -537,7 +537,7 @@ function ContactsTab({ contacts }) {
   );
 }
 
-function FinancialTab({ financial, customerId, ticketId }) {
+function FinancialTab({ financial, loading, customerId, ticketId }) {
   const [selected, setSelected] = useState(null);
   const [documentsData, setDocumentsData] = useState(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -548,6 +548,7 @@ function FinancialTab({ financial, customerId, ticketId }) {
   const [checkedDocuments, setCheckedDocuments] = useState([]);
   const [showSendConfirmation, setShowSendConfirmation] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const selectedReceivableId = selected?.externalId;
 
@@ -578,9 +579,22 @@ function FinancialTab({ financial, customerId, ticketId }) {
     return () => { active = false; };
   }, [customerId, selectedReceivableId, ticketId]);
 
+  // O financeiro é aberto direto (atalho "Financeiro" na ficha do contato), então
+  // pode chegar aqui antes da visão 360 terminar de carregar em segundo plano.
+  // Sem isso, o usuário via "Acesso restrito" por um instante antes dos dados reais.
+  if (!financial && loading) return <div style={s.loadingInline}><RefreshCw size={16} className="spin" /> Carregando dados financeiros...</div>;
   if (!financial?.allowed) return <Empty icon={<CreditCard size={28} />} title="Acesso financeiro restrito" text={financial?.reason || 'Esta área está disponível apenas para administradores.'} />;
   if (!financial.synchronized) return <Empty icon={<RefreshCw size={28} />} title="Aguardando sincronização financeira" text="Atualize o agente Firebird para carregar os títulos recentes do iLux." />;
   const items = arrayOf(financial.items);
+  const statusCounts = {
+    all: items.length,
+    overdue: items.filter((item) => item.status === 'overdue').length,
+    open: items.filter((item) => item.status !== 'overdue' && item.status !== 'paid').length,
+    paid: items.filter((item) => item.status === 'paid').length,
+  };
+  const visibleItems = statusFilter === 'all' ? items : items.filter((item) => (
+    statusFilter === 'open' ? item.status !== 'overdue' && item.status !== 'paid' : item.status === statusFilter
+  ));
 
   const documents = normalizeBillingDocuments(documentsData?.documents, selected);
   const delivery = documentsData?.delivery || {};
@@ -683,8 +697,30 @@ function FinancialTab({ financial, customerId, ticketId }) {
         <Metric value={financial.nextReceivable ? formatShortDate(financial.nextReceivable.dueAt) : '—'} label="Próximo vencimento" />
         <Metric value={financial.lastPayment ? formatShortDate(financial.lastPayment.paidAt) : '—'} label="Último pagamento" />
       </div>
+      <div style={s.financeFilterRow} role="tablist" aria-label="Filtrar títulos por situação">
+        {[
+          { id: 'all', label: 'Todos' },
+          { id: 'overdue', label: 'Vencidos' },
+          { id: 'open', label: 'Em aberto' },
+          { id: 'paid', label: 'Pagos' },
+        ].map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            role="tab"
+            aria-selected={statusFilter === filter.id}
+            style={{ ...s.financeFilterChip, ...(statusFilter === filter.id ? s.financeFilterChipActive : {}) }}
+            onClick={() => setStatusFilter(filter.id)}
+          >
+            {filter.label} <span style={s.financeFilterCount}>{statusCounts[filter.id]}</span>
+          </button>
+        ))}
+      </div>
       <div style={s.financeList}>
-        {items.map((item) => (
+        {!visibleItems.length ? (
+          <div style={s.emptyState}>Nenhum título {statusFilter === 'overdue' ? 'vencido' : statusFilter === 'open' ? 'em aberto' : statusFilter === 'paid' ? 'pago' : ''} para este cliente.</div>
+        ) : null}
+        {visibleItems.map((item) => (
           <button key={item.externalId} type="button" style={s.financeItem} onClick={() => setSelected(item)} aria-label={`Ver detalhes da NF ${item.invoiceNumber || item.externalId}`}>
             <div style={s.financeIcon}><CreditCard size={17} /></div>
             <div style={s.financeMain}>
@@ -1299,6 +1335,10 @@ const s = {
   contactRole: { color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' },
   contactChannels: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 0.8rem', color: 'var(--text-muted)', fontSize: '0.74rem' },
   financialStats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '0.65rem' },
+  financeFilterRow: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' },
+  financeFilterChip: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', borderRadius: 999, border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' },
+  financeFilterChipActive: { color: 'var(--text-inverse)', background: 'var(--accent)', borderColor: 'var(--accent)' },
+  financeFilterCount: { opacity: 0.75, fontSize: '0.72rem' },
   financeList: { display: 'grid', gap: '0.55rem' },
   financeItem: { width: '100%', display: 'grid', gridTemplateColumns: '38px minmax(0,1fr) auto', alignItems: 'center', gap: '0.7rem', padding: '0.8rem', border: '1px solid var(--border-color)', borderRadius: 12, background: 'rgba(8,12,22,.3)', color: 'var(--text-main)', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer' },
   financeIcon: { width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, color: 'var(--accent)', background: 'var(--accent-light)' },

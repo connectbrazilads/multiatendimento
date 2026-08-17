@@ -106,6 +106,7 @@ export default function Inbox() {
   const [showReopenInstanceModal, setShowReopenInstanceModal] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [crmProfile, setCrmProfile] = useState(null);
+  const [crmProfileTab, setCrmProfileTab] = useState('overview');
   const [isCompactDesktop, setIsCompactDesktop] = useState(() => window.innerWidth > 768 && window.innerWidth <= 1440);
   const openOsHandledRef = useRef(false);
   const isMobile = useIsMobile();
@@ -718,7 +719,7 @@ export default function Inbox() {
               isCompactDesktop={isCompactDesktop}
               onLinkCRM={() => setLinkModal(true)}
               onUnlinkCRM={handleUnlinkCRM}
-              onOpenCRM={(crmCustomer) => setCrmProfile(crmCustomer)}
+              onOpenCRM={(crmCustomer, tab) => { setCrmProfile(crmCustomer); setCrmProfileTab(tab || 'overview'); }}
               styles={s}
             />
           </InboxSectionErrorBoundary>
@@ -731,6 +732,7 @@ export default function Inbox() {
         <CrmCustomerProfileModal
           customerId={crmProfile.id}
           initialCustomer={crmProfile}
+          initialTab={crmProfileTab}
           onClose={() => setCrmProfile(null)}
           onOpenConversation={() => setCrmProfile(null)}
           onOpenServiceOrder={() => {
