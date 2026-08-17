@@ -390,6 +390,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
         <nav className="crm-profile-tabs" style={s.tabs} role="tablist" aria-label="Seções do perfil do cliente">
           <div style={s.tabGroup}>
             <Tab active={activeTab === 'overview'} icon={<User size={16} />} label="Resumo" onClick={() => setActiveTab('overview')} />
+            <Tab active={activeTab === 'financial'} icon={<CreditCard size={16} />} label="Financeiro" onClick={() => setActiveTab('financial')} />
             <Tab active={activeTab === 'equipments'} icon={<Printer size={16} />} label={`Equipamentos (${equipments.length})`} onClick={() => setActiveTab('equipments')} />
             <Tab active={activeTab === 'os'} icon={<ClipboardList size={16} />} label={`O.S. (${serviceOrders.length})`} onClick={() => setActiveTab('os')} />
             <Tab active={activeTab === 'contracts'} icon={<FileText size={16} />} label={`Contratos (${contracts.length})`} onClick={() => setActiveTab('contracts')} />
@@ -397,7 +398,6 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
           <div style={s.tabGroupSecondary}>
             <Tab active={activeTab === 'units'} icon={<MapPinned size={16} />} label={`Unidades (${arrayOf(customer360.units).length})`} onClick={() => setActiveTab('units')} />
             <Tab active={activeTab === 'contacts'} icon={<Phone size={16} />} label={`Contatos (${arrayOf(customer360.contacts).length})`} onClick={() => setActiveTab('contacts')} />
-            <Tab active={activeTab === 'financial'} icon={<CreditCard size={16} />} label="Financeiro" onClick={() => setActiveTab('financial')} />
           </div>
         </nav>
 
@@ -661,7 +661,14 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
   async function accessDocument(billingDocument, mode) {
     if (!billingDocument?.type || billingDocument.available === false || documentActions[billingDocument.type]) return;
     const preview = mode === 'open' ? window.open('about:blank', '_blank') : null;
-    if (preview) preview.opener = null;
+    if (preview) {
+      preview.opener = null;
+      // O agente pode levar alguns segundos para localizar o PDF oficial (ou
+      // gerá-lo sob demanda). Sem isso, a aba fica em branco nesse meio tempo e
+      // quem não conhece o sistema acha que deu erro ou que não vai abrir nada.
+      preview.document.write(documentLoadingPageHtml(billingDocument.label));
+      preview.document.close();
+    }
     setDocumentActions((current) => ({ ...current, [billingDocument.type]: mode }));
     try {
       let prepared = billingDocument;
@@ -849,9 +856,11 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
                         </label>
                         <div className="crm-document-actions" style={s.documentActions}>
                           <button type="button" title={`Visualizar ${document.label}`} style={s.iconActionBtn} disabled={document.available === false || busy} onClick={() => accessDocument(document, 'open')}>
-                            {busy ? <RefreshCw size={15} className="spin" /> : <Eye size={15} />}
+                            {documentActions[document.type] === 'open' ? <RefreshCw size={15} className="spin" /> : <Eye size={15} />}
                           </button>
-                          <button type="button" title={`Baixar ${document.label}`} style={s.iconActionBtn} disabled={document.available === false || busy} onClick={() => accessDocument(document, 'download')}><Download size={15} /></button>
+                          <button type="button" title={`Baixar ${document.label}`} style={s.iconActionBtn} disabled={document.available === false || busy} onClick={() => accessDocument(document, 'download')}>
+                            {documentActions[document.type] === 'download' ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+                          </button>
                           <button type="button" style={s.documentSendBtn} disabled={document.available === false || busy} onClick={() => requestSend(document.type)}><Send size={14} /> Reenviar</button>
                         </div>
                       </article>
@@ -1230,6 +1239,45 @@ function normalizeBillingDocuments(documents, receivable) {
       status: item?.status || (fallbackAvailability[definition.type] ? 'available' : 'unavailable'),
     };
   });
+}
+
+function documentLoadingPageHtml(label) {
+  const safeLabel = String(label || 'documento').replace(/[<>&]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[char]));
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Abrindo ${safeLabel}...</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: #0B0D12; color: #F4F6FA;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  .card { text-align: center; padding: 2.5rem; max-width: 340px; }
+  .spinner {
+    width: 42px; height: 42px; margin: 0 auto 1.3rem;
+    border-radius: 50%;
+    border: 3px solid rgba(232, 201, 106, 0.25);
+    border-top-color: #E8C96A;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 1.05rem; margin: 0 0 0.45rem; font-weight: 700; }
+  p { font-size: 0.85rem; color: #AAB4C5; margin: 0; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h1>Abrindo ${safeLabel}...</h1>
+    <p>Isso pode levar alguns segundos. O documento aparece aqui automaticamente assim que estiver pronto.</p>
+  </div>
+</body>
+</html>`;
 }
 
 function billingDocumentStatus(document) {

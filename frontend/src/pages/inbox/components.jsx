@@ -15,7 +15,6 @@ import {
   Bot,
   CheckCheck,
   ClipboardList,
-  CreditCard,
   Download,
   FileText,
   Mic,
@@ -908,34 +907,19 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
           >
             {contactPhone}
           </button>
-          {linkedCrm || contact.fantasyName ? (
-            <div style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', padding: '4px 12px', background: 'rgba(212,175,55,0.1)', borderRadius: '8px', display: 'inline-block' }}>
-              CRM {linkedCrm ? (linkedCrm.fantasyName || linkedCrm.name) : contact.fantasyName}
-            </div>
-          ) : null}
           {linkedCrm ? (
-            // Financeiro em destaque: é a ação mais usada no dia a dia (2a via de
-            // boleto, consulta de titulo). Visao 360 continua acessivel ao lado
-            // para quando o atendente precisar do perfil completo do cliente.
-            <div style={{ display: 'flex', gap: '0.5rem', width: '100%', marginBottom: '0.5rem' }}>
-              <button
-                type="button"
-                className="inbox-control"
-                onClick={() => onOpenCRM?.(linkedCrm, 'financial')}
-                style={{ ...styles.infoActionBtn, ...styles.infoActionBtnPrimary, flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                title="Abrir o financeiro deste cliente sem sair da conversa"
-              >
-                <CreditCard size={15} /> Financeiro
-              </button>
-              <button
-                type="button"
-                className="inbox-control"
-                onClick={() => onOpenCRM?.(linkedCrm)}
-                style={{ ...styles.infoActionBtn, flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                title="Abrir visão 360 completa sem sair da conversa"
-              >
-                <ClipboardList size={15} /> Visão 360
-              </button>
+            <button
+              type="button"
+              className="inbox-control"
+              onClick={() => onOpenCRM?.(linkedCrm)}
+              style={{ ...styles.infoActionBtn, ...styles.infoActionBtnPrimary, width: '100%', marginBottom: '0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}
+              title="Abrir visão 360 sem sair da conversa"
+            >
+              <ClipboardList size={15} /> Visão 360 — {linkedCrm.fantasyName || linkedCrm.name}
+            </button>
+          ) : contact.fantasyName ? (
+            <div style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', padding: '4px 12px', background: 'rgba(212,175,55,0.1)', borderRadius: '8px', display: 'inline-block' }}>
+              CRM {contact.fantasyName}
             </div>
           ) : null}
           <div style={styles.infoBadgeRow}>
