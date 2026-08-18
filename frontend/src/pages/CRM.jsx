@@ -264,7 +264,7 @@ export default function CRM() {
             </div>
           </article>
         ))}
-        {!loading && customers.length === 0 ? <div style={s.emptyState}>Nenhum cliente encontrado com os filtros informados.</div> : null}
+        {!loading && customers.length === 0 ? <div style={s.emptyState}>Nenhum cliente encontrado com os filtros informados. Tente outro termo ou limpe a busca.</div> : null}
       </div>
 
       {selectedCustomer ? (
@@ -513,7 +513,7 @@ function AlertsPanel({ alerts, setActiveTab }) {
           const content = (
             <>
               <AlertCircle size={17} />
-              <div><strong>{alert.title}</strong><span>{alert.description}</span></div>
+              <div style={s.stackedField}><strong>{alert.title}</strong><span>{alert.description}</span></div>
             </>
           );
           return targetTab ? (
@@ -546,12 +546,12 @@ function SlaPanel({ sla, setActiveTab }) {
         goToOrders ? (
           <button type="button" style={{ ...s.recurrenceBox, ...s.recurrenceBoxClickable }} onClick={goToOrders} title="Ver detalhes">
             <Printer size={17} />
-            <div><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
+            <div style={s.stackedField}><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
           </button>
         ) : (
           <div style={s.recurrenceBox}>
             <Printer size={17} />
-            <div><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
+            <div style={s.stackedField}><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
           </div>
         )
       ) : null}
@@ -574,7 +574,7 @@ function UnitsTab({ units }) {
         <article key={unit.id || index} style={s.unitCard}>
           <header style={s.unitHeader}>
             <div style={s.unitIcon}><Building2 size={19} /></div>
-            <div style={{ minWidth: 0, flex: 1 }}><span>Unidade {index + 1}</span><strong>{unit.name || 'Unidade principal'}</strong></div>
+            <div style={{ ...s.stackedField, flex: 1 }}><span>Unidade {index + 1}</span><strong>{unit.name || 'Unidade principal'}</strong></div>
             <span style={s.unitCount}>{unit.equipmentCount || 0} equip.</span>
           </header>
           <div style={s.unitAddress}><MapPin size={15} /><span>{unitLocation(unit) || 'Endereço não informado'}</span></div>
@@ -583,7 +583,7 @@ function UnitsTab({ units }) {
             {arrayOf(unit.equipments).map((equipment) => (
               <div key={equipment.id || equipment.externalId} style={s.unitEquipment}>
                 <Printer size={15} />
-                <div><strong>{equipment.model || 'Equipamento sem modelo'}</strong><span>Série: {equipment.serialNumber || 'não informada'} · {equipment.installLocation || equipment.sector || 'setor não informado'}</span></div>
+                <div style={s.stackedField}><strong>{equipment.model || 'Equipamento sem modelo'}</strong><span>Série: {equipment.serialNumber || 'não informada'} · {equipment.installLocation || equipment.sector || 'setor não informado'}</span></div>
               </div>
             ))}
             {!arrayOf(unit.equipments).length ? <span style={s.mutedText}>Nenhum equipamento nesta unidade.</span> : null}
@@ -658,22 +658,28 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
     return () => { active = false; };
   }, [customerId, selectedReceivableId, ticketId]);
 
+  // Memoizados porque uma lista de títulos financeiros pode acumular anos de NFs
+  // e este componente re-renderiza a cada interação local (seleção, checkboxes,
+  // envio) sem que os dados financeiros em si tenham mudado.
+  const items = useMemo(() => arrayOf(financial?.items), [financial?.items]);
+  const statusCounts = useMemo(() => ({
+    all: items.length,
+    overdue: items.filter((item) => item.status === 'overdue').length,
+    open: items.filter((item) => item.status !== 'overdue' && item.status !== 'paid').length,
+    paid: items.filter((item) => item.status === 'paid').length,
+  }), [items]);
+  const visibleItems = useMemo(() => (
+    statusFilter === 'all' ? items : items.filter((item) => (
+      statusFilter === 'open' ? item.status !== 'overdue' && item.status !== 'paid' : item.status === statusFilter
+    ))
+  ), [items, statusFilter]);
+
   // O financeiro é aberto direto (atalho "Financeiro" na ficha do contato), então
   // pode chegar aqui antes da visão 360 terminar de carregar em segundo plano.
   // Sem isso, o usuário via "Acesso restrito" por um instante antes dos dados reais.
   if (!financial && loading) return <div style={s.loadingInline}><RefreshCw size={16} className="spin" /> Carregando dados financeiros...</div>;
   if (!financial?.allowed) return <Empty icon={<CreditCard size={28} />} title="Acesso financeiro restrito" text={financial?.reason || 'Esta área está disponível apenas para administradores.'} />;
   if (!financial.synchronized) return <Empty icon={<RefreshCw size={28} />} title="Aguardando sincronização financeira" text="Atualize o agente Firebird para carregar os títulos recentes do iLux." />;
-  const items = arrayOf(financial.items);
-  const statusCounts = {
-    all: items.length,
-    overdue: items.filter((item) => item.status === 'overdue').length,
-    open: items.filter((item) => item.status !== 'overdue' && item.status !== 'paid').length,
-    paid: items.filter((item) => item.status === 'paid').length,
-  };
-  const visibleItems = statusFilter === 'all' ? items : items.filter((item) => (
-    statusFilter === 'open' ? item.status !== 'overdue' && item.status !== 'paid' : item.status === statusFilter
-  ));
 
   const documents = normalizeBillingDocuments(documentsData?.documents, selected);
   const delivery = documentsData?.delivery || {};
@@ -765,7 +771,7 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
         ...(delivery.ticketId ? { ticketId: delivery.ticketId } : {}),
       });
       const sentCount = response.data?.documents?.length || checkedDocuments.length;
-      toast.success(`${sentCount} documento(s) enviado(s) pelo WhatsApp e registrado(s) na conversa.`);
+      toast.success(`${sentCount} documento(s) reenviado(s) pelo WhatsApp e registrado(s) na conversa.`);
       setShowSendConfirmation(false);
       await reloadDocuments();
     } catch (error) {
@@ -834,8 +840,8 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
 
             <div style={s.financeDetailBody}>
               <div style={s.financeDetailSummary}>
-                <div><span>Valor</span><strong>{formatCurrency(selected.invoiceValue || selected.value)}</strong></div>
-                <div><span>Situação</span><strong style={financeStatusStyle(selected.status)}>{financeStatus(selected.status)}</strong></div>
+                <div style={s.stackedField}><span>Valor</span><strong>{formatCurrency(selected.invoiceValue || selected.value)}</strong></div>
+                <div style={s.stackedField}><span>Situação</span><strong style={financeStatusStyle(selected.status)}>{financeStatus(selected.status)}</strong></div>
               </div>
               <div style={s.financeDetailGrid}>
                 <Info label="Emissão" value={formatShortDate(selected.issuedAt)} />
@@ -895,7 +901,7 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
                           <button type="button" title={`Baixar ${document.label}`} style={s.iconActionBtn} disabled={document.available === false || busy} onClick={() => accessDocument(document, 'download')}>
                             {documentActions[document.type] === 'download' ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
                           </button>
-                          <button type="button" style={s.documentSendBtn} disabled={document.available === false || busy} onClick={() => requestSend(document.type)}><Send size={14} /> Reenviar</button>
+                          <button type="button" title={`Reenviar ${document.label} pelo WhatsApp`} style={s.documentSendBtn} disabled={document.available === false || busy} onClick={() => requestSend(document.type)}><Send size={14} /> Reenviar</button>
                         </div>
                       </article>
                     );
@@ -920,7 +926,7 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
                   <div style={s.deliveryActions}>
                     <button type="button" style={s.secondaryBtn} onClick={() => setShowSendConfirmation(false)} disabled={sendLoading}>Cancelar</button>
                     <button type="button" style={s.primaryBtn} onClick={confirmSend} disabled={!delivery.available || !checkedDocuments.length || sendLoading}>
-                      {sendLoading ? <RefreshCw size={16} className="spin" /> : <Send size={16} />} {sendLoading ? 'Enviando...' : `Enviar ${checkedDocuments.length} documento(s)`}
+                      {sendLoading ? <RefreshCw size={16} className="spin" /> : <Send size={16} />} {sendLoading ? 'Reenviando...' : `Reenviar ${checkedDocuments.length} documento(s)`}
                     </button>
                   </div>
                 </section>
@@ -973,7 +979,7 @@ function EquipmentDetail({ equipment, evolution }) {
   return (
     <div style={s.detailPanel}>
       <div style={s.detailHeader}>
-        <div><p style={s.detailKicker}>Equipamento ILUX #{equipment.externalId || '—'}</p><h3>{equipment.model || 'Equipamento sem modelo'}</h3></div>
+        <div style={{ minWidth: 0 }}><p style={s.detailKicker}>Equipamento ILUX #{equipment.externalId || '—'}</p><h3 style={s.detailTitle}>{equipment.model || 'Equipamento sem modelo'}</h3></div>
         <span style={equipment.isActive === false ? s.statusInactive : s.statusActive}>{equipment.isActive === false ? 'Inativo' : 'Ativo'}</span>
       </div>
       <InfoSection title="Identificação" icon={<Printer size={17} />} compact>
@@ -988,7 +994,7 @@ function EquipmentDetail({ equipment, evolution }) {
       </InfoSection>
       <div style={s.locationPanel}>
         <div style={s.locationIcon}><MapPin size={20} /></div>
-        <div><span>Localização do equipamento</span><strong>{equipmentLocation(equipment) || 'Não informada'}</strong></div>
+        <div style={s.stackedField}><span>Localização do equipamento</span><strong>{equipmentLocation(equipment) || 'Não informada'}</strong></div>
       </div>
       <InfoSection title="Detalhes do local" icon={<Building2 size={17} />} compact>
         <div style={s.infoGrid}>
@@ -1021,8 +1027,8 @@ function EquipmentEvolution({ evolution }) {
         {!arrayOf(evolution.meters).length ? <span style={s.mutedText}>Aguardando sincronização dos contadores.</span> : null}
       </div>
       <div style={s.maintenanceSummary}>
-        <div><span>O.S. registradas</span><strong>{evolution.serviceOrderCount || 0}</strong></div>
-        <div><span>Última manutenção</span><strong>{evolution.lastMaintenance ? formatShortDate(evolution.lastMaintenance.closedAt || evolution.lastMaintenance.attendedAt) : 'Não registrada'}</strong></div>
+        <div style={s.stackedField}><span>O.S. registradas</span><strong>{evolution.serviceOrderCount || 0}</strong></div>
+        <div style={s.stackedField}><span>Última manutenção</span><strong>{evolution.lastMaintenance ? formatShortDate(evolution.lastMaintenance.closedAt || evolution.lastMaintenance.attendedAt) : 'Não registrada'}</strong></div>
       </div>
       {arrayOf(evolution.technicalMentions).length ? (
         <div style={s.technicalMentions}>
@@ -1054,7 +1060,7 @@ function ContractsTab({ contracts }) {
           <article key={contract.id || contract.externalId || index} style={s.contractCard}>
             <div style={s.contractHeader}>
               <div style={s.contractIcon}><FileText size={19} /></div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={s.detailKicker}>Contrato ILUX #{pick(contract, 'contractNumber', 'number', 'externalId', 'seqContrato') || '—'}</p>
                 <h3 style={s.contractTitle}>{pick(contract, 'name', 'typeName', 'contractType', 'type', 'description') || 'Contrato de equipamentos'}</h3>
               </div>
@@ -1081,7 +1087,11 @@ function ContractsTab({ contracts }) {
 function OsTab({ serviceOrders, onRefresh }) {
   const [status, setStatus] = useState('all');
   const [sendingId, setSendingId] = useState(null);
-  const filtered = status === 'all' ? serviceOrders : serviceOrders.filter((order) => status === 'closed' ? isOrderClosed(order) : !isOrderClosed(order));
+  // Memoizado: o histórico de O.S. pode acumular anos de chamados e o filtro não
+  // deve ser refeito a cada envio ao gestor (que só altera sendingId).
+  const filtered = useMemo(() => (
+    status === 'all' ? serviceOrders : serviceOrders.filter((order) => status === 'closed' ? isOrderClosed(order) : !isOrderClosed(order))
+  ), [serviceOrders, status]);
 
   function openPdf(order) {
     const identifier = order.id || order.externalId || order.number;
@@ -1169,7 +1179,7 @@ function Info({ label, value, wide = false }) {
 }
 
 function Empty({ icon, title, text }) {
-  return <div style={s.emptyContent}>{icon}<h3>{title}</h3><p>{text}</p></div>;
+  return <div style={s.emptyContent}>{icon}<h3 style={s.emptyTitle}>{title}</h3><p style={s.emptyText}>{text}</p></div>;
 }
 
 function Tab({ active, icon, label, onClick }) {
@@ -1430,9 +1440,9 @@ const s = {
   container: { flex: 1, overflowY: 'auto', padding: '2rem', background: 'var(--bg-base)', color: 'var(--text-main)' },
   header: { display: 'flex', justifyContent: 'space-between', gap: '1.25rem', alignItems: 'center', marginBottom: '1.25rem' },
   headerActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.65rem', flexWrap: 'wrap' },
-  kicker: { margin: 0, color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  kicker: { margin: 0, color: 'var(--accent)', fontWeight: 700, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em' },
   title: { margin: '0.3rem 0', fontSize: '1.85rem', fontWeight: 700, fontFamily: 'var(--font-display)' },
-  subtitle: { margin: 0, color: 'var(--text-muted)', fontSize: '0.92rem' },
+  subtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' },
   refreshBtn: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.75rem 1rem', cursor: 'pointer', fontWeight: 600 },
   syncNotice: { display: 'flex', gap: '0.6rem', alignItems: 'center', padding: '0.62rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(220,180,48,.24)', background: 'rgba(220,180,48,.07)', color: 'var(--accent)', fontSize: '0.72rem' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.85rem', marginBottom: '1.2rem' },
@@ -1440,7 +1450,7 @@ const s = {
   statIcon: { width: 40, height: 40, flex: '0 0 auto', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-light)', color: 'var(--accent)' },
   warningIcon: { color: '#f59e0b', background: 'rgba(245,158,11,.12)' },
   statLabel: { color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.035em' },
-  statValue: { color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: 700, marginTop: 2 },
+  statValue: { color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: 700, marginTop: 2, fontVariantNumeric: 'tabular-nums' },
   flaggedPanel: { border: '1px solid rgba(245,158,11,.35)', background: 'rgba(245,158,11,.06)', borderRadius: 14, marginBottom: '1.1rem', overflow: 'hidden' },
   flaggedHeader: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.7rem', padding: '0.85rem 1rem', background: 'none', border: 'none', color: '#fbbf24', cursor: 'pointer', fontFamily: 'inherit' },
   flaggedHeaderMain: { display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' },
@@ -1453,21 +1463,21 @@ const s = {
   searchInput: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-main)', fontSize: '0.93rem' },
   clearSearch: { display: 'grid', placeItems: 'center', color: 'var(--text-muted)', background: 'transparent', border: 0, cursor: 'pointer' },
   searchBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 0, borderRadius: 10, padding: '0.7rem 1.1rem', fontWeight: 900, cursor: 'pointer' },
-  resultHeader: { display: 'flex', justifyContent: 'space-between', color: 'var(--text-dim)', fontSize: '0.77rem', padding: '0.25rem 0.15rem 0.8rem' },
+  resultHeader: { display: 'flex', justifyContent: 'space-between', color: 'var(--text-dim)', fontSize: 'var(--text-xs)', padding: '0.25rem 0.15rem 0.8rem' },
   customerGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '0.9rem' },
   customerCard: { minHeight: 180, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.9rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '1rem', cursor: 'pointer' },
   customerTop: { display: 'flex', gap: '0.75rem', alignItems: 'flex-start' },
   avatar: { width: 40, height: 40, flex: '0 0 auto', borderRadius: 12, display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-light)' },
-  customerName: { margin: 0, fontSize: '1rem', color: 'var(--text-main)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' },
-  legalName: { margin: '0.3rem 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' },
+  customerName: { margin: 0, fontSize: '1rem', color: 'var(--text-main)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  legalName: { margin: '0.3rem 0 0', color: 'var(--text-muted)', fontSize: 'var(--text-xs)' },
   metaGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.5rem' },
-  meta: { display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.79rem', minWidth: 0 },
+  meta: { display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', minWidth: 0 },
   metaWide: { gridColumn: '1 / -1' },
   cardFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' },
   counts: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap' },
-  badge: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 999, padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 },
-  badgeMuted: { display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 999, padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 600 },
-  openHint: { display: 'inline-flex', alignItems: 'center', gap: 2, color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 900, whiteSpace: 'nowrap' },
+  badge: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 999, padding: '0.25rem 0.5rem', fontSize: 'var(--text-xs)', fontWeight: 700 },
+  badgeMuted: { display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 999, padding: '0.25rem 0.5rem', fontSize: 'var(--text-xs)', fontWeight: 600 },
+  openHint: { display: 'inline-flex', alignItems: 'center', gap: 2, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', fontWeight: 900, whiteSpace: 'nowrap' },
   emptyState: { gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)', padding: '2rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 14 },
   modalBackdrop: { position: 'fixed', inset: 0, zIndex: 3500, background: 'rgba(0,0,0,.76)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem' },
   modal: { width: 'min(1180px, 97vw)', height: 'min(860px, 94vh)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 22, boxShadow: '0 28px 90px rgba(0,0,0,.55)' },
@@ -1505,21 +1515,22 @@ const s = {
   warningAlert: { color: '#fbbf24', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' },
   infoAlert: { color: '#93c5fd', background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)' },
   slaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.65rem' },
-  metricCard: { display: 'grid', gap: 3, padding: '0.75rem', borderRadius: 11, border: '1px solid var(--border-color)', background: 'var(--bg-base)' },
+  metricCard: { display: 'grid', gap: 3, padding: '0.75rem', borderRadius: 11, border: '1px solid var(--border-color)', background: 'var(--bg-base)', fontVariantNumeric: 'tabular-nums' },
   metricCardClickable: { textAlign: 'left', cursor: 'pointer', width: '100%', font: 'inherit' },
   metricDanger: { borderColor: 'rgba(239,68,68,.32)', background: 'rgba(239,68,68,.06)', color: '#fca5a5' },
+  stackedField: { display: 'grid', gap: 2, minWidth: 0, fontVariantNumeric: 'tabular-nums' },
   recurrenceBox: { display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.7rem', padding: '0.7rem', color: '#fbbf24', borderRadius: 10, background: 'rgba(245,158,11,.07)' },
   recurrenceBoxClickable: { border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%', font: 'inherit' },
   miniStat: { display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.8rem', border: '1px solid var(--border-color)', borderRadius: 13, background: 'var(--bg-base)' },
   miniIcon: { width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, background: 'var(--accent-light)', color: 'var(--accent)' },
-  miniText: { display: 'grid', gap: 2, color: 'var(--text-muted)', fontSize: '0.72rem' },
+  miniText: { display: 'grid', gap: 2, color: 'var(--text-muted)', fontSize: '0.72rem', fontVariantNumeric: 'tabular-nums' },
   infoSection: { padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 15, background: 'rgba(8,12,22,.24)' },
   compactSection: { borderRadius: 12, background: 'transparent' },
   sectionTitle: { display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0 0 0.85rem', color: 'var(--text-main)', fontSize: '0.87rem' },
   infoGrid: { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: '0.75rem 1.1rem' },
   infoItem: { display: 'grid', gap: '0.22rem', minWidth: 0 },
   infoLabel: { color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.025em' },
-  infoValue: { color: 'var(--text-main)', fontSize: '0.84rem', overflowWrap: 'anywhere' },
+  infoValue: { color: 'var(--text-main)', fontSize: '0.84rem', overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' },
   wideInfo: { gridColumn: '1 / -1' },
   notes: { margin: 0, color: 'var(--text-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.55 },
   equipmentLayout: { display: 'grid', gridTemplateColumns: 'minmax(290px,.42fr) minmax(400px,1fr)', gap: '1rem', alignItems: 'start' },
@@ -1549,7 +1560,7 @@ const s = {
   financeIcon: { width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, color: 'var(--accent)', background: 'var(--accent-light)' },
   financeMain: { display: 'grid', gap: 2, minWidth: 0 },
   financeValue: { display: 'flex', alignItems: 'center', gap: '0.55rem', textAlign: 'right' },
-  financeValueDetails: { display: 'grid', gap: 3 },
+  financeValueDetails: { display: 'grid', gap: 3, fontVariantNumeric: 'tabular-nums' },
   financeDetailBackdrop: { position: 'fixed', inset: 0, zIndex: 3700, display: 'grid', placeItems: 'center', padding: '1rem', background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(3px)' },
   financeDetailModal: { width: 'min(720px, 94vw)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,.55)' },
   financeDetailHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', padding: '1.15rem 1.25rem', borderBottom: '1px solid var(--border-color)' },
@@ -1583,7 +1594,7 @@ const s = {
   financeDetailFooter: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', padding: '0.9rem 1.25rem', borderTop: '1px solid var(--border-color)', background: 'var(--bg-base)' },
   noBoletoLabel: { color: 'var(--text-dim)', fontSize: '0.8rem', fontWeight: 700 },
   meterGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.55rem' },
-  meterCard: { display: 'grid', gap: 2, padding: '0.7rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-base)' },
+  meterCard: { display: 'grid', gap: 2, padding: '0.7rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-base)', fontVariantNumeric: 'tabular-nums' },
   maintenanceSummary: { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: '0.55rem', marginTop: '0.65rem' },
   technicalMentions: { display: 'grid', gap: '0.4rem', marginTop: '0.7rem', padding: '0.7rem', borderRadius: 10, color: 'var(--text-muted)', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.18)' },
   equipmentAside: { display: 'grid', gap: '0.7rem', minWidth: 0 },
@@ -1598,6 +1609,7 @@ const s = {
   detailPanel: { display: 'grid', gap: '0.85rem', minWidth: 0 },
   detailHeader: { display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' },
   detailKicker: { margin: 0, color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' },
+  detailTitle: { margin: '0.2rem 0 0', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-main)' },
   statusActive: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.3rem 0.6rem', borderRadius: 999, color: 'var(--success-text)', background: 'var(--success-light)', fontSize: '0.75rem', fontWeight: 700 },
   statusInactive: { display: 'inline-flex', alignItems: 'center', padding: '0.3rem 0.6rem', borderRadius: 999, color: 'var(--text-muted)', background: 'var(--bg-panel)', fontSize: '0.75rem', fontWeight: 700 },
   locationPanel: { display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.9rem', border: '1px solid var(--accent-border)', borderRadius: 13, background: 'var(--accent-light)' },
@@ -1606,7 +1618,7 @@ const s = {
   contractCard: { padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 15, background: 'rgba(8,12,22,.3)' },
   contractHeader: { display: 'flex', alignItems: 'center', gap: '0.7rem', paddingBottom: '0.8rem', borderBottom: '1px solid var(--border-color)' },
   contractIcon: { width: 38, height: 38, display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 10 },
-  contractTitle: { margin: '0.15rem 0 0', fontSize: '0.95rem' },
+  contractTitle: { margin: '0.15rem 0 0', fontSize: 'var(--text-md)' },
   contractGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.8rem', paddingTop: '0.8rem' },
   osToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' },
   toolbarTitle: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem 0.65rem' },
@@ -1635,4 +1647,6 @@ const s = {
   rawTable: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '0.55rem', marginTop: '0.75rem' },
   rawRow: { display: 'grid', gap: 3, padding: '0.7rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-base)', minWidth: 0 },
   emptyContent: { minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 15, padding: '2rem' },
+  emptyTitle: { margin: '0.9rem 0 0.35rem', fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-main)' },
+  emptyText: { margin: 0, maxWidth: 360, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', lineHeight: 'var(--leading-relaxed)' },
 };

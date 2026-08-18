@@ -87,8 +87,10 @@ export default function Settings() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [quickResponses, setQuickResponses] = useState([]);
   const [newQuick, setNewQuick] = useState({ shortcut: '', message: '' });
+  const [addingQuick, setAddingQuick] = useState(false);
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState({ name: '', color: '#D4AF37' });
+  const [addingTag, setAddingTag] = useState(false);
   const [testingIntegration, setTestingIntegration] = useState(false);
   const [syncingIntegration, setSyncingIntegration] = useState(false);
   const [showToken, setShowToken] = useState(false);
@@ -175,8 +177,8 @@ export default function Settings() {
       await updateProfile(profile);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
-    } catch {
-      toast.info('Erro ao salvar perfil');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao salvar perfil');
     } finally {
       setSaving(false);
     }
@@ -184,36 +186,43 @@ export default function Settings() {
 
   async function handleAddQuick(e) {
     e.preventDefault();
+    if (addingQuick) return;
+    setAddingQuick(true);
     try {
       const { data } = await createQuickResponse(newQuick);
       setQuickResponses([...quickResponses, data]);
       setNewQuick({ shortcut: '', message: '' });
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao adicionar');
+      toast.error(err.response?.data?.error || 'Erro ao adicionar resposta rapida');
+    } finally {
+      setAddingQuick(false);
     }
   }
 
-  async function handleDeleteQuick(id) {
-    toast.confirm('Deseja excluir esta resposta rapida?', async () => {
+  async function handleDeleteQuick(id, shortcut) {
+    toast.confirm(`Excluir a resposta rapida "${shortcut || ''}"?`, async () => {
       try {
         await deleteQuickResponse(id);
         setQuickResponses(quickResponses.filter((item) => item.id !== id));
         toast.success('Resposta excluida');
       } catch {
-        toast.error('Erro ao excluir');
+        toast.error('Erro ao excluir resposta rapida');
       }
     });
   }
 
   async function handleAddTag(e) {
     e.preventDefault();
-    if (!newTag.name) return;
+    if (!newTag.name || addingTag) return;
+    setAddingTag(true);
     try {
       const { data } = await createTag(newTag);
       setTags([...tags, data]);
       setNewTag({ name: '', color: '#D4AF37' });
-    } catch {
-      toast.info('Erro ao adicionar etiqueta');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao adicionar etiqueta');
+    } finally {
+      setAddingTag(false);
     }
   }
 
@@ -289,14 +298,14 @@ export default function Settings() {
     toast.success('Token copiado para a área de transferência!');
   }
 
-  async function handleDeleteTag(id) {
-    toast.confirm('Excluir esta etiqueta?', async () => {
+  async function handleDeleteTag(id, name) {
+    toast.confirm(`Excluir a etiqueta "${name || ''}"?`, async () => {
       try {
         await deleteTag(id);
         setTags(tags.filter((item) => item.id !== id));
         toast.success('Etiqueta excluida');
       } catch {
-        toast.error('Erro ao excluir');
+        toast.error('Erro ao excluir etiqueta');
       }
     });
   }
@@ -368,7 +377,7 @@ export default function Settings() {
                     <label style={s.label}>URL da API (Evolution)</label>
                     <input
                       style={s.input}
-                      value={form.evolutionUrl}
+                      value={form.evolutionUrl || ''}
                       onChange={(e) => setForm({ ...form, evolutionUrl: e.target.value })}
                       placeholder="https://api.sua-instancia.com"
                     />
@@ -379,7 +388,7 @@ export default function Settings() {
                     <input
                       style={s.input}
                       type="password"
-                      value={form.evolutionKey}
+                      value={form.evolutionKey || ''}
                       onChange={(e) => setForm({ ...form, evolutionKey: e.target.value })}
                       placeholder="42-caracteres..."
                     />
@@ -478,6 +487,10 @@ export default function Settings() {
                 />
                 <p style={s.hint}>Quando o cliente digitar isso, a IA para de responder e envia para "Aguardando".</p>
               </div>
+
+              <button type="button" style={s.saveBtn} onClick={handleSave} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar comportamento da IA'}
+              </button>
             </div>
           </div>
         </div>
@@ -497,7 +510,7 @@ export default function Settings() {
                     alignItems: isMobile ? 'flex-start' : 'center',
                   }}
                 >
-                  <div style={{ width: '100px', fontWeight: 800, marginBottom: isMobile ? '8px' : '0' }}>
+                  <div style={{ width: '100px', fontWeight: 800, marginBottom: isMobile ? 'var(--space-2)' : 0 }}>
                     {DAYS[hour.dayOfWeek]}
                   </div>
 
@@ -786,12 +799,23 @@ export default function Settings() {
                 {tenant?.logoUrl ? (
                   <img src={getMediaUrl(tenant.logoUrl)} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 ) : (
-                  <span style={{ fontSize: '1rem', color: 'var(--text-dim)', fontWeight: 700 }}>Sem logo</span>
+                  <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-dim)', fontWeight: 700 }}>Sem logo</span>
                 )}
               </div>
 
-              <input type="file" id="logo-upload" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
-              <label htmlFor="logo-upload" style={{ ...s.saveBtn, cursor: 'pointer', textAlign: 'center', width: '100%', display: 'block' }}>
+              <input type="file" id="logo-upload" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={saving} />
+              <label
+                htmlFor="logo-upload"
+                style={{
+                  ...s.saveBtn,
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  textAlign: 'center',
+                  width: '100%',
+                  display: 'block',
+                  opacity: saving ? 0.7 : 1,
+                  pointerEvents: saving ? 'none' : 'auto',
+                }}
+              >
                 {saving ? 'Enviando...' : 'Importar nova logo'}
               </label>
               <p style={s.hint}>Tamanho recomendado: 300x300 px (PNG ou JPG)</p>
@@ -815,19 +839,25 @@ export default function Settings() {
               onChange={(e) => setNewQuick({ ...newQuick, message: e.target.value })}
               placeholder="Mensagem automatica..."
             />
-            <button type="button" onClick={handleAddQuick} style={s.saveBtn}>Adicionar</button>
+            <button type="button" onClick={handleAddQuick} style={s.saveBtn} disabled={addingQuick}>
+              {addingQuick ? 'Adicionando...' : 'Adicionar'}
+            </button>
           </div>
 
           <div style={s.quickList}>
-            {quickResponses.map((item) => (
-              <div key={item.id} style={s.quickItem}>
-                <div>
-                  <strong style={{ color: 'var(--accent)' }}>{item.shortcut}</strong>
-                  <div style={s.quickMessage}>{item.message}</div>
+            {quickResponses.length === 0 ? (
+              <p style={s.hint}>Nenhuma resposta rapida cadastrada ainda. Use o formulario acima para criar a primeira.</p>
+            ) : (
+              quickResponses.map((item) => (
+                <div key={item.id} style={s.quickItem}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ color: 'var(--accent)' }}>{item.shortcut}</strong>
+                    <div style={s.quickMessage}>{item.message}</div>
+                  </div>
+                  <button type="button" onClick={() => handleDeleteQuick(item.id, item.shortcut)} style={s.delBtn}>Excluir</button>
                 </div>
-                <button type="button" onClick={() => handleDeleteQuick(item.id)} style={s.delBtn}>Excluir</button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
       )}
@@ -852,19 +882,25 @@ export default function Settings() {
               value={newTag.color}
               onChange={(e) => setNewTag({ ...newTag, color: e.target.value })}
             />
-            <button type="submit" style={s.saveBtn}>Adicionar</button>
+            <button type="submit" style={s.saveBtn} disabled={addingTag}>
+              {addingTag ? 'Adicionando...' : 'Adicionar'}
+            </button>
           </form>
 
           <div style={s.quickList}>
-            {tags.map((item) => (
-              <div key={item.id} style={s.quickItem}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: item.color }} />
-                  <strong style={{ color: item.color }}>{item.name}</strong>
+            {tags.length === 0 ? (
+              <p style={s.hint}>Nenhuma etiqueta cadastrada ainda. Use o formulario acima para criar a primeira.</p>
+            ) : (
+              tags.map((item) => (
+                <div key={item.id} style={s.quickItem}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                    <strong style={{ color: item.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</strong>
+                  </div>
+                  <button type="button" onClick={() => handleDeleteTag(item.id, item.name)} style={s.delBtn}>Excluir</button>
                 </div>
-                <button type="button" onClick={() => handleDeleteTag(item.id)} style={s.delBtn}>Excluir</button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
       )}
@@ -880,6 +916,7 @@ export default function Settings() {
                   style={s.input}
                   type="number"
                   step="0.01"
+                  min="0"
                   value={form.kpiContractValue}
                   onChange={(e) => setForm({ ...form, kpiContractValue: e.target.value })}
                   placeholder="1200.00"
@@ -893,6 +930,7 @@ export default function Settings() {
                   style={s.input}
                   type="number"
                   step="0.01"
+                  min="0"
                   value={form.kpiServiceValue}
                   onChange={(e) => setForm({ ...form, kpiServiceValue: e.target.value })}
                   placeholder="350.00"
@@ -905,6 +943,7 @@ export default function Settings() {
                 <input
                   style={s.input}
                   type="number"
+                  min="0"
                   value={form.kpiSlaLimitHours}
                   onChange={(e) => setForm({ ...form, kpiSlaLimitHours: e.target.value })}
                   placeholder="24"
@@ -962,8 +1001,8 @@ export default function Settings() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h2 style={s.cardTitle}>Agente Local (Integração Firebird & Boletos)</h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: form.firebirdLastSyncStatus === 'online' ? '#22c55e' : '#ef4444' }} />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)' }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: form.firebirdLastSyncStatus === 'online' ? 'var(--success)' : 'var(--danger)' }} />
+                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-dim)' }}>
                       {form.firebirdLastSyncStatus === 'online' ? 'Conectado' : 'Desconectado'}
                     </span>
                   </div>
@@ -1026,7 +1065,7 @@ export default function Settings() {
                   </div>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
+                {saving ? 'Salvando...' : 'Salvar configuracoes do agente local'}
               </button>
             </div>
           </div>
@@ -1035,7 +1074,7 @@ export default function Settings() {
             <h2 style={s.cardTitle}>Logs de Envio de Faturas (Últimos 100)</h2>
             <div style={s.form}>
               <p style={{ ...s.hint, marginBottom: '1rem' }}>O envio de cobranças agora é automático, a partir da pasta configurada no agente (Documentos financeiros). Este histórico mostra os envios feitos.</p>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto', overflowX: 'auto' }}>
                 {billingLogs.length === 0 ? (
                   <p style={s.hint}>Nenhum log de envio registrado.</p>
                 ) : (
@@ -1053,14 +1092,14 @@ export default function Settings() {
                         <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
                           <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
-                          <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{log.fileName}</td>
+                          <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-dim)' }}>{log.fileName}</td>
                           <td style={{ padding: '0.5rem' }}>
                             <span style={{
                               padding: '2px 6px',
                               borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              backgroundColor: log.status === 'SUCCESS' ? '#22c55e20' : '#ef444420',
-                              color: log.status === 'SUCCESS' ? '#22c55e' : '#ef4444'
+                              fontSize: 'var(--text-xs)',
+                              backgroundColor: log.status === 'SUCCESS' ? 'var(--success-light)' : 'var(--danger-light)',
+                              color: log.status === 'SUCCESS' ? 'var(--success-text)' : 'var(--danger-text)'
                             }}>
                               {log.status === 'SUCCESS' ? 'Enviado' : 'Erro'}
                             </span>
@@ -1180,13 +1219,13 @@ const s = {
   kicker: {
     margin: '0 0 0.45rem',
     color: 'var(--accent)',
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
   },
   title: { fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem', fontFamily: 'var(--font-display)' },
-  subtitle: { fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.6 },
+  subtitle: { fontSize: 'var(--text-md)', color: 'var(--text-muted)', lineHeight: 'var(--leading-normal)' },
   tabs: { position: 'sticky', top: '-2rem', zIndex: 20, display: 'block', margin: '0 -0.35rem 1.5rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-base)', boxShadow: '0 10px 30px rgba(0,0,0,.12)' },
   tabGroups: { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: '1.15rem', overflowX: 'auto' },
   tabGroup: { display: 'grid', alignContent: 'start', gap: '0.45rem', minWidth: 'max-content' },
@@ -1198,7 +1237,7 @@ const s = {
     borderRadius: '9px',
     background: 'transparent',
     cursor: 'pointer',
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--text-muted)',
     transition: 'all 0.2s',
     fontWeight: 800,
@@ -1211,7 +1250,7 @@ const s = {
   sections: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: '1rem', alignItems: 'start' },
   card: { background: 'var(--bg-surface)', padding: '1.35rem', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 10px 28px rgba(0,0,0,.08)' },
   cardTitle: {
-    fontSize: '1.1rem',
+    fontSize: 'var(--text-lg)',
     fontWeight: 800,
     marginBottom: '1.25rem',
     color: 'var(--text-main)',
@@ -1220,7 +1259,7 @@ const s = {
   },
   sectionHeading: {
     margin: 0,
-    fontSize: '1.15rem',
+    fontSize: 'var(--text-lg)',
     fontWeight: 800,
     color: 'var(--text-main)',
   },
@@ -1237,10 +1276,10 @@ const s = {
     border: '1px solid var(--border-color)',
   },
   toggleInfo: { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
-  toggleStatus: { fontWeight: 800, fontSize: '0.88rem' },
-  toggleHint: { fontSize: '0.8rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 },
+  toggleStatus: { fontWeight: 800, fontSize: 'var(--text-sm)' },
+  toggleHint: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', margin: 0, lineHeight: 'var(--leading-normal)' },
   switch: { width: '40px', height: '20px', cursor: 'pointer', accentColor: 'var(--accent)' },
-  label: { fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  label: { fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' },
   input: {
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
@@ -1248,9 +1287,9 @@ const s = {
     padding: '0.85rem 1rem',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.9rem',
+    fontSize: 'var(--text-sm)',
   },
-  hint: { fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px', lineHeight: 1.5 },
+  hint: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', marginTop: '2px', lineHeight: 'var(--leading-normal)' },
   integrationMeta: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -1324,7 +1363,7 @@ const s = {
     marginTop: '1rem',
   },
   saveRow: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1.5rem', marginTop: '2rem' },
-  savedMsg: { color: '#2fb171', fontSize: '0.9rem', fontWeight: 700 },
+  savedMsg: { color: 'var(--success-text)', fontSize: 'var(--text-sm)', fontWeight: 700 },
   quickAddBox: {
     display: 'flex',
     gap: '1rem',
@@ -1345,7 +1384,7 @@ const s = {
     borderRadius: '12px',
     border: '1px solid var(--border-color)',
   },
-  quickMessage: { fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: 1.5 },
+  quickMessage: { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: 'var(--leading-normal)', wordBreak: 'break-word' },
   delBtn: {
     background: 'transparent',
     border: '1px solid var(--border-color)',

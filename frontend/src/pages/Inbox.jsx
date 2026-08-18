@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import api, {
   getTickets,
@@ -52,19 +52,19 @@ class InboxSectionErrorBoundary extends React.Component {
       return (
         <div
           style={{
-            margin: '1rem 2rem',
-            padding: '1rem 1.25rem',
+            margin: 'var(--space-4) var(--space-8)',
+            padding: 'var(--space-4) var(--space-5)',
             borderRadius: 'var(--radius-md)',
             background: 'var(--warning-light)',
-            border: '1px solid var(--warning-light)',
-            color: 'var(--warning)',
+            border: '1px solid var(--warning-border)',
+            color: 'var(--warning-text)',
             fontWeight: 700,
-            lineHeight: 1.5,
+            lineHeight: 'var(--leading-normal)',
           }}
         >
-          Nao foi possivel exibir a secao "{this.props.label}" desta conversa, mas o restante da tela continua disponivel.
-          <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', fontWeight: 600, opacity: 0.92 }}>
-            Erro: {this.state.errorMessage}
+          Não foi possível exibir a seção "{this.props.label}" desta conversa, mas o restante da tela continua disponível. Tente recarregar a página; se o problema continuar, avise o suporte.
+          <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-sm)', fontWeight: 600, opacity: 0.92 }}>
+            Detalhes técnicos: {this.state.errorMessage}
           </div>
         </div>
       );
@@ -131,6 +131,7 @@ export default function Inbox() {
   const selectedIdRef = React.useRef(selectedId);
   const historySearchRef = React.useRef(historySearch);
   const previewDragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
+  const sendLockRef = useRef(false); // evita duplo envio (duplo clique/duplo Enter) da mesma mensagem
 
   const {
     counts,
@@ -367,9 +368,13 @@ export default function Inbox() {
   async function handleSend(e) {
     e?.preventDefault();
     if (!text.trim() && files.length === 0) return;
+    if (sendLockRef.current) return; // ignora clique/Enter duplicado enquanto o envio anterior ainda esta em andamento
+    sendLockRef.current = true;
+    setTimeout(() => { sendLockRef.current = false; }, 400);
 
     if (isNote) {
       const noteBody = text;
+      const noteTicketId = selectedId;
       setText('');
       setFiles([]);
       setIsNote(false);
@@ -377,7 +382,9 @@ export default function Inbox() {
         await createTicketNote(selectedId, noteBody);
         loadMessages({ background: true });
       } catch (err) {
-        toast.error('Erro ao salvar nota: ' + (err.response?.data?.error || err.message));
+        // Mantem o texto no campo para o atendente nao perder a nota e poder tentar salvar novamente
+        if (selectedIdRef.current === noteTicketId) setText(noteBody);
+        toast.error('Falha ao salvar a nota. O texto foi mantido no campo — verifique a conexão e tente novamente. ' + (err.response?.data?.error || err.message));
       }
       return;
     }
@@ -414,6 +421,7 @@ export default function Inbox() {
   async function doSend(body, attachment) {
     const tId = selectedId;
     const qId = replyingTo?.externalId;
+    const previousReply = replyingTo;
     setText('');
     setFiles([]);
     setReplyingTo(null);
@@ -424,7 +432,14 @@ export default function Inbox() {
         await sendMessage(tId, body, qId);
       }
       loadMessages({ background: true });
-    } catch (e) { toast.error('Erro ao enviar mensagem: ' + (e.response?.data?.error || e.message)); }
+    } catch (e) {
+      // Mantem o texto (e a citacao) no campo para o atendente nao perder a mensagem e poder reenviar
+      if (selectedIdRef.current === tId) {
+        setText(body);
+        setReplyingTo(previousReply);
+      }
+      toast.error('Falha ao enviar a mensagem. Pode ser instabilidade na conexão ou no WhatsApp — o texto foi mantido no campo, verifique e tente enviar novamente. ' + (e.response?.data?.error || e.message));
+    }
   }
 
   async function handleTransfer(agentId, teamId, note) {
@@ -510,7 +525,10 @@ export default function Inbox() {
     }
   }, [quickResponses]);
 
-  const selectedTicket = tickets.find(t => t.id === selectedId);
+  const selectedTicket = useMemo(
+    () => tickets.find(t => t.id === selectedId),
+    [tickets, selectedId]
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -545,7 +563,7 @@ export default function Inbox() {
         justifyContent: 'center', 
         background: 'var(--bg-surface)',
         color: 'var(--text-muted)',
-        gap: '20px'
+        gap: 'var(--space-5)'
       }}>
         <div className="loading-spinner" style={{ 
           width: '40px', 
@@ -693,7 +711,7 @@ export default function Inbox() {
             <div style={s.emptyChat}>
             <div style={s.emptyIcon}>Chat</div>
             <h2>Central de Atendimento</h2>
-            <p>Selecione um chat para comecar a atender</p>
+            <p>Selecione uma conversa na lista ao lado para começar a atender</p>
           </div>
         )}
       </main>
@@ -942,14 +960,14 @@ export const inboxStyles = {
   rowActive: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderLeft: '1px solid var(--accent)' },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem', marginBottom: 2 },
-  rowName: { fontWeight: 650, fontSize: '0.9rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  rowName: { fontWeight: 650, fontSize: '0.9rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
   rowTime: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0, fontVariantNumeric: 'tabular-nums' },
   rowPreview: { fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rowSub: { display: 'flex', alignItems: 'center', gap: '0.45rem', position: 'relative', flexWrap: 'wrap' },
   rowStatusPill: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   priorityPill: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   rowMetaLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.65rem', marginTop: '0.4rem' },
-  rowOwner: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  rowOwner: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
   rowTags: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' },
   rowTag: { fontSize: '0.75rem', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', fontWeight: 600, border: '1px solid rgba(255,255,255,0.08)' },
   rowMetaSpacer: { display: 'inline-block', minWidth: '1px', minHeight: '1px' },
@@ -975,7 +993,7 @@ export const inboxStyles = {
   backBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', color: 'var(--text-main)', width: '38px', height: '38px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   chatIdentity: { minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' },
   chatTitleRow: { display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flexWrap: 'wrap' },
-  chatName: { fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)', letterSpacing: '-0.02em' },
+  chatName: { fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)', letterSpacing: '-0.02em', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word' },
   chatStatusPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '26px', padding: '0 0.7rem', borderRadius: 'var(--radius-lg)', fontSize: '0.7rem', fontWeight: 600, flexShrink: 0 },
   chatMetaRow: { display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' },
   chatMetaText: { fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, padding: '0.2rem 0.55rem', background: 'var(--chat-meta-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--chat-meta-border)' },
@@ -1014,7 +1032,7 @@ export const inboxStyles = {
     WebkitUserSelect: 'text'
   },
   messageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.55rem', width: '100%' },
-  messageSender: { fontSize: '0.74rem', fontWeight: 600, letterSpacing: '-0.01em' },
+  messageSender: { fontSize: '0.74rem', fontWeight: 600, letterSpacing: '-0.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   messageHeaderSide: { display: 'flex', alignItems: 'center', gap: '0.15rem', marginLeft: 'auto', flexShrink: 0 },
   messageHeaderTime: { fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' },
   messageMenuRoot: { position: 'relative' },
@@ -1120,7 +1138,7 @@ export const inboxStyles = {
   infoProfile: { display: 'flex', flexDirection: 'column', marginBottom: '1.1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' },
   infoIdentityRow: { display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 },
   infoIdentityMain: { flex: 1, minWidth: 0 },
-  infoName: { margin: '0 0 0.3rem', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', textAlign: 'left' },
+  infoName: { margin: '0 0 0.3rem', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', textAlign: 'left', overflowWrap: 'break-word', wordBreak: 'break-word' },
   infoPhone: { color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.55rem' },
   infoPhoneButton: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, userSelect: 'text', WebkitUserSelect: 'text' },
   infoBadgeRow: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-start' },
