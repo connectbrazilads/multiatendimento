@@ -405,7 +405,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
           {loading ? <div style={s.loadingBox}><RefreshCw size={18} /> Carregando informações atualizadas do ILUX...</div> : null}
           {!loading && relatedLoading ? <div style={s.loadingInline}><RefreshCw size={16} /> Montando a visão 360 do cliente em segundo plano...</div> : null}
           {!loading && error ? <div style={s.errorBox}><AlertCircle size={17} /><span style={{ flex: 1 }}>{error}</span><button type="button" style={s.retryBtn} onClick={onRetry}>Tentar novamente</button></div> : null}
-          {!loading && activeTab === 'overview' ? <OverviewTab customer={customer} equipments={equipments} contracts={contracts} serviceOrders={serviceOrders} customer360={customer360} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} /> : null}
+          {!loading && activeTab === 'overview' ? <OverviewTab customer={customer} equipments={equipments} contracts={contracts} serviceOrders={serviceOrders} customer360={customer360} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} setActiveTab={setActiveTab} /> : null}
           {!loading && activeTab === 'units' ? <UnitsTab units={arrayOf(customer360.units)} /> : null}
           {!loading && activeTab === 'contacts' ? <ContactsTab contacts={arrayOf(customer360.contacts)} /> : null}
           {!loading && activeTab === 'equipments' ? <EquipmentsTab equipments={equipments} evolution={arrayOf(customer360.equipmentEvolution)} /> : null}
@@ -423,7 +423,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
   );
 }
 
-function OverviewTab({ customer, equipments, contracts, serviceOrders, customer360, onOpenConversation, onOpenServiceOrder }) {
+function OverviewTab({ customer, equipments, contracts, serviceOrders, customer360, onOpenConversation, onOpenServiceOrder, setActiveTab }) {
   const operational = customer.operationalSummary || {};
   const alerts = arrayOf(customer360?.alerts);
   const sla = customer360?.sla || null;
@@ -440,11 +440,11 @@ function OverviewTab({ customer, equipments, contracts, serviceOrders, customer3
         <MiniStat icon={<AlertCircle size={18} />} value={openOrders} label="O.S. em aberto" warning={openOrders > 0} />
         <MiniStat icon={<CircleDollarSign size={18} />} value={formatCurrency(monthlyValue)} label="Valor mensal" />
       </div>
-      {customer360?.quickActions ? <QuickActions actions={customer360.quickActions} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} /> : null}
-      {alerts.length ? <AlertsPanel alerts={alerts} /> : (
+      {customer360?.quickActions ? <QuickActions actions={customer360.quickActions} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} setActiveTab={setActiveTab} /> : null}
+      {alerts.length ? <AlertsPanel alerts={alerts} setActiveTab={setActiveTab} /> : (
         customer360?.generatedAt ? <div style={s.healthyBox}><ShieldCheck size={18} /> Nenhum alerta operacional identificado para este cliente.</div> : null
       )}
-      {sla ? <SlaPanel sla={sla} /> : null}
+      {sla ? <SlaPanel sla={sla} setActiveTab={setActiveTab} /> : null}
       <InfoSection title="Identificação" icon={<User size={17} />}>
         <div style={s.infoGrid}>
           <Info label="Razão social" value={customer.name} wide />
@@ -475,61 +475,95 @@ function OverviewTab({ customer, equipments, contracts, serviceOrders, customer3
   );
 }
 
-function QuickActions({ actions, onOpenConversation, onOpenServiceOrder }) {
+function QuickActions({ actions, onOpenConversation, onOpenServiceOrder, setActiveTab }) {
   const openInbox = (openOs = false) => {
     if (!actions.ticketId) return;
     if (openOs && onOpenServiceOrder) return onOpenServiceOrder();
     if (!openOs && onOpenConversation) return onOpenConversation();
     window.location.assign(`/inbox?ticketId=${encodeURIComponent(actions.ticketId)}${openOs ? '&openOs=1' : ''}`);
   };
+  const printProfile = () => {
+    if (setActiveTab) {
+      setActiveTab('overview');
+      setTimeout(() => window.print(), 50);
+    } else {
+      window.print();
+    }
+  };
   return (
-    <div style={s.quickActions}>
+    <div className="crm-quick-actions" style={s.quickActions}>
       <div style={s.quickActionsTitle}><strong>Ações rápidas</strong><span>Atalhos para o atendimento</span></div>
       <button type="button" style={s.quickActionBtn} disabled={!actions.canOpenConversation} onClick={() => openInbox(false)}><Send size={16} /> Abrir WhatsApp</button>
       <button type="button" style={s.quickActionPrimary} disabled={!actions.canOpenServiceOrder} onClick={() => openInbox(true)}><ClipboardList size={16} /> Abrir O.S.</button>
       <button type="button" style={s.quickActionBtn} disabled={!actions.address} onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(actions.address)}`, '_blank', 'noopener,noreferrer')}><MapIcon size={16} /> Ver no mapa</button>
-      <button type="button" style={s.quickActionBtn} onClick={() => window.print()}><Printer size={16} /> Imprimir ficha</button>
+      <button type="button" style={s.quickActionBtn} onClick={printProfile}><Printer size={16} /> Imprimir ficha</button>
     </div>
   );
 }
 
-function AlertsPanel({ alerts }) {
+const ALERT_CATEGORY_TO_TAB = { financial: 'financial', sla: 'os', recurrence: 'equipments', contract: 'contracts' };
+
+function AlertsPanel({ alerts, setActiveTab }) {
   return (
     <InfoSection title={`Alertas inteligentes (${alerts.length})`} icon={<Siren size={17} />}>
       <div style={s.alertGrid}>
-        {alerts.map((alert) => (
-          <div key={alert.id} style={{ ...s.smartAlert, ...(alert.severity === 'critical' ? s.criticalAlert : alert.severity === 'warning' ? s.warningAlert : s.infoAlert) }}>
-            <AlertCircle size={17} />
-            <div><strong>{alert.title}</strong><span>{alert.description}</span></div>
-          </div>
-        ))}
+        {alerts.map((alert) => {
+          const targetTab = ALERT_CATEGORY_TO_TAB[alert.category];
+          const alertStyle = { ...s.smartAlert, ...(targetTab ? s.smartAlertClickable : {}), ...(alert.severity === 'critical' ? s.criticalAlert : alert.severity === 'warning' ? s.warningAlert : s.infoAlert) };
+          const content = (
+            <>
+              <AlertCircle size={17} />
+              <div><strong>{alert.title}</strong><span>{alert.description}</span></div>
+            </>
+          );
+          return targetTab ? (
+            <button key={alert.id} type="button" style={alertStyle} onClick={() => setActiveTab(targetTab)} title="Ver detalhes">
+              {content}
+            </button>
+          ) : (
+            <div key={alert.id} style={alertStyle}>
+              {content}
+            </div>
+          );
+        })}
       </div>
     </InfoSection>
   );
 }
 
-function SlaPanel({ sla }) {
+function SlaPanel({ sla, setActiveTab }) {
   const recurrence = sla.mostRecurringEquipment;
+  const goToOrders = setActiveTab ? () => setActiveTab('os') : undefined;
   return (
     <InfoSection title={`Atendimento e SLA — meta de ${sla.targetHours || 24}h`} icon={<ShieldCheck size={17} />}>
       <div style={s.slaGrid}>
-        <Metric value={sla.orders30Days ?? 0} label="O.S. nos últimos 30 dias" />
-        <Metric value={formatHours(sla.averageResolutionHours)} label="Tempo médio de solução" />
-        <Metric value={sla.withinSlaPercent === null || sla.withinSlaPercent === undefined ? '—' : `${sla.withinSlaPercent}%`} label="Concluídas dentro do SLA" />
-        <Metric value={sla.overdueOpenOrders ?? 0} label="O.S. fora do prazo" danger={Number(sla.overdueOpenOrders) > 0} />
+        <Metric value={sla.orders30Days ?? 0} label="O.S. nos últimos 30 dias" onClick={goToOrders} />
+        <Metric value={formatHours(sla.averageResolutionHours)} label="Tempo médio de solução" onClick={goToOrders} />
+        <Metric value={sla.withinSlaPercent === null || sla.withinSlaPercent === undefined ? '—' : `${sla.withinSlaPercent}%`} label="Concluídas dentro do SLA" onClick={goToOrders} />
+        <Metric value={sla.overdueOpenOrders ?? 0} label="O.S. fora do prazo" danger={Number(sla.overdueOpenOrders) > 0} onClick={goToOrders} />
       </div>
       {recurrence ? (
-        <div style={s.recurrenceBox}>
-          <Printer size={17} />
-          <div><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
-        </div>
+        goToOrders ? (
+          <button type="button" style={{ ...s.recurrenceBox, ...s.recurrenceBoxClickable }} onClick={goToOrders} title="Ver detalhes">
+            <Printer size={17} />
+            <div><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
+          </button>
+        ) : (
+          <div style={s.recurrenceBox}>
+            <Printer size={17} />
+            <div><span>Maior reincidência em 90 dias</span><strong>{recurrence.model || `Equipamento ${recurrence.equipmentExternalId || ''}`} — {recurrence.count} O.S.</strong></div>
+          </div>
+        )
       ) : null}
     </InfoSection>
   );
 }
 
-function Metric({ value, label, danger = false }) {
-  return <div style={{ ...s.metricCard, ...(danger ? s.metricDanger : {}) }}><strong>{value}</strong><span>{label}</span></div>;
+function Metric({ value, label, danger = false, onClick }) {
+  const style = { ...s.metricCard, ...(danger ? s.metricDanger : {}), ...(onClick ? s.metricCardClickable : {}) };
+  const content = <><strong>{value}</strong><span>{label}</span></>;
+  if (onClick) return <button type="button" style={style} onClick={onClick} title="Ver detalhes">{content}</button>;
+  return <div style={style}>{content}</div>;
 }
 
 function UnitsTab({ units }) {
@@ -1332,6 +1366,47 @@ const crmResponsiveCss = `
     .crm-document-card { align-items: stretch !important; flex-direction: column !important; }
     .crm-document-actions { justify-content: flex-end !important; }
   }
+  @media print {
+    body * { visibility: hidden; }
+    .crm-profile-modal, .crm-profile-modal * { visibility: visible; }
+    .crm-profile-header > button,
+    .crm-profile-tabs,
+    .crm-quick-actions,
+    .crm-profile-modal footer { display: none !important; }
+    .crm-profile-modal {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: #fff !important;
+      color: #000 !important;
+    }
+    .crm-profile-header {
+      background: #fff !important;
+      border-bottom: 1px solid #ccc !important;
+    }
+    .crm-profile-body {
+      overflow: visible !important;
+      max-height: none !important;
+      height: auto !important;
+    }
+    .crm-profile-modal *,
+    .crm-profile-modal *::before,
+    .crm-profile-modal *::after {
+      color: #000 !important;
+      background: none !important;
+      border-color: #ccc !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+    .crm-profile-modal { break-inside: avoid; }
+    .crm-profile-modal section, .crm-profile-modal article, .crm-profile-modal > div > div { break-inside: avoid; }
+  }
 `;
 
 const s = {
@@ -1408,13 +1483,16 @@ const s = {
   quickActionPrimary: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.62rem 0.75rem', borderRadius: 9, border: '1px solid var(--accent-border)', background: 'var(--accent)', color: 'var(--text-inverse)', fontWeight: 900, cursor: 'pointer' },
   alertGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: '0.65rem' },
   smartAlert: { display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.75rem', borderRadius: 11, fontSize: '0.77rem' },
+  smartAlertClickable: { background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%', font: 'inherit' },
   criticalAlert: { color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)' },
   warningAlert: { color: '#fbbf24', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' },
   infoAlert: { color: '#93c5fd', background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)' },
   slaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.65rem' },
   metricCard: { display: 'grid', gap: 3, padding: '0.75rem', borderRadius: 11, border: '1px solid var(--border-color)', background: 'var(--bg-base)' },
+  metricCardClickable: { textAlign: 'left', cursor: 'pointer', width: '100%', font: 'inherit' },
   metricDanger: { borderColor: 'rgba(239,68,68,.32)', background: 'rgba(239,68,68,.06)', color: '#fca5a5' },
   recurrenceBox: { display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.7rem', padding: '0.7rem', color: '#fbbf24', borderRadius: 10, background: 'rgba(245,158,11,.07)' },
+  recurrenceBoxClickable: { border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%', font: 'inherit' },
   miniStat: { display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.8rem', border: '1px solid var(--border-color)', borderRadius: 13, background: 'var(--bg-base)' },
   miniIcon: { width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, background: 'var(--accent-light)', color: 'var(--accent)' },
   miniText: { display: 'grid', gap: 2, color: 'var(--text-muted)', fontSize: '0.72rem' },
