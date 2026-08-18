@@ -14,13 +14,15 @@ class NormalizeContractTest(unittest.TestCase):
             "tr_vl_fixo": 100,
             "valor_franquia": 50,
             "qt_franquia": 5000,
-            "val_excedente": 0.05,
+            "min_excedente": 40,
+            "max_excedente": 800,
             "billing_mode": "misto",
             "qt_equipamentos": 3,
         }
         result = normalize_contract(record)
         self.assertEqual(result["pageFranchise"], 5000)
-        self.assertEqual(result["overageValue"], 0.05)
+        self.assertEqual(result["overageRateMin"], 0.04)
+        self.assertEqual(result["overageRateMax"], 0.8)
         self.assertEqual(result["billingMode"], "misto")
 
     def test_billing_fields_default_when_missing(self):
@@ -30,7 +32,8 @@ class NormalizeContractTest(unittest.TestCase):
         }
         result = normalize_contract(record)
         self.assertEqual(result["pageFranchise"], 0)
-        self.assertEqual(result["overageValue"], 0.0)
+        self.assertEqual(result["overageRateMin"], 0.0)
+        self.assertEqual(result["overageRateMax"], 0.0)
         self.assertIsNone(result["billingMode"])
 
 

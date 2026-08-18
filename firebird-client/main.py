@@ -842,7 +842,8 @@ class FirebirdRepository:
                 ct.VALOR_TOTAL_CONTRATO, ct.TR_VL_FIXO,
                 coalesce(med.VALOR_FRANQUIA, 0) as VALOR_FRANQUIA,
                 coalesce(med.QT_FRANQUIA, 0) as QT_FRANQUIA,
-                coalesce(med.VAL_EXCEDENTE, 0) as VAL_EXCEDENTE,
+                coalesce(med.MIN_EXCEDENTE, 0) as MIN_EXCEDENTE,
+                coalesce(med.MAX_EXCEDENTE, 0) as MAX_EXCEDENTE,
                 med.BILLING_MODE,
                 coalesce(it.QT_EQUIPAMENTOS, 0) as QT_EQUIPAMENTOS,
                 ct.TFATENDIMENTO, ct.TF_BLOQUEIA_OS, ct.INCLUSAO, ct.ATUALIZADO
@@ -865,7 +866,8 @@ class FirebirdRepository:
                     SEQCONTRATO,
                     sum(coalesce(VALFRANQUIA, 0)) as VALOR_FRANQUIA,
                     sum(coalesce(QTFRANQUIA, 0)) as QT_FRANQUIA,
-                    sum(coalesce(VALEXCEDENTE, 0)) as VAL_EXCEDENTE,
+                    min(coalesce(VALEXCEDENTE, 0)) as MIN_EXCEDENTE,
+                    max(coalesce(VALEXCEDENTE, 0)) as MAX_EXCEDENTE,
                     case
                         when sum(case when TFFATURAFIXO = 'S' then 1 else 0 end) = count(*) then 'fixo'
                         when sum(case when TFFATURAFIXO = 'S' then 1 else 0 end) = 0 then 'contador'
@@ -1918,7 +1920,8 @@ def normalize_contract(record: dict[str, Any]) -> dict[str, Any]:
         "totalValue": total_value,
         "equipmentCount": int(record.get("qt_equipamentos") or 0),
         "pageFranchise": int(record.get("qt_franquia") or 0),
-        "overageValue": float(record.get("val_excedente") or 0),
+        "overageRateMin": float(record.get("min_excedente") or 0) / 1000,
+        "overageRateMax": float(record.get("max_excedente") or 0) / 1000,
         "billingMode": first_non_empty(record.get("billing_mode")),
         "startsAt": parse_firebird_timestamp(record.get("dtcontratoini")),
         "endsAt": parse_firebird_timestamp(record.get("dtcontratofin")),
@@ -2287,7 +2290,11 @@ def run_cycle(
     # hoje). Validado contra producao: 6 de 15 contratos amostrados mudam de
     # valor com essa correcao. v3: trouxe franquia de paginas, valor do
     # excedente e o modo de faturamento (fixo/contador/misto).
-    contract_details_version = 4
+    # v5: VALEXCEDENTE e taxa por milheiro de paginas excedentes (nao um valor
+    # em dinheiro), e cada medidor do contrato pode ter uma taxa diferente --
+    # somar essas taxas entre medidores nao produz nenhum valor real. Trocado
+    # por min/max da taxa (por pagina) entre os medidores ativos do contrato.
+    contract_details_version = 5
     receivable_details_version = 2
     refresh_contract_details = int(state.data.get("contract_details_version", 0) or 0) < contract_details_version
     refresh_receivable_details = int(state.data.get("receivable_details_version", 0) or 0) < receivable_details_version

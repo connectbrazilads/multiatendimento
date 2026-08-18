@@ -97,6 +97,8 @@ function normalizeContract(record) {
   const franchiseValue = asNumber(rawValue(payload, 'franchiseValue', 'valor_franquia', 'valfranquia')) || 0;
   const informedMonthlyValue = asNumber(rawValue(payload, 'monthlyValue'));
   const monthlyValue = informedMonthlyValue ?? (fixedValue + franchiseValue);
+  const overageRateMin = asNumber(rawValue(payload, 'overageRateMin', 'min_excedente')) || 0;
+  const overageRateMax = asNumber(rawValue(payload, 'overageRateMax', 'max_excedente')) || 0;
   return {
     id: record?.id || null,
     externalId: first(record?.externalId, rawValue(payload, 'externalId', 'seqcontrato')),
@@ -113,7 +115,8 @@ function normalizeContract(record) {
     totalValue,
     equipmentCount: asNumber(rawValue(payload, 'equipmentCount', 'qt_equipamentos')) || 0,
     pageFranchise: asNumber(rawValue(payload, 'pageFranchise', 'qt_franquia')) || 0,
-    overageValue: asNumber(rawValue(payload, 'overageValue', 'val_excedente')) || 0,
+    overageRateMin,
+    overageRateMax,
     billingMode: first(rawValue(payload, 'billingMode', 'billing_mode')),
     startsAt,
     endsAt,

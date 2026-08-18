@@ -1042,6 +1042,13 @@ function ContractsTab({ contracts }) {
         const active = isContractActive(contract);
         const equipmentCount = Number(pick(contract, 'equipmentCount', 'equipmentsCount') || contract.equipments?.length || 0);
         const pageFranchise = Number(pick(contract, 'pageFranchise') || 0);
+        const overageMin = Number(pick(contract, 'overageRateMin') || 0);
+        const overageMax = Number(pick(contract, 'overageRateMax') || 0);
+        const overageLabel = overageMax <= 0
+          ? '—'
+          : overageMin === overageMax
+            ? `${formatCurrency(overageMax)} / página`
+            : `${formatCurrency(overageMin)} a ${formatCurrency(overageMax)} / página`;
         const billingModeLabel = { fixo: 'Fixo', contador: 'Por contador', misto: 'Misto' }[pick(contract, 'billingMode')] || '—';
         return (
           <article key={contract.id || contract.externalId || index} style={s.contractCard}>
@@ -1059,7 +1066,7 @@ function ContractsTab({ contracts }) {
               <Info label="Valor fixo" value={formatCurrency(pick(contract, 'fixedValue'))} />
               <Info label="Franquia" value={formatCurrency(pick(contract, 'franchiseValue'))} />
               <Info label="Franquia de páginas" value={pageFranchise > 0 ? `${pageFranchise.toLocaleString('pt-BR')} páginas` : 'Sem franquia'} />
-              <Info label="Valor do excedente" value={formatCurrency(pick(contract, 'overageValue'))} />
+              <Info label="Valor do excedente" value={overageLabel} />
               <Info label="Faturamento" value={billingModeLabel} />
               <Info label="Equipamentos" value={`${equipmentCount} vinculado${equipmentCount === 1 ? '' : 's'}`} />
               <Info label="Tipo" value={pick(contract, 'typeName', 'contractType', 'type')} />
