@@ -73,11 +73,43 @@ Forçar ressincronização completa:
 FirebirdCRMClient.exe --once --full
 ```
 
+## Iniciar sozinho mesmo sem login após reiniciar o servidor
+
+A opção **"Iniciar o agente com o Windows"** (dentro da aba Sincronização) usa a pasta
+"Inicializar" do Windows — ela só dispara quando alguém efetivamente faz login naquela
+conta. Se o servidor exige login manual após reiniciar, o agente fica parado até
+alguém entrar, mesmo com essa opção marcada.
+
+Para o agente subir sozinho **mesmo sem ninguém logar**, use o Agendador de Tarefas do
+Windows em vez da pasta Inicializar:
+
+```powershell
+# Como Administrador, dentro da pasta do agente:
+.\install-scheduled-task.ps1
+```
+
+O script pede o usuário/senha do Windows que o agente já usa hoje (precisa ser o
+mesmo, para manter o acesso à rede/pasta do Firebird e às pastas financeiras), cria
+uma tarefa que dispara na inicialização do sistema — "executando estando o usuário
+conectado ou não" — e remove o atalho antigo da pasta Inicializar, se existir (os
+dois juntos fariam o agente abrir duas vezes ao mesmo tempo).
+
+Detalhes importantes:
+- Nesse modo o ícone da bandeja não aparece, mesmo que alguém faça login depois — o
+  processo roda numa sessão separada, de propósito. Para conferir se está rodando,
+  olhe `logs/client.log` ou procure `FirebirdCRMClient.exe` no Gerenciador de Tarefas.
+- Não abra o agente manualmente (duplo clique) enquanto essa tarefa estiver ativa —
+  os dois processos disputariam o mesmo `state.json` e o mesmo log. Pare a tarefa
+  antes (`Stop-ScheduledTask -TaskName "AgenteCRM iLux"`) se precisar mexer na tela.
+- Para testar sem esperar reiniciar o servidor: `Start-ScheduledTask -TaskName "AgenteCRM iLux"`.
+- Para remover: `.\uninstall-scheduled-task.ps1` (também como Administrador).
+
 ## Notas de segurança
 
 - O client só faz conexão de saída para a VPS
 - O token enviado em `CRM_SYNC_TOKEN` precisa ser igual ao configurado no CRM
-- Se quiser, este processo pode ser colocado no Agendador do Windows ou em um Windows Service
+- A senha usada pelo Agendador de Tarefas fica protegida pelo próprio Windows, não em
+  texto puro — mais seguro que configurar login automático do Windows para esse fim
 - Os arquivos antigos de log ficam em `logs/client.log.1`, `logs/client.log.2` e assim por diante, até o limite configurado
 
 ## Dados usados no CRM 360
