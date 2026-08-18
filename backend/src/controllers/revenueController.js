@@ -51,10 +51,25 @@ async function getRevenueDashboard(req, res) {
         openedAt,
         closedAt,
         clientExternalId: String(raw.cdcliente || p.clientExternalId || ''),
+        clientName: String(raw.nmcliente || p.clientName || ''),
         technician: raw.nmsuportet || raw.nmsuportel || p.technician || '',
         equipmentId: String(raw.cdequipamento || p.equipmentExternalId || ''),
       };
     });
+
+    // Calcular o Tempo Médio em Aberto (em horas) para O.S. ativas
+    const activeOS = classified.filter(o => o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO');
+    let totalOpenHours = 0;
+    let activeOSCount = 0;
+    const now = Date.now();
+    for (const o of activeOS) {
+      if (o.openedAt) {
+        totalOpenHours += (now - o.openedAt.getTime()) / (1000 * 60 * 60);
+        activeOSCount++;
+      }
+    }
+    const averageOpenTimeHours = activeOSCount > 0 ? totalOpenHours / activeOSCount : 0;
+
 
     // ───────────────────────────────────────────────────────────────
     // 2. FUNIL DE ATENDIMENTO (dados reais do iLux)
@@ -74,15 +89,43 @@ async function getRevenueDashboard(req, res) {
     const uniqueClientsAtRisk = [...new Set(criticalOS.map(o => o.clientExternalId).filter(Boolean))];
 
     let mrrInRisk = 0;
+    const mrrRiskBands = { band1to3: 0, band3to7: 0, bandOver7: 0 };
+    let clientsAtRiskList = [];
+
     for (const clientExtId of uniqueClientsAtRisk) {
       try {
         const contracts = await crmController.loadContracts(tenantId, clientExtId);
         const activeContracts = contracts.filter(c => c.isActive);
         if (activeContracts.length > 0) {
-          mrrInRisk += activeContracts.reduce((sum, c) => sum + (c.monthlyValue || 0), 0);
+          const clientMRR = activeContracts.reduce((sum, c) => sum + (c.monthlyValue || 0), 0);
+          mrrInRisk += clientMRR;
+
+          // Encontrar a O.S. mais antiga pendente deste cliente
+          const clientOSs = criticalOS.filter(o => o.clientExternalId === clientExtId);
+          clientOSs.sort((a, b) => a.openedAt.getTime() - b.openedAt.getTime());
+          const oldestOS = clientOSs[0];
+          const daysLate = (Date.now() - oldestOS.openedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+          // Agrupar nas faixas
+          if (daysLate <= 3) mrrRiskBands.band1to3 += clientMRR;
+          else if (daysLate <= 7) mrrRiskBands.band3to7 += clientMRR;
+          else mrrRiskBands.bandOver7 += clientMRR;
+
+          clientsAtRiskList.push({
+            clientExternalId: clientExtId,
+            clientName: oldestOS.clientName || `Cliente #${clientExtId}`,
+            mrr: clientMRR,
+            daysLate: daysLate,
+            oldestOSExternalId: oldestOS.externalId
+          });
         }
       } catch (_err) { /* ignora erro individual */ }
     }
+
+    // Ordenar ranking pelos de maior MRR
+    clientsAtRiskList.sort((a, b) => b.mrr - a.mrr);
+    const rankingClientsAtRisk = clientsAtRiskList.slice(0, 10);
+
 
     // ───────────────────────────────────────────────────────────────
     // 4. GARGALOS CRÍTICOS (dados reais do Firebird)
@@ -107,6 +150,9 @@ async function getRevenueDashboard(req, res) {
     res.json({
       receitaEmRiscoHoje: mrrInRisk,
       mrrInRisk,
+      mrrRiskBands,
+      averageOpenTimeHours,
+      rankingClientsAtRisk,
       stalledEstimates: 0,
       stalledEstimatesCount: aguardando.length,
       kpis: { kpiSlaLimitHours },

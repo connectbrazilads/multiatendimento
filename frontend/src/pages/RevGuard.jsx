@@ -271,15 +271,33 @@ export default function RevGuard() {
               </div>
 
               <div 
-                style={{ ...s.kpiCard, cursor: 'pointer' }}
+                style={{ ...s.kpiCard, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
                 onClick={() => handleOpenDrilldown('mrr_risk', 'MRR Sob Risco (Detalhado)')}
               >
-                <div style={{ ...s.kpiIcon, color: '#3b82f6' }}><Coins size={22} /></div>
-                <div style={s.kpiContent}>
-                  <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
-                  <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
-                  <span style={s.kpiHint}>Baseado nos valores reais dos contratos (Firebird)</span>
+                <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                  <div style={{ ...s.kpiIcon, color: '#3b82f6' }}><Coins size={22} /></div>
+                  <div style={s.kpiContent}>
+                    <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
+                    <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
+                    <span style={s.kpiHint}>Baseado nos contratos (Firebird)</span>
+                  </div>
                 </div>
+                {crisisData.mrrRiskBands && (
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #10b981' }}>
+                      <div style={{ color: 'var(--text-dim)' }}>1-3 dias</div>
+                      <div style={{ color: '#fff', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.band1to3)}</div>
+                    </div>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #f59e0b' }}>
+                      <div style={{ color: 'var(--text-dim)' }}>3-7 dias</div>
+                      <div style={{ color: '#fff', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.band3to7)}</div>
+                    </div>
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #ef4444' }}>
+                      <div style={{ color: 'var(--text-dim)' }}>+7 dias</div>
+                      <div style={{ color: '#fff', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.bandOver7)}</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div 
@@ -291,6 +309,15 @@ export default function RevGuard() {
                   <span style={s.kpiLabel}>Orçamentos Avulsos Parados</span>
                   <span style={s.kpiValue}>{crisisData.stalledEstimatesCount ?? 0} O.S.</span>
                   <span style={s.kpiHint}>Aguardando aprovação do cliente (iLux)</span>
+                </div>
+              </div>
+
+              <div style={s.kpiCard}>
+                <div style={{ ...s.kpiIcon, color: '#8b5cf6' }}><Clock size={22} /></div>
+                <div style={s.kpiContent}>
+                  <span style={s.kpiLabel}>Tempo Médio em Aberto</span>
+                  <span style={s.kpiValue}>{crisisData.averageOpenTimeHours ? (crisisData.averageOpenTimeHours > 24 ? (crisisData.averageOpenTimeHours/24).toFixed(1) + ' dias' : crisisData.averageOpenTimeHours.toFixed(1) + ' horas') : '0 h'}</span>
+                  <span style={s.kpiHint}>Média geral de tempo para O.S. ativas</span>
                 </div>
               </div>
             </div>
@@ -372,6 +399,56 @@ export default function RevGuard() {
                 </div>
               </div>
             </div>
+
+            {/* Ranking dos Clientes em Risco */}
+            {crisisData.rankingClientsAtRisk && crisisData.rankingClientsAtRisk.length > 0 && (
+              <div style={s.chartSection}>
+                <div style={s.sectionHeader}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={20} color="#ef4444" />
+                    <h2 style={s.sectionTitle}>Ranking: Top 10 Clientes em Risco de Cancelamento</h2>
+                  </div>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>
+                        <th style={s.th}>Cliente</th>
+                        <th style={s.th}>MRR Ameaçado</th>
+                        <th style={s.th}>Maior Atraso</th>
+                        <th style={s.th}>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {crisisData.rankingClientsAtRisk.map((client, i) => (
+                        <tr key={client.clientExternalId} style={s.tr}>
+                          <td style={s.tdClientName}>
+                            <span style={{ fontWeight: '600' }}>#{i+1} {client.clientName}</span>
+                          </td>
+                          <td style={{ ...s.td, color: '#ef4444', fontWeight: 'bold' }}>
+                            {formatCurrency(client.mrr)}
+                          </td>
+                          <td style={s.td}>
+                            {client.daysLate.toFixed(1)} dias
+                          </td>
+                          <td style={s.td}>
+                            {client.oldestOSExternalId && (
+                              <button 
+                                style={{ ...s.actionBtn, background: 'var(--accent)', padding: '4px 12px' }} 
+                                onClick={() => window.open(`/service-orders?os=${client.oldestOSExternalId}`, '_blank')}
+                              >
+                                Ver O.S. mais antiga
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
           </div>
         )
       )}
