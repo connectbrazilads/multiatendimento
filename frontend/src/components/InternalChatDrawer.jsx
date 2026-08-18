@@ -71,7 +71,7 @@ export default function InternalChatDrawer({ isOpen, onClose }) {
       setText('');
     } catch (err) {
       console.error('[chat] erro ao enviar:', err.response?.data || err.message);
-      toast.error('Falha ao enviar mensagem: ' + (err.response?.data?.error || err.message));
+      toast.error('Falha ao enviar mensagem: ' + (err.response?.data?.error || err.message) + '. Tente novamente.');
     }
   }
 

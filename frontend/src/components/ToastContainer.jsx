@@ -35,10 +35,10 @@ export default function ToastContainer() {
   };
 
   const colors = {
-    success: { border: 'rgba(16, 185, 129, 0.28)', icon: '#10b981' },
-    error: { border: 'rgba(229, 62, 62, 0.28)', icon: '#e53e3e' },
-    warning: { border: 'rgba(245, 158, 11, 0.28)', icon: '#f59e0b' },
-    info: { border: 'rgba(212, 175, 55, 0.25)', icon: 'var(--accent)' },
+    success: { border: 'var(--success-border, rgba(16, 185, 129, 0.28))', icon: 'var(--success, #10b981)' },
+    error: { border: 'var(--danger-border, rgba(229, 62, 62, 0.28))', icon: 'var(--danger, #e53e3e)' },
+    warning: { border: 'var(--warning-border, rgba(245, 158, 11, 0.28))', icon: 'var(--warning, #f59e0b)' },
+    info: { border: 'var(--info-border, rgba(212, 175, 55, 0.25))', icon: 'var(--accent, #D4AF37)' },
   };
 
   return (
@@ -62,7 +62,7 @@ export default function ToastContainer() {
         <ModalShell kicker="Confirmacao" title="Confirmar acao" onClose={() => setConfirm(null)} maxWidth="28rem">
           <div style={s.confirmBody}>
             <div style={s.confirmIconBox}>
-              <AlertCircle size={22} color="#e53e3e" />
+              <AlertCircle size={22} color="var(--danger)" />
             </div>
             <p style={s.confirmText}>{confirm.message}</p>
             <div style={s.confirmActions}>

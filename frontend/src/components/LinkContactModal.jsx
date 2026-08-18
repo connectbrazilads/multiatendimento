@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Search, UserPlus, Link2 } from 'lucide-react';
+import { toast } from '../utils/toast';
 
 export default function LinkContactModal({ onClose, onLink }) {
   const [search, setSearch] = useState('');
@@ -23,6 +24,7 @@ export default function LinkContactModal({ onClose, onLink }) {
       setContacts(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error(e);
+      toast.error('Erro ao buscar clientes. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -39,9 +41,9 @@ export default function LinkContactModal({ onClose, onLink }) {
     list: { maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
     item: { padding: '12px', borderRadius: '12px', background: 'var(--bg-base)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'all 0.2s' },
     itemHover: { borderColor: 'var(--accent)', background: 'rgba(212,175,55,0.05)' },
-    name: { fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' },
+    name: { fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
     phone: { fontSize: '0.75rem', color: 'var(--text-muted)' },
-    linkBtn: { background: 'var(--accent)', color: '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' },
+    linkBtn: { background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' },
     empty: { textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.9rem' },
     closeBtn: { background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 600, marginTop: '16px', cursor: 'pointer', alignSelf: 'center' }
   };
