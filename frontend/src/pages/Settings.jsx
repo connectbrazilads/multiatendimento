@@ -23,14 +23,14 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'iLux Sentinela', 'Minha conta', 'Agente Local'];
+const TABS = ['Robô IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rápidas', 'Etiquetas', 'iLux Sentinela', 'Minha conta', 'Agente Local'];
 const TAB_GROUPS = [
   { label: 'Automação', indexes: [0, 1, 5, 6] },
   { label: 'Equipe', indexes: [2, 3] },
   { label: 'Negócio', indexes: [4, 7] },
   { label: 'Sistema', indexes: [8, 9] },
 ];
-const DAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
+const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default function Settings() {
   const isMobile = window.innerWidth <= 768;
@@ -160,7 +160,7 @@ export default function Settings() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-      toast.success('Configuracoes salvas');
+      toast.success('Configurações salvas');
     } catch (err) {
       const message = err.response?.data?.error || err.message || 'Backend indisponivel';
       setSaveError(`Erro ao salvar: ${message}`);
@@ -193,20 +193,20 @@ export default function Settings() {
       setQuickResponses([...quickResponses, data]);
       setNewQuick({ shortcut: '', message: '' });
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao adicionar resposta rapida');
+      toast.error(err.response?.data?.error || 'Erro ao adicionar resposta rápida');
     } finally {
       setAddingQuick(false);
     }
   }
 
   async function handleDeleteQuick(id, shortcut) {
-    toast.confirm(`Excluir a resposta rapida "${shortcut || ''}"?`, async () => {
+    toast.confirm(`Excluir a resposta rápida "${shortcut || ''}"?`, async () => {
       try {
         await deleteQuickResponse(id);
         setQuickResponses(quickResponses.filter((item) => item.id !== id));
-        toast.success('Resposta excluida');
+        toast.success('Resposta excluída');
       } catch {
-        toast.error('Erro ao excluir resposta rapida');
+        toast.error('Erro ao excluir resposta rápida');
       }
     });
   }
@@ -246,9 +246,9 @@ export default function Settings() {
     setTestingIntegration(true);
     try {
       const { data } = await testFirebirdConnection();
-      toast.success(data?.message || 'Conexao com a API da empresa confirmada');
+      toast.success(data?.message || 'Conexão com a API da empresa confirmada');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao testar a conexao');
+      toast.error(err.response?.data?.error || 'Erro ao testar a conexão');
     } finally {
       setTestingIntegration(false);
     }
@@ -258,7 +258,7 @@ export default function Settings() {
     setSyncingIntegration(true);
     try {
       const { data } = await syncFirebirdContacts({ force: true });
-      toast.success(`Sincronizacao concluida: ${data.created || 0} novos, ${data.updated || 0} atualizados.`);
+      toast.success(`Sincronização concluída: ${data.created || 0} novos, ${data.updated || 0} atualizados.`);
       setForm((current) => ({
         ...current,
         firebirdLastSyncAt: new Date().toISOString(),
@@ -286,7 +286,7 @@ export default function Settings() {
     window.crypto.getRandomValues(bytes);
     const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
     setForm((current) => ({ ...current, firebirdClientToken: token }));
-    toast.success('Token do agent gerado. Salve a integracao para ativar.');
+    toast.success('Token do agente gerado. Salve a integração para ativar.');
   }
 
   function handleCopyToken() {
@@ -303,7 +303,7 @@ export default function Settings() {
       try {
         await deleteTag(id);
         setTags(tags.filter((item) => item.id !== id));
-        toast.success('Etiqueta excluida');
+        toast.success('Etiqueta excluída');
       } catch {
         toast.error('Erro ao excluir etiqueta');
       }
@@ -332,9 +332,9 @@ export default function Settings() {
     <div className="settings-container" style={s.container}>
       <style>{settingsResponsiveCss}</style>
       <div className="settings-header" style={s.header}>
-        <p style={s.kicker}>Preferencias</p>
-        <h2 className="settings-title" style={s.title}>Configuracoes</h2>
-        <div className="settings-subtitle" style={s.subtitle}>Gerencie o robo, as operacoes do atendimento e os dados da empresa.</div>
+        <p style={s.kicker}>Preferências</p>
+        <h2 className="settings-title" style={s.title}>Configurações</h2>
+        <div className="settings-subtitle" style={s.subtitle}>Gerencie o robô, as operações do atendimento e os dados da empresa.</div>
       </div>
 
       <nav className="settings-nav" style={s.tabs} aria-label="Seções das configurações">
@@ -369,7 +369,7 @@ export default function Settings() {
       {tab === 0 && (
         <div style={s.sections}>
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Configuracoes gerais</h2>
+            <h2 style={s.cardTitle}>Configurações gerais</h2>
             <form onSubmit={handleSave} style={s.form}>
               {isAdmin && (
                 <>
@@ -397,13 +397,13 @@ export default function Settings() {
               )}
 
               <div style={s.field}>
-                <label style={s.label}>Habilitar robo de IA</label>
+                <label style={s.label}>Habilitar robô de IA</label>
                 <div style={s.toggleCard}>
                   <div style={s.toggleInfo}>
                     <span style={{ ...s.toggleStatus, color: form.botEnabled ? 'var(--accent)' : 'var(--text-dim)' }}>
-                      {form.botEnabled ? 'Robo ativo' : 'Robo desligado'}
+                      {form.botEnabled ? 'Robô ativo' : 'Robô desligado'}
                     </span>
-                    <p style={s.toggleHint}>O robo respondera automaticamente tickets sem atendente.</p>
+                    <p style={s.toggleHint}>O robô responderá automaticamente tickets sem atendente.</p>
                   </div>
                   <input
                     type="checkbox"
@@ -415,7 +415,7 @@ export default function Settings() {
               </div>
 
               <div style={s.field}>
-                <label style={s.label}>Nome do robo</label>
+                <label style={s.label}>Nome do robô</label>
                 <input
                   style={s.input}
                   value={form.botName}
@@ -456,10 +456,10 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
                   placeholder="https://seu-crm.com/api/webhook"
                 />
-                <p style={s.hint}>Disparado quando um atendimento e encerrado.</p>
+                <p style={s.hint}>Disparado quando um atendimento é encerrado.</p>
               </div>
 
-              <button style={s.saveBtn} disabled={saving}>{saving ? 'Salvando...' : 'Salvar alteracoes'}</button>
+              <button style={s.saveBtn} disabled={saving}>{saving ? 'Salvando...' : 'Salvar alterações'}</button>
             </form>
           </div>
 
@@ -467,18 +467,18 @@ export default function Settings() {
             <h2 style={s.cardTitle}>Comportamento da IA</h2>
             <div style={s.form}>
               <div style={s.field}>
-                <label style={s.label}>Instrucoes do sistema (system prompt)</label>
+                <label style={s.label}>Instruções do sistema (system prompt)</label>
                 <textarea
                   style={{ ...s.input, minHeight: '120px', resize: 'vertical' }}
                   value={form.systemPrompt}
                   onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
-                  placeholder="Ex: Voce e um atendente cordial da clinica X. Seu objetivo e agendar consultas..."
+                  placeholder="Ex: Você é um atendente cordial da clínica X. Seu objetivo é agendar consultas..."
                 />
-                <p style={s.hint}>Defina personalidade e contexto para o robo.</p>
+                <p style={s.hint}>Defina personalidade e contexto para o robô.</p>
               </div>
 
               <div style={s.field}>
-                <label style={s.label}>Palavra-chave de transferencia</label>
+                <label style={s.label}>Palavra-chave de transferência</label>
                 <input
                   style={s.input}
                   value={form.transferKeyword}
@@ -499,7 +499,7 @@ export default function Settings() {
       {tab === 1 && (
         <div style={s.sections}>
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Horario de atendimento</h2>
+            <h2 style={s.cardTitle}>Horário de atendimento</h2>
             <div style={s.form}>
               {hours.map((hour, index) => (
                 <div
@@ -555,7 +555,7 @@ export default function Settings() {
           </div>
 
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Mensagem de ausencia</h2>
+            <h2 style={s.cardTitle}>Mensagem de ausência</h2>
             <div style={s.form}>
               <div style={s.field}>
                 <label style={s.label}>Texto automatico</label>
@@ -563,9 +563,9 @@ export default function Settings() {
                   style={{ ...s.input, minHeight: '120px' }}
                   value={form.outOfOfficeMessage}
                   onChange={(e) => setForm({ ...form, outOfOfficeMessage: e.target.value })}
-                  placeholder="Ola! No momento nossa equipe esta descansando. Deixe sua duvida que responderemos em breve..."
+                  placeholder="Olá! No momento nossa equipe está descansando. Deixe sua dúvida que responderemos em breve..."
                 />
-                <p style={s.hint}>Enviada automaticamente fora do horario comercial.</p>
+                <p style={s.hint}>Enviada automaticamente fora do horário comercial.</p>
               </div>
 
               <div style={s.field}>
@@ -576,11 +576,11 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, notificationPhone: e.target.value })}
                   placeholder="5511999999999"
                 />
-                <p style={s.hint}>Voce recebera avisos tecnicos neste numero.</p>
+                <p style={s.hint}>Você receberá avisos técnicos neste número.</p>
               </div>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar configuracoes de ausencia'}
+                {saving ? 'Salvando...' : 'Salvar configurações de ausência'}
               </button>
             </div>
           </div>
@@ -645,7 +645,7 @@ export default function Settings() {
           </div>
 
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Pesquisa de satisfacao (CSAT)</h2>
+            <h2 style={s.cardTitle}>Pesquisa de satisfação (CSAT)</h2>
             <div style={s.form}>
               <div style={s.field}>
                 <label style={s.label}>Habilitar avaliacao ao encerrar</label>
@@ -654,7 +654,7 @@ export default function Settings() {
                     <span style={{ ...s.toggleStatus, color: form.ratingEnabled ? 'var(--accent)' : 'var(--text-dim)' }}>
                       {form.ratingEnabled ? 'Ativa' : 'Desativada'}
                     </span>
-                    <p style={s.toggleHint}>O cliente recebera uma pergunta de 1 a 5 apos o encerramento.</p>
+                    <p style={s.toggleHint}>O cliente receberá uma pergunta de 1 a 5 após o encerramento.</p>
                   </div>
                   <input
                     type="checkbox"
@@ -666,18 +666,18 @@ export default function Settings() {
               </div>
 
               <div style={s.field}>
-                <label style={s.label}>Mensagem de avaliacao</label>
+                <label style={s.label}>Mensagem de avaliação</label>
                 <textarea
                   style={{ ...s.input, minHeight: '80px' }}
                   value={form.ratingMessage}
                   onChange={(e) => setForm({ ...form, ratingMessage: e.target.value })}
-                  placeholder="Como voce avalia nosso atendimento de 1 a 5?"
+                  placeholder="Como você avalia nosso atendimento de 1 a 5?"
                 />
-                <p style={s.hint}>Use numeros de 1 a 5 para que o sistema identifique a nota.</p>
+                <p style={s.hint}>Use números de 1 a 5 para que o sistema identifique a nota.</p>
               </div>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar configuracoes CSAT'}
+                {saving ? 'Salvando...' : 'Salvar configurações CSAT'}
               </button>
             </div>
           </div>
@@ -693,7 +693,7 @@ export default function Settings() {
             <h2 style={s.cardTitle}>Dados da empresa</h2>
             <div style={s.form}>
               <div style={s.field}>
-                <label style={s.label}>Razao social / nome da empresa</label>
+                <label style={s.label}>Razão social / nome da empresa</label>
                 <input
                   style={s.input}
                   value={form.companyName}
@@ -713,7 +713,7 @@ export default function Settings() {
                   />
                 </div>
                 <div style={{ ...s.field, flex: 1 }}>
-                  <label style={s.label}>Inscricao estadual</label>
+                  <label style={s.label}>Inscrição estadual</label>
                   <input
                     style={s.input}
                     value={form.companyIE}
@@ -725,7 +725,7 @@ export default function Settings() {
 
               <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobile ? 'column' : 'row' }}>
                 <div style={{ ...s.field, flex: 2 }}>
-                  <label style={s.label}>Endereco (rua e numero)</label>
+                  <label style={s.label}>Endereço (rua e número)</label>
                   <input
                     style={s.input}
                     value={form.companyAddress}
@@ -1065,7 +1065,7 @@ export default function Settings() {
                   </div>
 
               <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar configuracoes do agente local'}
+                {saving ? 'Salvando...' : 'Salvar configurações do agente local'}
               </button>
             </div>
           </div>
@@ -1242,6 +1242,7 @@ const s = {
     transition: 'all 0.2s',
     fontWeight: 800,
     whiteSpace: 'nowrap',
+    outline: 'none',
   },
   tabActive: { color: 'var(--text-main)', borderColor: 'var(--accent-border)', background: 'var(--accent-light)' },
   mobileSelectWrap: { gap: '0.35rem' },
