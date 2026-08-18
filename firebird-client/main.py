@@ -849,8 +849,15 @@ class FirebirdRepository:
             from IXLCONTRATOS ct
             left join ICLIENTESPRODCONT tp on tp.CDCONTRATOTP = ct.CDCONTRATOTP
             left join (
+                -- IXLCONTRATOSIT guarda o historico completo de instalacao: uma linha
+                -- por equipamento que ja passou pelo contrato. Quando o equipamento
+                -- ainda esta instalado, DTINSTALACAOFIN vem igual a data de fim do
+                -- proprio contrato (nao null); quando foi removido de verdade, vem
+                -- com uma data real no passado. Sem esse filtro, "equipamentos
+                -- vinculados" conta tambem equipamentos ja devolvidos/trocados.
                 select SEQCONTRATO, count(distinct CDEQUIPAMENTO) as QT_EQUIPAMENTOS
                 from IXLCONTRATOSIT
+                where DTINSTALACAOFIN is null or DTINSTALACAOFIN >= CURRENT_DATE
                 group by SEQCONTRATO
             ) it on it.SEQCONTRATO = ct.SEQCONTRATO
             left join (
@@ -2274,11 +2281,13 @@ def run_cycle(
 ) -> None:
     repo = FirebirdRepository(config)
     crm = CRMClient(config)
-    # v3: passou a trazer franquia de paginas, valor do excedente e o modo de
-    # faturamento (fixo/contador/misto) por contrato. Sem o bump, contratos ja
-    # sincronizados antes dessa mudanca (a maioria) nunca receberiam esses 3
-    # campos -- so contratos novos, criados depois do cursor atual, teriam.
-    contract_details_version = 3
+    # v4: "equipamentos vinculados" contava todo equipamento que ja passou pelo
+    # contrato (IXLCONTRATOSIT sem filtro), incluindo os ja devolvidos/trocados
+    # -- agora so conta quem ainda esta instalado (DTINSTALACAOFIN nulo ou >=
+    # hoje). Validado contra producao: 6 de 15 contratos amostrados mudam de
+    # valor com essa correcao. v3: trouxe franquia de paginas, valor do
+    # excedente e o modo de faturamento (fixo/contador/misto).
+    contract_details_version = 4
     receivable_details_version = 2
     refresh_contract_details = int(state.data.get("contract_details_version", 0) or 0) < contract_details_version
     refresh_receivable_details = int(state.data.get("receivable_details_version", 0) or 0) < receivable_details_version
