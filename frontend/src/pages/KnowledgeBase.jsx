@@ -14,6 +14,8 @@ export default function KnowledgeBase() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ question: '', answer: '', tags: '' });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -25,6 +27,7 @@ export default function KnowledgeBase() {
       setData(res.data);
     } catch (e) {
       console.error(e);
+      toast.error('Erro ao carregar a base de conhecimento. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -32,6 +35,8 @@ export default function KnowledgeBase() {
 
   async function handleSave(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       if (editing) {
         await updateKnowledge(editing.id, form);
@@ -43,18 +48,24 @@ export default function KnowledgeBase() {
       setForm({ question: '', answer: '', tags: '' });
       load();
     } catch (e) {
-      toast.info('Erro ao salvar');
+      toast.error(editing ? 'Erro ao atualizar o conhecimento. Tente novamente.' : 'Erro ao cadastrar o conhecimento. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function handleDelete(id) {
-    toast.confirm('Excluir este conhecimento?', async () => {
+  async function handleDelete(item) {
+    const label = item.question && item.question.length > 80 ? `${item.question.slice(0, 80)}...` : item.question;
+    toast.confirm(`Excluir "${label}"? Essa acao nao pode ser desfeita.`, async () => {
+      setDeletingId(item.id);
       try {
-        await deleteKnowledge(id);
+        await deleteKnowledge(item.id);
         load();
         toast.success('Conhecimento excluido');
       } catch (e) {
-        toast.error('Erro ao excluir');
+        toast.error('Erro ao excluir o conhecimento. Tente novamente.');
+      } finally {
+        setDeletingId(null);
       }
     });
   }
@@ -92,25 +103,35 @@ export default function KnowledgeBase() {
           {data.map((item) => (
             <SurfaceCard key={item.id} style={s.card}>
               <div style={s.cardStatus}>
-                <span style={{ ...s.statusDot, background: item.active ? '#48bb78' : 'var(--text-dim)' }} />
+                <span style={{ ...s.statusDot, background: item.active ? 'var(--success)' : 'var(--text-dim)' }} />
                 {item.active ? 'Ativo' : 'Inativo'}
               </div>
-              <h3 style={s.cardTitle}>{item.question}</h3>
-              <p style={s.cardAnswer}>{item.answer}</p>
+              <h3 style={s.cardTitle} title={item.question}>{item.question}</h3>
+              <p style={s.cardAnswer} title={item.answer}>{item.answer}</p>
               {item.tags ? (
                 <div style={s.tags}>
                   {item.tags.split(',').map((tag) => (
-                    <span key={tag} style={s.tag}>
+                    <span key={tag} style={s.tag} title={tag.trim()}>
                       {tag.trim()}
                     </span>
                   ))}
                 </div>
               ) : null}
               <div style={s.cardActions}>
-                <ActionButton variant="secondary" style={s.actionBtn} onClick={() => openEdit(item)}>
+                <ActionButton
+                  variant="secondary"
+                  style={s.actionBtn}
+                  disabled={deletingId === item.id}
+                  onClick={() => openEdit(item)}
+                >
                   Editar
                 </ActionButton>
-                <ActionButton variant="danger" style={s.actionBtn} onClick={() => handleDelete(item.id)}>
+                <ActionButton
+                  variant="danger"
+                  style={s.actionBtn}
+                  loading={deletingId === item.id}
+                  onClick={() => handleDelete(item)}
+                >
                   Excluir
                 </ActionButton>
               </div>
@@ -122,6 +143,12 @@ export default function KnowledgeBase() {
               icon={<BookOpen size={22} />}
               title="Nenhum conhecimento cadastrado"
               description="Cadastre perguntas frequentes, processos e respostas padrao para orientar a IA."
+              action={
+                <ActionButton onClick={openCreate}>
+                  <Plus size={18} />
+                  Novo conhecimento
+                </ActionButton>
+              }
               style={{ gridColumn: '1 / -1' }}
             />
           ) : null}
@@ -163,10 +190,10 @@ export default function KnowledgeBase() {
             />
 
             <div style={s.modalFooter}>
-              <ActionButton variant="secondary" onClick={() => setShowModal(false)}>
+              <ActionButton variant="secondary" onClick={() => setShowModal(false)} disabled={saving}>
                 Cancelar
               </ActionButton>
-              <ActionButton type="submit">Salvar conhecimento</ActionButton>
+              <ActionButton type="submit" loading={saving}>Salvar conhecimento</ActionButton>
             </div>
           </form>
         </ModalShell>
@@ -177,54 +204,74 @@ export default function KnowledgeBase() {
 
 const s = {
   page: {
-    padding: '2.5rem',
+    padding: 'var(--space-10)',
     background: 'var(--bg-base)',
     flex: 1,
     overflowY: 'auto',
     color: 'var(--text-main)',
     minHeight: '100%',
   },
-  loading: { textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' },
-  card: { display: 'flex', flexDirection: 'column', gap: '1rem', minHeight: '100%' },
+  loading: { textAlign: 'center', padding: 'var(--space-12)', color: 'var(--text-muted)' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 'var(--space-6)' },
+  card: { display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minHeight: '100%', minWidth: 0 },
   cardStatus: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    fontSize: '0.72rem',
+    gap: 'var(--space-2)',
+    fontSize: 'var(--text-xs)',
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
     fontWeight: 800,
     letterSpacing: '0.06em',
   },
-  statusDot: { width: 8, height: 8, borderRadius: '50%' },
-  cardTitle: { margin: 0, fontSize: '1.08rem', fontWeight: 800, color: 'var(--text-main)' },
+  statusDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
+  cardTitle: {
+    margin: 0,
+    fontSize: 'var(--text-lg)',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    overflowWrap: 'break-word',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  },
   cardAnswer: {
     color: 'var(--text-muted)',
-    fontSize: '0.92rem',
-    lineHeight: '1.65',
+    fontSize: 'var(--text-sm)',
+    lineHeight: 'var(--leading-relaxed)',
     flex: 1,
     margin: 0,
+    overflowWrap: 'break-word',
     display: '-webkit-box',
     WebkitLineClamp: 4,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
   },
-  tags: { display: 'flex', flexWrap: 'wrap', gap: '6px' },
+  tags: { display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' },
   tag: {
     background: 'var(--accent-light)',
     color: 'var(--accent)',
-    padding: '2px 8px',
+    padding: '2px var(--space-2)',
     borderRadius: '999px',
-    fontSize: '0.68rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     border: '1px solid var(--accent-border)',
+    maxWidth: '12rem',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
-  cardActions: { display: 'flex', gap: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' },
+  cardActions: {
+    display: 'flex',
+    gap: 'var(--space-3)',
+    borderTop: '1px solid var(--border-color)',
+    paddingTop: 'var(--space-4)',
+  },
   actionBtn: { minWidth: '6rem' },
-  modalBody: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
+  modalBody: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' },
   label: {
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
@@ -234,14 +281,14 @@ const s = {
     width: '100%',
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
-    padding: '1rem',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
     boxSizing: 'border-box',
     fontFamily: 'inherit',
-    lineHeight: 1.6,
+    lineHeight: 'var(--leading-relaxed)',
   },
-  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '0.5rem' },
+  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: 'var(--space-2)' },
 };
