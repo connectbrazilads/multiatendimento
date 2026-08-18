@@ -167,7 +167,7 @@ export default function SuperAdmin() {
         <SurfaceCard style={s.statCard}>
           <Users size={18} style={s.statIcon} />
           <div style={{ ...s.statVal, color: 'var(--accent)' }}>{stats.totalUsers}</div>
-          <div style={s.statLabel}>Usuarios totais</div>
+          <div style={s.statLabel}>Usuários totais</div>
         </SurfaceCard>
       </div>
 
@@ -189,7 +189,7 @@ export default function SuperAdmin() {
                 <th style={s.th}>Plano</th>
                 <th style={s.th}>Limites</th>
                 <th style={s.th}>Status</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Acoes</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>

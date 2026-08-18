@@ -61,7 +61,7 @@ export default function KnowledgeBase() {
       try {
         await deleteKnowledge(item.id);
         load();
-        toast.success('Conhecimento excluido');
+        toast.success('Conhecimento excluído');
       } catch (e) {
         toast.error('Erro ao excluir o conhecimento. Tente novamente.');
       } finally {

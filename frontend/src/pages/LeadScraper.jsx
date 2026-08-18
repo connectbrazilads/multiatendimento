@@ -98,7 +98,7 @@ export default function LeadScraper() {
         const connected = list.find((item) => item.status === 'connected') || list[0];
         if (connected) setSelectedInstanceId((current) => current || connected.id);
       } catch (err) {
-        console.error('[leads] erro ao carregar instancias:', err);
+        console.error('[leads] erro ao carregar instâncias:', err);
       }
     }
     loadInstances();

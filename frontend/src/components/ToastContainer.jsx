@@ -59,7 +59,7 @@ export default function ToastContainer() {
       </div>
 
       {confirm ? (
-        <ModalShell kicker="Confirmacao" title="Confirmar acao" onClose={() => setConfirm(null)} maxWidth="28rem">
+        <ModalShell kicker="Confirmação" title="Confirmar acao" onClose={() => setConfirm(null)} maxWidth="28rem">
           <div style={s.confirmBody}>
             <div style={s.confirmIconBox}>
               <AlertCircle size={22} color="var(--danger)" />

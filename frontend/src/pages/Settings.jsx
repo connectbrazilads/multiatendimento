@@ -379,7 +379,7 @@ export default function Settings() {
                       style={s.input}
                       value={form.evolutionUrl || ''}
                       onChange={(e) => setForm({ ...form, evolutionUrl: e.target.value })}
-                      placeholder="https://api.sua-instancia.com"
+                      placeholder="https://api.sua-instância.com"
                     />
                   </div>
 
@@ -827,7 +827,7 @@ export default function Settings() {
       {tab === 5 && (
         <section style={s.card}>
           <div style={{ marginBottom: '2rem' }}>
-            <h3 style={s.sectionHeading}>Respostas rapidas</h3>
+            <h3 style={s.sectionHeading}>Respostas rápidas</h3>
             <p style={s.hint}>Use "/" no chat para acessar mensagens pre-definidas.</p>
           </div>
 
@@ -846,7 +846,7 @@ export default function Settings() {
 
           <div style={s.quickList}>
             {quickResponses.length === 0 ? (
-              <p style={s.hint}>Nenhuma resposta rapida cadastrada ainda. Use o formulario acima para criar a primeira.</p>
+              <p style={s.hint}>Nenhuma resposta rápida cadastrada ainda. Use o formulario acima para criar a primeira.</p>
             ) : (
               quickResponses.map((item) => (
                 <div key={item.id} style={s.quickItem}>

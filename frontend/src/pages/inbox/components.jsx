@@ -48,7 +48,7 @@ function getSafeTags(rawTags) {
 
 function getInstanceLabel(ticket) {
   const rawName = getSafeText(ticket?.instance?.instanceName);
-  if (!rawName) return 'Sem instancia';
+  if (!rawName) return 'Sem instância';
 
   const parts = rawName.split('_');
   const label = parts[parts.length - 1] || rawName;
@@ -836,7 +836,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
         {[
           { id: 'overview', label: 'Resumo' },
           { id: 'notes', label: 'Notas' },
-          { id: 'media', label: 'Midias' },
+          { id: 'media', label: 'Mídias' },
         ].map((tabItem) => (
           <button
             key={tabItem.id}
@@ -2150,7 +2150,7 @@ export const MessageComposer = React.memo(function MessageComposer({
                 Respondendo a {replyingTo.fromMe ? 'voce' : getContactDisplayName(selectedTicket.contact, 'cliente')}
               </div>
               <div style={styles.replyPreview}>
-                {getSafeText(replyingTo.body) || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Midia')}
+                {getSafeText(replyingTo.body) || (replyingTo.mediaType ? `[${replyingTo.mediaType}]` : 'Mídia')}
               </div>
             </div>
             <button onClick={() => setReplyingTo(null)} style={styles.replyDismiss} aria-label="Cancelar resposta">

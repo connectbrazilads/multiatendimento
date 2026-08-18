@@ -26,7 +26,7 @@ import {
 
 // Custom SVGs for Athenix Labs branding
 const LogoSymbol = ({ size = 42 }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 10px rgba(46, 123, 255, 0.6))' }}>
+  <svg aria-hidden="true" focusable="false" width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 10px rgba(46, 123, 255, 0.6))' }}>
     <path d="M48 12L15 85H27L38 58H62L73 85H85L52 12H48ZM50 25.5L59.5 49H40.5L50 25.5Z" fill="url(#goldGradient)" />
     <path d="M50 39L43 49L50 59L57 49L50 39Z" fill="url(#crystalGradient)" style={{ filter: 'drop-shadow(0 0 6px #2E7BFF)' }} />
     <path d="M30 65C45 59 55 59 70 65" stroke="url(#goldGradient)" strokeWidth="3" strokeLinecap="round" />
@@ -46,7 +46,7 @@ const LogoSymbol = ({ size = 42 }) => (
 );
 
 const HelmetIcon = () => (
-  <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(212, 175, 55, 0.4))' }}>
+  <svg aria-hidden="true" focusable="false" width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(212, 175, 55, 0.4))' }}>
     <path d="M50 6C38 6 22 17 22 38C22 41 24 43 26 43C29 43 32 32 50 32C68 32 71 43 74 43C76 43 78 41 78 38C78 17 62 6 50 6Z" fill="url(#goldGradientIcon)" />
     <path d="M26 48C26 34 36 30 50 30C64 30 74 34 74 48V63C74 68 70 73 66 75L50 65L34 75C30 73 26 68 26 63V48Z" fill="url(#goldGradientIcon)" stroke="#D4AF37" strokeWidth="1" />
     <path d="M46 48H54V63C54 65 52 67 50 67C48 67 46 65 46 63V48Z" fill="#0D1B2A" />
@@ -62,7 +62,7 @@ const HelmetIcon = () => (
 );
 
 const OwlIcon = () => (
-  <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(212, 175, 55, 0.4))' }}>
+  <svg aria-hidden="true" focusable="false" width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(212, 175, 55, 0.4))' }}>
     <path d="M50 15C35 15 25 25 25 45C25 65 35 83 50 83C65 83 75 65 75 45C75 25 65 15 50 15Z" stroke="#D4AF37" strokeWidth="2.5" fill="#0D1B2A" />
     <circle cx="40" cy="38" r="11" stroke="#D4AF37" strokeWidth="2" fill="#0A0A0A" />
     <circle cx="60" cy="38" r="11" stroke="#D4AF37" strokeWidth="2" fill="#0A0A0A" />
@@ -76,7 +76,7 @@ const OwlIcon = () => (
 );
 
 const CrystalIcon = () => (
-  <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 10px rgba(46, 123, 255, 0.6))' }}>
+  <svg aria-hidden="true" focusable="false" width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 10px rgba(46, 123, 255, 0.6))' }}>
     <path d="M50 8L82 40L50 92L18 40L50 8Z" stroke="#D4AF37" strokeWidth="2.5" fill="url(#crystalGradIcon)" />
     <path d="M50 8V92" stroke="rgba(212, 175, 55, 0.4)" strokeWidth="1.5" />
     <path d="M18 40H82" stroke="rgba(212, 175, 55, 0.4)" strokeWidth="1.5" />
@@ -92,7 +92,7 @@ const CrystalIcon = () => (
 );
 
 const OrbitIcon = () => (
-  <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(46, 123, 255, 0.5))' }}>
+  <svg aria-hidden="true" focusable="false" width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 0 8px rgba(46, 123, 255, 0.5))' }}>
     <circle cx="50" cy="50" r="11" fill="#2E7BFF" style={{ filter: 'drop-shadow(0 0 8px #2E7BFF)' }} />
     <circle cx="50" cy="50" r="11" stroke="#D4AF37" strokeWidth="1.5" />
     <ellipse cx="50" cy="50" rx="38" ry="13" stroke="#D4AF37" strokeWidth="1.8" style={{ transform: 'rotate(30deg)', transformOrigin: '50px 50px' }} />
@@ -121,6 +121,33 @@ export default function LandingPage() {
       setDemoStep((prev) => (prev + 1) % 4);
     }, 4500);
     return () => clearInterval(interval);
+  }, []);
+
+  // Carrega as fontes via <link> (preconnect + stylesheet) em vez de @import no <style>,
+  // que bloqueia a renderização inicial da página. Idempotente para evitar duplicidade
+  // caso o componente remonte.
+  useEffect(() => {
+    if (document.querySelector('link[data-athenix-fonts]')) return;
+
+    const preconnectGoogle = document.createElement('link');
+    preconnectGoogle.rel = 'preconnect';
+    preconnectGoogle.href = 'https://fonts.googleapis.com';
+    preconnectGoogle.setAttribute('data-athenix-fonts', 'true');
+
+    const preconnectGstatic = document.createElement('link');
+    preconnectGstatic.rel = 'preconnect';
+    preconnectGstatic.href = 'https://fonts.gstatic.com';
+    preconnectGstatic.crossOrigin = 'anonymous';
+    preconnectGstatic.setAttribute('data-athenix-fonts', 'true');
+
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = 'https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800&display=swap';
+    stylesheet.setAttribute('data-athenix-fonts', 'true');
+
+    document.head.appendChild(preconnectGoogle);
+    document.head.appendChild(preconnectGstatic);
+    document.head.appendChild(stylesheet);
   }, []);
 
   // ROI Calculations
@@ -162,8 +189,6 @@ export default function LandingPage() {
     <div style={s.container}>
       {/* Dynamic Styles Injection */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800&display=swap');
-        
         html {
           scroll-behavior: smooth;
         }
@@ -247,6 +272,11 @@ export default function LandingPage() {
           .essence-grid { grid-template-columns: 1fr !important; }
           .footer-grid { grid-template-columns: 1fr !important; gap: 3rem !important; text-align: center; }
           .footer-logo-align { display: flex; flex-direction: column; align-items: center; }
+        }
+
+        @media (max-width: 480px) {
+          .hero-metrics { gap: 2rem !important; flex-wrap: wrap; justify-content: center; }
+          .crm-mock-sidebar { display: none !important; }
         }
       `}</style>
 
@@ -356,7 +386,7 @@ export default function LandingPage() {
               <a 
                 href="https://wa.me/555194412679?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20Athenix%20Labs" 
                 target="_blank" 
-                rel="noreferrer" 
+                rel="noopener noreferrer"
                 className="gold-border-hover" 
                 style={s.heroSecondaryBtn}
               >
@@ -364,7 +394,7 @@ export default function LandingPage() {
               </a>
             </div>
 
-            <div style={s.heroMetrics}>
+            <div className="hero-metrics" style={s.heroMetrics}>
               <div style={s.metricItem}>
                 <span style={s.metricNumber}>+300%</span>
                 <span style={s.metricLabel}>Agilidade de Resposta</span>
@@ -377,7 +407,7 @@ export default function LandingPage() {
           </div>
 
           {/* Hero Right Side - Athenix CRM Mockup */}
-          <div className="float-dashboard" style={s.heroVisualSide}>
+          <div id="demo" className="float-dashboard" style={s.heroVisualSide}>
             <div style={s.crmWrapper}>
               {/* Header do Mockup */}
               <div style={s.crmHeader}>
@@ -391,7 +421,7 @@ export default function LandingPage() {
               {/* Corpo do Mockup */}
               <div style={s.crmBody}>
                 {/* Lateral do Painel */}
-                <div style={s.crmSidebar}>
+                <div className="crm-mock-sidebar" style={s.crmSidebar}>
                   <div style={{ ...s.crmSideItem, background: '#12253a' }}>
                     <div style={s.avatarSmall}>D</div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -541,7 +571,7 @@ export default function LandingPage() {
             </div>
             <div style={{ marginTop: '2rem', textAlign: 'center' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#2E7BFF', letterSpacing: '0.15em' }}>MÓDULO GEMINI ACTIVATED</span>
-              <h4 style={{ fontSize: '1.5rem', marginTop: '0.5rem', color: '#D4AF37', fontFamily: "'Cinzel', serif" }}>Athenix Cognitive AI</h4>
+              <h3 style={{ fontSize: '1.5rem', marginTop: '0.5rem', color: '#D4AF37', fontFamily: "'Cinzel', serif" }}>Athenix Cognitive AI</h3>
             </div>
           </div>
 
@@ -556,7 +586,7 @@ export default function LandingPage() {
               <div style={s.aiFeatureItem}>
                 <div style={s.aiFeatureDot} />
                 <div>
-                  <h4 style={s.aiFeatureName}>Transcrição de Áudio em Tempo Real</h4>
+                  <h3 style={s.aiFeatureName}>Transcrição de Áudio em Tempo Real</h3>
                   <p style={s.aiFeatureDesc}>Seus agentes não precisam ouvir áudios longos. A IA transcreve a mensagem diretamente no chat de atendimento.</p>
                 </div>
               </div>
@@ -564,7 +594,7 @@ export default function LandingPage() {
               <div style={s.aiFeatureItem}>
                 <div style={s.aiFeatureDot} />
                 <div>
-                  <h4 style={s.aiFeatureName}>Resumos Estratégicos com 1 Clique</h4>
+                  <h3 style={s.aiFeatureName}>Resumos Estratégicos com 1 Clique</h3>
                   <p style={s.aiFeatureDesc}>Ao receber atendimentos herdados de outros turnos, gere um resumo instantâneo de toda a conversa anterior em segundos.</p>
                 </div>
               </div>
@@ -572,7 +602,7 @@ export default function LandingPage() {
               <div style={s.aiFeatureItem}>
                 <div style={s.aiFeatureDot} />
                 <div>
-                  <h4 style={s.aiFeatureName}>Sugestão Inteligente de Respostas</h4>
+                  <h3 style={s.aiFeatureName}>Sugestão Inteligente de Respostas</h3>
                   <p style={s.aiFeatureDesc}>A IA sugere automaticamente a melhor resposta para o cliente com base nas perguntas frequentes e no histórico do chat.</p>
                 </div>
               </div>
@@ -684,7 +714,7 @@ export default function LandingPage() {
               <li style={s.planFeature}><span style={s.planCheck}>✔</span> IA Gemini (Básico)</li>
               <li style={s.planFeature}><span style={s.planCheck}>✔</span> Suporte via Chat</li>
             </ul>
-            <button onClick={() => navigate('/login')} className="gold-border-hover" style={s.planBtn}>Começar Agora</button>
+            <button onClick={() => navigate('/login')} className="gold-border-hover" style={s.planBtn}>Assinar Start</button>
           </div>
 
           {/* Plano 2 - Destacado (Recomendado) */}
@@ -742,31 +772,41 @@ export default function LandingPage() {
 
         <div style={s.faqWrapper}>
           {faqData.map((faq, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
+              role="button"
+              tabIndex={0}
+              aria-expanded={activeFaq === idx}
               onClick={() => toggleFaq(idx)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleFaq(idx);
+                }
+              }}
               style={{
-                ...s.faqItem, 
+                ...s.faqItem,
                 borderBottom: idx === faqData.length - 1 ? 'none' : '1px solid rgba(212,175,55,0.15)'
               }}
             >
               <div style={s.faqQuestionBlock}>
                 <span style={s.faqQuestion}>{faq.q}</span>
-                <ChevronDown 
-                  size={18} 
-                  color="#D4AF37" 
-                  style={{ 
-                    transform: activeFaq === idx ? 'rotate(180deg)' : 'rotate(0deg)', 
-                    transition: 'transform 0.3s ease' 
-                  }} 
+                <ChevronDown
+                  size={18}
+                  color="#D4AF37"
+                  aria-hidden="true"
+                  style={{
+                    transform: activeFaq === idx ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease'
+                  }}
                 />
               </div>
-              <div 
-                style={{ 
-                  maxHeight: activeFaq === idx ? '200px' : '0px', 
-                  opacity: activeFaq === idx ? 1 : 0, 
-                  overflow: 'hidden', 
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)' 
+              <div
+                style={{
+                  maxHeight: activeFaq === idx ? '200px' : '0px',
+                  opacity: activeFaq === idx ? 1 : 0,
+                  overflow: 'hidden',
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
                 <p style={s.faqAnswer}>{faq.a}</p>
@@ -795,8 +835,8 @@ export default function LandingPage() {
             <a 
               href="https://wa.me/555194412679?text=Ol%C3%A1%2C%20quero%20conhecer%20os%20recursos%20de%20IA%20da%20Athenix%20Labs" 
               target="_blank" 
-              rel="noreferrer" 
-              className="gold-border-hover" 
+              rel="noopener noreferrer"
+              className="gold-border-hover"
               style={s.ctaSecondaryBtn}
             >
               Falar com Vendas
@@ -839,7 +879,7 @@ export default function LandingPage() {
               <p style={s.footerContactItem}>E-mail: atendimento@lcddigital.com.br</p>
               <p style={s.footerContactItem}>Telefone: (51) 3028-4222</p>
               <p style={s.footerContactItem}>WhatsApp: (51) 9441-2679</p>
-              <a href="https://maps.google.com" target="_blank" rel="noreferrer" style={{ ...s.footerLink, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <a href="https://www.google.com/maps/search/?api=1&query=Porto+Alegre%2C+RS%2C+Brasil" target="_blank" rel="noopener noreferrer" style={{ ...s.footerLink, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 Porto Alegre, RS - Brasil <ArrowUpRight size={14} />
               </a>
             </div>
@@ -1350,7 +1390,7 @@ const s = {
   },
   sectionTitle: {
     fontFamily: "'Cinzel', serif",
-    fontSize: '2.4rem',
+    fontSize: 'clamp(1.75rem, 4vw, 2.4rem)',
     color: '#FFF',
     margin: 0
   },
@@ -1464,7 +1504,7 @@ const s = {
   },
   aiTitle: {
     fontFamily: "'Cinzel', serif",
-    fontSize: '2.4rem',
+    fontSize: 'clamp(1.75rem, 4vw, 2.4rem)',
     color: '#FFF',
     margin: 0
   },
@@ -1729,7 +1769,7 @@ const s = {
   },
   ctaTitle: {
     fontFamily: "'Cinzel', serif",
-    fontSize: '2.5rem',
+    fontSize: 'clamp(1.8rem, 4.2vw, 2.5rem)',
     color: '#FFF',
     margin: 0
   },

@@ -122,7 +122,7 @@ export default function Connections() {
       />
 
       {loading ? (
-        <div style={s.empty}>Sincronizando instancias...</div>
+        <div style={s.empty}>Sincronizando instâncias...</div>
       ) : (
         <div style={s.grid}>
           {instances.map(inst => {
@@ -223,7 +223,7 @@ export default function Connections() {
             </div>
             <div style={s.qrContent}>
               <p style={s.qrText}>
-                Abra o WhatsApp no celular e escaneie o codigo abaixo para conectar a instancia{' '}
+                Abra o WhatsApp no celular e escaneie o codigo abaixo para conectar a instância{' '}
                 <strong>{selectedInst?.instanceName.split('_').pop()}</strong>.
               </p>
               <div style={s.qrBox}>

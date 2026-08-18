@@ -475,7 +475,7 @@ export default function Inbox() {
       setShowReopenInstanceModal(false);
       setSelectedId(data.id);
       loadTickets();
-      toast.success('Atendimento reaberto na instancia selecionada!');
+      toast.success('Atendimento reaberto na instância selecionada!');
     } catch (e) {
       toast.error('Erro ao reabrir: ' + (e.response?.data?.error || e.message));
     } finally {
@@ -764,7 +764,7 @@ export default function Inbox() {
         <InstanceSelectionModal
           instances={instances}
           title="Reabrir conversa"
-          description={`Escolha por qual instancia a conversa com ${selectedTicket.contact?.name || selectedTicket.contact?.phone || 'este contato'} sera reaberta.`}
+          description={`Escolha por qual instância a conversa com ${selectedTicket.contact?.name || selectedTicket.contact?.phone || 'este contato'} sera reaberta.`}
           confirmLabel="Reabrir conversa"
           loading={reopening}
           onClose={() => setShowReopenInstanceModal(false)}
