@@ -29,7 +29,8 @@ import {
   CheckCircle,
   Play,
   RotateCw,
-  Award
+  Award,
+  Clock
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 
