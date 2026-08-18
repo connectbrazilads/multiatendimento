@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, Radar, Trash2, Send, CheckSquare, Square, Star,
   Phone, MapPin, Globe, Loader, XCircle, Image, CheckCircle, RotateCcw, UserPlus, Smartphone, Clock, Save,
@@ -77,8 +77,16 @@ export default function LeadScraper() {
     }
   }, [search]);
 
+  const isFirstLoadRef = useRef(true);
   useEffect(() => {
-    loadLeads();
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      loadLeads();
+      return undefined;
+    }
+    // Evita disparar uma busca a cada tecla digitada no filtro
+    const timer = setTimeout(() => loadLeads(), 350);
+    return () => clearTimeout(timer);
   }, [loadLeads]);
 
   useEffect(() => {
@@ -106,6 +114,7 @@ export default function LeadScraper() {
   }, [templates]);
 
   async function handleSearch() {
+    if (searching) return; // evita disparo duplicado (ex: Enter repetido durante a busca)
     if (!niche.trim()) return toast.error('Informe o nicho/tipo de empresa');
     if (!city.trim()) return toast.error('Informe a cidade');
 
@@ -116,7 +125,7 @@ export default function LeadScraper() {
       toast.success(data.message);
       loadLeads();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro na busca');
+      toast.error(err.response?.data?.error || 'Não foi possível concluir a busca. Verifique sua conexão e tente novamente.');
     } finally {
       setSearching(false);
     }
@@ -130,7 +139,7 @@ export default function LeadScraper() {
       setSelected(new Set(selected));
       toast.success('Lead removido');
     } catch (err) {
-      toast.error('Erro ao remover');
+      toast.error('Não foi possível remover o lead. Tente novamente.');
     }
   }
 
@@ -142,7 +151,7 @@ export default function LeadScraper() {
         setSelected(new Set());
         toast.success('Todos os leads foram removidos');
       } catch (err) {
-        toast.error('Erro ao remover');
+        toast.error('Não foi possível remover os leads. Tente novamente.');
       }
     });
   }
@@ -212,7 +221,7 @@ export default function LeadScraper() {
       setSelectedTemplateId(nextTemplate.id);
       toast.success('Template salvo');
     } catch (err) {
-      toast.error(err.message || 'Erro ao salvar template');
+      toast.error(err.message || 'Erro ao salvar o template. Tente novamente.');
     }
   }
 
@@ -234,7 +243,7 @@ export default function LeadScraper() {
         setSendImagePreview('');
       }
     } catch (err) {
-      toast.error(err.message || 'Erro ao carregar template');
+      toast.error(err.message || 'Erro ao carregar o template. Tente novamente.');
     }
   }
 
@@ -260,6 +269,7 @@ export default function LeadScraper() {
   }
 
   async function handleAddManualContacts() {
+    if (savingManual) return; // evita disparo duplicado
     const contacts = parseManualContacts(manualContacts);
     if (contacts.length === 0) return toast.error('Informe pelo menos um contato');
 
@@ -271,17 +281,18 @@ export default function LeadScraper() {
       setShowManualModal(false);
       loadLeads();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao adicionar contatos');
+      toast.error(err.response?.data?.error || 'Erro ao adicionar contatos. Tente novamente.');
     } finally {
       setSavingManual(false);
     }
   }
 
   async function handleSend() {
+    if (sending) return; // evita disparo duplicado enquanto um envio já está em andamento
     if (selected.size === 0) return toast.error('Selecione pelo menos um lead');
     if (!sendMessage.trim() && !sendImage) return toast.error('Escreva uma mensagem ou selecione uma imagem');
-    if (!selectedInstanceId) return toast.error('Escolha uma instancia conectada para o envio');
-    if (Number(delayMaxSeconds) < Number(delayMinSeconds)) return toast.error('O intervalo maximo precisa ser maior ou igual ao minimo');
+    if (!selectedInstanceId) return toast.error('Escolha uma instância conectada para o envio');
+    if (Number(delayMaxSeconds) < Number(delayMinSeconds)) return toast.error('O intervalo máximo precisa ser maior ou igual ao mínimo');
 
     const payload = {
       leadIds: Array.from(selected),
@@ -316,28 +327,28 @@ export default function LeadScraper() {
       setSelected(new Set());
       loadLeads(); // Recarrega para mostrar status atualizado
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao enviar');
+      toast.error(err.response?.data?.error || 'Não foi possível enviar as mensagens. Tente novamente.');
     } finally {
       setSending(false);
     }
   }
 
-  // Filtragem
-  const filteredLeads = leads.filter((l) => {
+  // Filtragem (memorizado para não recalcular a cada renderização, ex: ao digitar no composer)
+  const filteredLeads = useMemo(() => leads.filter((l) => {
     if (statusFilter === 'sent') return !!l.sentAt;
     if (statusFilter === 'unsent') return !l.sentAt;
     return true;
-  });
+  }), [leads, statusFilter]);
 
-  const leadsWithPhone = filteredLeads.filter((l) => l.phone);
-  const totalSent = leads.filter((l) => l.sentAt).length;
-  const totalUnsent = leads.filter((l) => !l.sentAt && l.phone).length;
+  const leadsWithPhone = useMemo(() => filteredLeads.filter((l) => l.phone), [filteredLeads]);
+  const totalSent = useMemo(() => leads.filter((l) => l.sentAt).length, [leads]);
+  const totalUnsent = useMemo(() => leads.filter((l) => !l.sentAt && l.phone).length, [leads]);
 
   // Contagem de selecionados que já foram enviados (para label de reenvio)
-  const selectedAlreadySent = Array.from(selected).filter((id) => {
+  const selectedAlreadySent = useMemo(() => Array.from(selected).filter((id) => {
     const lead = leads.find((l) => l.id === id);
     return lead?.sentAt;
-  }).length;
+  }).length, [selected, leads]);
   const selectedInstance = instances.find((inst) => inst.id === selectedInstanceId);
   const selectedInstanceLabel = selectedInstance?.instanceName?.split('_').pop()?.toUpperCase() || selectedInstance?.instanceName || 'INSTANCIA';
   const selectedInstanceStatus = selectedInstance?.status === 'connected' ? 'conectada' : 'desconectada';
@@ -371,6 +382,7 @@ export default function LeadScraper() {
               onChange={(e) => setNiche(e.target.value)}
               placeholder="Ex: dentistas, restaurantes, advogados..."
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              disabled={searching}
             />
           </div>
           <div style={s.searchField}>
@@ -381,6 +393,7 @@ export default function LeadScraper() {
               onChange={(e) => setCity(e.target.value)}
               placeholder="Ex: São Paulo, Curitiba..."
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              disabled={searching}
             />
           </div>
           <div style={s.searchField}>
@@ -389,6 +402,7 @@ export default function LeadScraper() {
               style={s.input}
               value={maxResults}
               onChange={(e) => setMaxResults(Number(e.target.value))}
+              disabled={searching}
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -463,14 +477,16 @@ export default function LeadScraper() {
               </ActionButton>
             ) : null}
             {selected.size > 0 ? (
-              <ActionButton onClick={() => setShowSendModal(true)} style={s.toolBtn}>
-                {selectedAlreadySent > 0 ? <RotateCcw size={16} /> : <Send size={16} />}
-                {selectedAlreadySent > 0
-                  ? `Reenviar (${selected.size})`
-                  : `Enviar WhatsApp (${selected.size})`}
+              <ActionButton onClick={() => setShowSendModal(true)} disabled={sending} style={s.toolBtn}>
+                {sending ? <Loader size={16} className="spin" /> : selectedAlreadySent > 0 ? <RotateCcw size={16} /> : <Send size={16} />}
+                {sending
+                  ? 'Enviando...'
+                  : selectedAlreadySent > 0
+                    ? `Reenviar (${selected.size})`
+                    : `Enviar WhatsApp (${selected.size})`}
               </ActionButton>
             ) : null}
-            <ActionButton variant="secondary" onClick={handleDeleteAll} style={{ ...s.toolBtn, color: '#e53e3e' }}>
+            <ActionButton variant="danger" onClick={handleDeleteAll} style={s.toolBtn}>
               <Trash2 size={16} />
               Limpar tudo
             </ActionButton>
@@ -549,7 +565,7 @@ export default function LeadScraper() {
                       {lead.address ? (
                         <div style={s.addressText}>
                           <MapPin size={14} style={{ flexShrink: 0 }} />
-                          <span>{lead.address}</span>
+                          <span style={s.addressLine}>{lead.address}</span>
                         </div>
                       ) : (
                         <span style={s.noData}>—</span>
@@ -561,7 +577,7 @@ export default function LeadScraper() {
                     <td style={s.td}>
                       {lead.rating ? (
                         <div style={s.ratingWrap}>
-                          <Star size={14} fill="#D4AF37" color="#D4AF37" />
+                          <Star size={14} fill="var(--warning)" color="var(--warning)" />
                           <span>{lead.rating.toFixed(1)}</span>
                         </div>
                       ) : (
@@ -588,6 +604,21 @@ export default function LeadScraper() {
             </tbody>
           </table>
         </div>
+      ) : leads.length > 0 ? (
+        <EmptyState
+          icon={<Search size={24} />}
+          title="Nenhum lead corresponde ao filtro"
+          description="Ajuste o termo de busca ou o filtro de status para ver os demais leads."
+          action={
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              onClick={() => { setSearch(''); setStatusFilter('all'); }}
+            >
+              Limpar filtros
+            </ActionButton>
+          }
+        />
       ) : (
         <EmptyState
           icon={<Radar size={24} />}
@@ -649,7 +680,7 @@ export default function LeadScraper() {
             <div style={s.sendFormColumn}>
               <div style={s.sendConfigGrid}>
                 <div style={s.field}>
-                  <label style={s.fieldLabel}>Instancia de envio</label>
+                  <label style={s.fieldLabel}>Instância de envio</label>
                   <div style={s.selectIconWrap}>
                     <Smartphone size={16} style={s.selectIcon} />
                     <select
@@ -657,7 +688,7 @@ export default function LeadScraper() {
                       value={selectedInstanceId}
                       onChange={(e) => setSelectedInstanceId(e.target.value)}
                     >
-                      <option value="">Selecione uma instancia</option>
+                      <option value="">Selecione uma instância</option>
                       {instances.map((inst) => {
                         const label = inst.instanceName?.split('_').pop()?.toUpperCase() || inst.instanceName;
                         return (
@@ -822,7 +853,7 @@ export default function LeadScraper() {
               </div>
 
               <div style={s.delayNotice}>
-                O envio aguardara entre {delayMinSeconds || 0} e {delayMaxSeconds || 0} segundos, sorteando um tempo diferente antes de cada proxima mensagem.
+                O envio aguardará entre {delayMinSeconds || 0} e {delayMaxSeconds || 0} segundos, sorteando um tempo diferente antes de cada próxima mensagem.
               </div>
             </div>
 
@@ -832,7 +863,7 @@ export default function LeadScraper() {
                   <div style={s.whatsappIdentity}>
                     <div style={s.whatsappAvatar}>{selectedInstanceLabel.slice(0, 2)}</div>
                     <div>
-                      <div style={s.whatsappTitle}>Previa do WhatsApp</div>
+                      <div style={s.whatsappTitle}>Prévia do WhatsApp</div>
                       <div style={s.whatsappSubtitle}>{selectedInstanceLabel} {selectedInstanceStatus}</div>
                     </div>
                   </div>
@@ -852,7 +883,7 @@ export default function LeadScraper() {
                     ) : null}
                     {sendImagePreview ? (
                       <div style={s.messageBubbleMediaPreview}>
-                        <img src={sendImagePreview} alt="Previa do anexo" style={s.messageImagePreview} />
+                        <img src={sendImagePreview} alt="Prévia do anexo" style={s.messageImagePreview} />
                         <div style={s.messageTimePreview}>agora</div>
                       </div>
                     ) : null}
@@ -1060,9 +1091,9 @@ const s = {
     textOverflow: 'ellipsis',
     maxWidth: '220px',
   },
-  leadQuery: { fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px', fontStyle: 'italic' },
+  leadQuery: { fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '220px' },
   phoneLink: {
-    color: '#48bb78',
+    color: 'var(--success)',
     fontWeight: 700,
     textDecoration: 'none',
     display: 'flex',
@@ -1075,7 +1106,7 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.4rem',
-    color: '#48bb78',
+    color: 'var(--success)',
     fontSize: '0.78rem',
   },
   pendingBadge: {
@@ -1085,7 +1116,7 @@ const s = {
     fontSize: '0.72rem',
     fontWeight: 700,
     background: 'rgba(214, 175, 55, 0.12)',
-    color: '#D4AF37',
+    color: 'var(--warning)',
     border: '1px solid rgba(214, 175, 55, 0.25)',
   },
   noPhoneBadge: {
@@ -1122,7 +1153,7 @@ const s = {
     alignItems: 'center',
     gap: '0.3rem',
     fontWeight: 700,
-    color: '#D4AF37',
+    color: 'var(--warning)',
     fontSize: '0.88rem',
   },
   websiteLink: { color: 'var(--accent)', display: 'flex', alignItems: 'center' },
@@ -1153,7 +1184,7 @@ const s = {
     border: '1px solid rgba(214, 175, 55, 0.25)',
     borderRadius: '12px',
     fontSize: '0.82rem',
-    color: '#D4AF37',
+    color: 'var(--warning)',
     fontWeight: 600,
     lineHeight: 1.5,
   },
@@ -1185,12 +1216,12 @@ const s = {
     fontSize: '0.82rem',
   },
   previewName: { fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  previewPhone: { color: '#48bb78', fontWeight: 600, fontSize: '0.78rem' },
+  previewPhone: { color: 'var(--success)', fontWeight: 600, fontSize: '0.78rem' },
   previewSent: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.25rem',
-    color: '#48bb78',
+    color: 'var(--success)',
     fontSize: '0.7rem',
     fontWeight: 700,
     whiteSpace: 'nowrap',
