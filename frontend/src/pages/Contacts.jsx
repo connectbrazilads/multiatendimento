@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { getContacts, createContact, createTicket, importContacts } from '../services/api';
 import { Edit2, MessageSquare, Plus, Search, BookUser, Upload, Printer } from 'lucide-react';
@@ -38,11 +38,19 @@ export default function Contacts() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [pendingChatContact, setPendingChatContact] = useState(null);
   const [openingChat, setOpeningChat] = useState(false);
+  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const { instances } = useOutletContext() || { instances: [] };
 
   useEffect(() => {
-    loadContacts();
+    if (!search) {
+      loadContacts();
+      return;
+    }
+    const timer = setTimeout(() => {
+      loadContacts();
+    }, 350);
+    return () => clearTimeout(timer);
   }, [search]);
 
   async function loadContacts() {
@@ -58,7 +66,9 @@ export default function Contacts() {
   }
 
   async function handleCreate() {
-    if (!newContact.name || !newContact.phone) return toast.error('Preencha pelo menos nome e telefone');
+    if (!newContact.name || !newContact.phone) return toast.error('Preencha nome e telefone do cliente');
+    if (creating) return;
+    setCreating(true);
     try {
       await createContact({
         ...newContact,
@@ -80,7 +90,9 @@ export default function Contacts() {
       loadContacts();
       toast.success('Cliente cadastrado com sucesso');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao criar contato');
+      toast.error(err.response?.data?.error || 'Erro ao cadastrar cliente');
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -100,7 +112,7 @@ export default function Contacts() {
       toast.success(res.data.message);
       loadContacts();
     } catch (err) {
-      toast.error('Erro na importacao: ' + (err.response?.data?.error || err.message));
+      toast.error('Erro na importação da planilha: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
       e.target.value = null;
@@ -140,6 +152,64 @@ export default function Contacts() {
     }
   }
 
+  const contactCards = useMemo(
+    () =>
+      contacts.map((contact) => {
+        const initials = (contact.name || '?')
+          .split(' ')
+          .map((word) => word[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase();
+        const hue = (contact.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
+        const hasActiveTicket = contact.tickets?.some((ticket) => ticket.status === 'open');
+        const hasPendingTicket = contact.tickets?.some((ticket) => ticket.status === 'pending');
+        const statusColor = hasActiveTicket ? '#48bb78' : hasPendingTicket ? '#D4AF37' : 'var(--text-dim)';
+        const statusLabel = hasActiveTicket ? 'Em atendimento' : hasPendingTicket ? 'Aguardando' : '';
+
+        return (
+          <SurfaceCard key={contact.id} style={s.card}>
+            <div style={s.cardHeader}>
+              <div style={{ ...s.avatar, background: `hsl(${hue}, 45%, 35%)` }}>{initials}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={s.cardName}>{contact.name || 'Sem nome'}</div>
+                {contact.fantasyName ? <div style={s.cardFantasy}>{contact.fantasyName}</div> : null}
+                <div style={s.cardPhone}>{contact.phone || 'Sem número'}</div>
+              </div>
+              <button onClick={() => openProfileModal(contact)} style={s.editBtn} title="Editar cliente" aria-label="Editar cliente">
+                <Edit2 size={16} />
+              </button>
+            </div>
+
+            {statusLabel || contact.email ? (
+              <div style={s.cardMeta}>
+                {statusLabel ? (
+                  <span style={{ ...s.statusPill, color: statusColor, borderColor: statusColor }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                    {statusLabel}
+                  </span>
+                ) : null}
+                {contact.email ? <span style={s.emailText}>{contact.email}</span> : null}
+              </div>
+            ) : null}
+
+            <div style={s.cardTags}>
+              {parseTags(contact.tags).map((tag, index) => (
+                <span key={index} style={s.tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <button style={s.chatBtn} onClick={() => startChat(contact)}>
+              <MessageSquare size={16} /> Abrir conversa
+            </button>
+          </SurfaceCard>
+        );
+      }),
+    [contacts]
+  );
+
   return (
     <div style={s.container}>
       <PageHeader
@@ -157,7 +227,7 @@ export default function Contacts() {
               <input style={s.search} placeholder="Pesquisar contatos..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
 
-            <ActionButton variant="secondary" style={s.importBtn} onClick={() => document.getElementById('importExcel').click()}>
+            <ActionButton variant="secondary" style={s.importBtn} disabled={loading} onClick={() => document.getElementById('importExcel').click()}>
               <Upload size={18} /> Importar
             </ActionButton>
             <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onChange={handleImportExcel} />
@@ -174,64 +244,21 @@ export default function Contacts() {
       ) : (
         <div style={s.grid}>
           {Array.isArray(contacts) && contacts.length > 0 ? (
-            contacts.map((contact) => {
-              const initials = (contact.name || '?')
-                .split(' ')
-                .map((word) => word[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase();
-              const hue = (contact.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
-              const hasActiveTicket = contact.tickets?.some((ticket) => ticket.status === 'open');
-              const hasPendingTicket = contact.tickets?.some((ticket) => ticket.status === 'pending');
-              const statusColor = hasActiveTicket ? '#48bb78' : hasPendingTicket ? '#D4AF37' : 'var(--text-dim)';
-              const statusLabel = hasActiveTicket ? 'Em atendimento' : hasPendingTicket ? 'Aguardando' : '';
-
-              return (
-                <SurfaceCard key={contact.id} style={s.card}>
-                  <div style={s.cardHeader}>
-                    <div style={{ ...s.avatar, background: `hsl(${hue}, 45%, 35%)` }}>{initials}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={s.cardName}>{contact.name || 'Sem nome'}</div>
-                      {contact.fantasyName ? <div style={s.cardFantasy}>{contact.fantasyName}</div> : null}
-                      <div style={s.cardPhone}>{contact.phone || 'Sem numero'}</div>
-                    </div>
-                    <button onClick={() => openProfileModal(contact)} style={s.editBtn}>
-                      <Edit2 size={16} />
-                    </button>
-                  </div>
-
-                  {statusLabel || contact.email ? (
-                    <div style={s.cardMeta}>
-                      {statusLabel ? (
-                        <span style={{ ...s.statusPill, color: statusColor, borderColor: statusColor }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
-                          {statusLabel}
-                        </span>
-                      ) : null}
-                      {contact.email ? <span style={s.emailText}>{contact.email}</span> : null}
-                    </div>
-                  ) : null}
-
-                  <div style={s.cardTags}>
-                    {parseTags(contact.tags).map((tag, index) => (
-                      <span key={index} style={s.tag}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <button style={s.chatBtn} onClick={() => startChat(contact)}>
-                    <MessageSquare size={16} /> Abrir conversa
-                  </button>
-                </SurfaceCard>
-              );
-            })
+            contactCards
           ) : (
             <EmptyState
               icon={<BookUser size={22} />}
-              title="Nenhum cliente encontrado"
-              description="Cadastre um novo cliente ou importe uma base para iniciar o CRM."
+              title={search ? `Nenhum cliente encontrado para "${search}"` : 'Nenhum cliente encontrado'}
+              description={
+                search
+                  ? 'Tente pesquisar por outro nome, telefone ou e-mail, ou cadastre este cliente agora.'
+                  : 'Cadastre um novo cliente ou importe uma planilha para começar.'
+              }
+              action={
+                <ActionButton onClick={() => setShowAddModal(true)}>
+                  <Plus size={18} /> Novo cliente
+                </ActionButton>
+              }
               style={{ gridColumn: '1 / -1' }}
             />
           )}
@@ -245,10 +272,10 @@ export default function Contacts() {
               <div style={s.formGrid}>
                 <div style={s.field}>
                   <label style={s.label}>Nome completo</label>
-                  <input style={s.input} value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Ex: Joao da Silva" />
+                  <input style={s.input} value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Ex: João da Silva" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Nome fantasia / depto</label>
+                  <label style={s.label}>Nome fantasia / departamento</label>
                   <input style={s.input} value={newContact.fantasyName} onChange={(e) => setNewContact({ ...newContact, fantasyName: e.target.value })} placeholder="Ex: Financeiro" />
                 </div>
                 <div style={s.field}>
@@ -264,8 +291,8 @@ export default function Contacts() {
                   <input style={s.input} value={newContact.document} onChange={(e) => setNewContact({ ...newContact, document: e.target.value })} placeholder="00.000.000/0001-00" />
                 </div>
                 <div style={s.field}>
-                  <label style={s.label}>Endereco</label>
-                  <input style={s.input} value={newContact.address} onChange={(e) => setNewContact({ ...newContact, address: e.target.value })} placeholder="Rua, Numero, Bairro" />
+                  <label style={s.label}>Endereço</label>
+                  <input style={s.input} value={newContact.address} onChange={(e) => setNewContact({ ...newContact, address: e.target.value })} placeholder="Rua, Número, Bairro" />
                 </div>
                 <div style={s.field}>
                   <label style={s.label}>Cidade</label>
@@ -304,7 +331,7 @@ export default function Contacts() {
                     />
                   </div>
                   <div style={s.field}>
-                    <label style={s.label}>Numero de serie</label>
+                    <label style={s.label}>Número de série</label>
                     <input
                       style={s.input}
                       value={newContact.equipment.serialNumber}
@@ -318,16 +345,16 @@ export default function Contacts() {
                       style={s.input}
                       value={newContact.equipment.type}
                       onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, type: e.target.value } })}
-                      placeholder="Ex: Multifuncional monocromatica"
+                      placeholder="Ex: Multifuncional monocromática"
                     />
                   </div>
                   <div style={s.field}>
-                    <label style={s.label}>Setor / localizacao</label>
+                    <label style={s.label}>Setor / localização</label>
                     <input
                       style={s.input}
                       value={newContact.equipment.sector}
                       onChange={(e) => setNewContact({ ...newContact, equipment: { ...newContact.equipment, sector: e.target.value } })}
-                      placeholder="Ex: Recepcao"
+                      placeholder="Ex: Recepção"
                     />
                   </div>
                 </div>
@@ -338,7 +365,7 @@ export default function Contacts() {
               <ActionButton variant="secondary" style={s.modalFooterBtn} onClick={() => setShowAddModal(false)}>
                 Fechar
               </ActionButton>
-              <ActionButton style={s.modalFooterBtn} onClick={handleCreate}>
+              <ActionButton style={s.modalFooterBtn} loading={creating} onClick={handleCreate}>
                 Cadastrar cliente
               </ActionButton>
             </div>
@@ -354,7 +381,7 @@ export default function Contacts() {
         <InstanceSelectionModal
           instances={instances}
           title="Abrir nova conversa"
-          description={`Escolha por qual instancia a conversa com ${pendingChatContact.name || pendingChatContact.phone || 'este contato'} sera aberta.`}
+          description={`Escolha por qual instância a conversa com ${pendingChatContact.name || pendingChatContact.phone || 'este contato'} será aberta.`}
           loading={openingChat}
           onClose={() => setPendingChatContact(null)}
           onConfirm={confirmStartChat}
@@ -365,32 +392,32 @@ export default function Contacts() {
 }
 
 const s = {
-  container: { padding: '2.5rem', background: 'var(--bg-base)', height: '100%', overflowY: 'auto', flex: 1, color: 'var(--text-main)' },
-  actionsRow: { display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' },
-  loading: { textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' },
+  container: { padding: 'var(--space-10)', background: 'var(--bg-base)', height: '100%', overflowY: 'auto', flex: 1, color: 'var(--text-main)' },
+  actionsRow: { display: 'flex', gap: 'var(--space-4)', alignItems: 'center', flexWrap: 'wrap' },
+  loading: { textAlign: 'center', padding: 'var(--space-12)', color: 'var(--text-muted)' },
   searchWrap: { position: 'relative' },
   search: {
     background: 'var(--bg-panel)',
     border: '1px solid var(--border-color)',
-    padding: '0.75rem 1rem 0.75rem 2.5rem',
+    padding: 'var(--space-3) var(--space-4) var(--space-3) var(--space-10)',
     borderRadius: '12px',
     color: 'var(--text-main)',
     width: '280px',
     outline: 'none',
-    fontSize: '0.9rem',
+    fontSize: 'var(--text-sm)',
   },
   searchIcon: { position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' },
   importBtn: { whiteSpace: 'nowrap' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-5)' },
   card: {
-    padding: '1.25rem',
+    padding: 'var(--space-5)',
     borderLeft: '3px solid var(--border-color)',
     transition: 'all 0.2s',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: 'var(--space-3)',
   },
-  cardHeader: { display: 'flex', alignItems: 'center', gap: '0.75rem' },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)' },
   avatar: {
     width: '40px',
     height: '40px',
@@ -400,17 +427,27 @@ const s = {
     justifyContent: 'center',
     color: '#fff',
     fontWeight: 900,
-    fontSize: '0.75rem',
+    fontSize: 'var(--text-xs)',
     letterSpacing: '0.03em',
     flexShrink: 0,
   },
-  cardName: { fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  cardFantasy: { color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' },
-  cardPhone: { color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px', fontVariantNumeric: 'tabular-nums' },
-  editBtn: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px', flexShrink: 0 },
-  cardMeta: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+  cardName: { fontSize: 'var(--text-md)', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  cardFantasy: {
+    color: 'var(--accent)',
+    fontSize: 'var(--text-xs)',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginTop: '1px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  cardPhone: { color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' },
+  editBtn: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--space-1)', flexShrink: 0 },
+  cardMeta: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' },
   statusPill: {
-    fontSize: '0.65rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     padding: '3px 10px',
     borderRadius: '20px',
@@ -419,38 +456,39 @@ const s = {
     alignItems: 'center',
     gap: '5px',
     background: 'transparent',
+    flexShrink: 0,
   },
-  emailText: { fontSize: '0.75rem', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  emailText: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: '1 1 120px' },
   cardTags: { display: 'flex', flexWrap: 'wrap', gap: '5px', minHeight: '20px' },
-  tag: { fontSize: '0.6rem', background: 'var(--accent-light)', color: 'var(--accent)', padding: '2px 7px', borderRadius: '5px', fontWeight: 800, border: '1px solid var(--accent-border)' },
+  tag: { fontSize: 'var(--text-xs)', background: 'var(--accent-light)', color: 'var(--accent)', padding: '2px 7px', borderRadius: '5px', fontWeight: 800, border: '1px solid var(--accent-border)' },
   chatBtn: {
     width: '100%',
     background: 'transparent',
     border: '1px solid var(--border-color)',
     color: 'var(--text-main)',
-    padding: '0.7rem',
-    borderRadius: '10px',
+    padding: 'var(--space-3)',
+    borderRadius: 'var(--radius-sm)',
     fontWeight: 700,
     cursor: 'pointer',
     transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px',
-    fontSize: '0.85rem',
+    gap: 'var(--space-2)',
+    fontSize: 'var(--text-sm)',
   },
   modalBody: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
-  modalScrollArea: { padding: '0 1.8rem', overflowY: 'auto', flex: 1, minHeight: 0 },
-  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  label: { fontSize: '0.72rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem 1rem', color: 'var(--text-main)', outline: 'none', fontSize: '0.95rem' },
-  sectionDivider: { marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem', paddingBottom: '1.5rem' },
-  sectionTitle: { margin: '0 0 1.5rem 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' },
+  modalScrollArea: { padding: '0 var(--space-8)', overflowY: 'auto', flex: 1, minHeight: 0 },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' },
+  field: { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' },
+  label: { fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: 'var(--space-3) var(--space-4)', color: 'var(--text-main)', outline: 'none', fontSize: 'var(--text-md)' },
+  sectionDivider: { marginTop: 'var(--space-8)', borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-6)' },
+  sectionTitle: { margin: '0 0 var(--space-6) 0', fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' },
   modalFooter: {
     display: 'flex',
-    gap: '0.85rem',
-    padding: '1rem 1.8rem 1.8rem',
+    gap: 'var(--space-3)',
+    padding: 'var(--space-4) var(--space-8) var(--space-8)',
     borderTop: '1px solid var(--border-color)',
     background: 'var(--bg-surface)',
     flexShrink: 0,

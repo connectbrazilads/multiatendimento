@@ -37,6 +37,8 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
   const [osHistory, setOsHistory] = useState([]);
   const [newEquip, setNewEquip] = useState(initialEquipment ? mapEquipmentToForm(initialEquipment) : { ...EMPTY_EQUIPMENT });
   const [editingEquipId, setEditingEquipId] = useState(null);
+  const [savingData, setSavingData] = useState(false);
+  const [savingEquip, setSavingEquip] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'equipamentos') loadEquipments();
@@ -81,30 +83,37 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
   }
 
   async function handleUpdateData() {
+    if (savingData) return;
+    setSavingData(true);
     try {
       await updateContact(contact.id, formData);
       onUpdated();
       toast.success('Dados salvos');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao salvar');
+      toast.error(err.response?.data?.error || 'Erro ao salvar dados do cliente');
+    } finally {
+      setSavingData(false);
     }
   }
 
   async function handleDeleteContact() {
-    toast.confirm('Tem certeza? Isso excluira permanentemente este cliente e todo o seu historico.', async () => {
+    const contactLabel = contact.fantasyName || contact.name || 'este cliente';
+    toast.confirm(`Excluir "${contactLabel}"? Isso apaga permanentemente o cadastro e todo o histórico de conversas, equipamentos e O.S. Essa ação não pode ser desfeita.`, async () => {
       try {
         await deleteContact(contact.id);
         onUpdated();
         onClose();
-        toast.success('Cliente excluido');
+        toast.success('Cliente excluído');
       } catch (e) {
-        toast.error('Erro ao excluir cliente');
+        toast.error(e.response?.data?.error || 'Erro ao excluir cliente');
       }
     });
   }
 
   async function handleAddOrUpdateEquip() {
-    if (!newEquip.model) return toast.error('Modelo e obrigatorio');
+    if (!newEquip.model) return toast.error('Informe o modelo do equipamento');
+    if (savingEquip) return;
+    setSavingEquip(true);
     try {
       if (editingEquipId) {
         await updateEquipment(editingEquipId, newEquip);
@@ -118,7 +127,9 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
       loadEquipments();
       onUpdated?.();
     } catch (e) {
-      toast.error('Erro ao salvar equipamento');
+      toast.error(e.response?.data?.error || 'Erro ao salvar equipamento');
+    } finally {
+      setSavingEquip(false);
     }
   }
 
@@ -128,14 +139,15 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
   }
 
   async function handleDeleteEquip(id) {
-    toast.confirm('Excluir este equipamento?', async () => {
+    const equipLabel = equipments.find((equipment) => equipment.id === id)?.model || 'este equipamento';
+    toast.confirm(`Excluir o equipamento "${equipLabel}"? Essa ação não pode ser desfeita.`, async () => {
       try {
         await deleteEquipment(id);
         loadEquipments();
         onUpdated?.();
-        toast.success('Equipamento excluido');
+        toast.success('Equipamento excluído');
       } catch (e) {
-        toast.error('Erro ao excluir');
+        toast.error(e.response?.data?.error || 'Erro ao excluir equipamento');
       }
     });
   }
@@ -150,7 +162,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
           <ActionButton variant="secondary" style={s.footerBtn} onClick={onClose}>
             Fechar
           </ActionButton>
-          <ActionButton style={s.footerBtn} onClick={handleUpdateData}>
+          <ActionButton style={s.footerBtn} loading={savingData} onClick={handleUpdateData}>
             Salvar dados
           </ActionButton>
         </>
@@ -163,8 +175,8 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
           <ActionButton variant="secondary" style={s.footerBtn} onClick={onClose}>
             Fechar
           </ActionButton>
-          <ActionButton style={s.footerBtn} onClick={handleAddOrUpdateEquip}>
-            {editingEquipId ? 'Salvar alteracoes' : 'Adicionar equipamento'}
+          <ActionButton style={s.footerBtn} loading={savingEquip} onClick={handleAddOrUpdateEquip}>
+            {editingEquipId ? 'Salvar alterações' : 'Adicionar equipamento'}
           </ActionButton>
         </>
       );
@@ -238,7 +250,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
             </div>
             <div style={s.inputGroup}>
               <div>
-                <label style={s.label}>CNPJ / CPF</label>
+                <label style={s.label}>CPF / CNPJ</label>
                 <input style={s.input} value={formData.cpfCnpj} onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })} />
               </div>
             </div>
@@ -260,7 +272,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
             <section style={s.fieldCard}>
             <h3 style={s.fieldCardTitle}>Endereço principal</h3>
             <div>
-              <label style={s.label}>Endereco (rua, numero, bairro)</label>
+              <label style={s.label}>Endereço (rua, número, bairro)</label>
               <input style={s.input} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
             </div>
             <div style={{ ...s.inputGroup, marginTop: 16 }}>
@@ -286,12 +298,12 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                 <input style={s.input} placeholder="Modelo (ex: 7845)" value={newEquip.model} onChange={(e) => setNewEquip({ ...newEquip, model: e.target.value })} />
               </div>
               <div style={s.inputGroup}>
-                <input style={s.input} placeholder="Numero de serie" value={newEquip.serialNumber} onChange={(e) => setNewEquip({ ...newEquip, serialNumber: e.target.value })} />
-                <input style={s.input} placeholder="Setor (ex: Recepcao)" value={newEquip.sector} onChange={(e) => setNewEquip({ ...newEquip, sector: e.target.value })} />
+                <input style={s.input} placeholder="Número de série" value={newEquip.serialNumber} onChange={(e) => setNewEquip({ ...newEquip, serialNumber: e.target.value })} />
+                <input style={s.input} placeholder="Setor (ex: Recepção)" value={newEquip.sector} onChange={(e) => setNewEquip({ ...newEquip, sector: e.target.value })} />
               </div>
               <div style={s.inputGroup}>
                 <input style={s.input} placeholder="Tipo (ex: Multifuncional)" value={newEquip.type} onChange={(e) => setNewEquip({ ...newEquip, type: e.target.value })} />
-                <input style={s.input} placeholder="Endereco especifico (opcional)" value={newEquip.address} onChange={(e) => setNewEquip({ ...newEquip, address: e.target.value })} />
+                <input style={s.input} placeholder="Endereço específico (opcional)" value={newEquip.address} onChange={(e) => setNewEquip({ ...newEquip, address: e.target.value })} />
               </div>
               {editingEquipId ? (
                 <div style={s.actionsRow}>
@@ -302,12 +314,13 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                       setNewEquip({ ...EMPTY_EQUIPMENT });
                     }}
                   >
-                    Cancelar edicao
+                    Cancelar edição
                   </ActionButton>
                 </div>
               ) : null}
             </div>
 
+            {equipments.length === 0 ? <div style={s.emptyText}>Nenhum equipamento cadastrado para este cliente ainda.</div> : null}
             {equipments.map((equipment) => (
               <div key={equipment.id} style={s.equipCard}>
                 <div style={s.equipActions}>
@@ -326,7 +339,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
                       : equipment.model}
                 </div>
                 <div style={s.equipType}>{equipment.type}</div>
-                <div style={s.equipText}>Serie: {equipment.serialNumber || 'N/A'} | Setor: {equipment.sector || 'Geral'}</div>
+                <div style={s.equipText}>Série: {equipment.serialNumber || 'N/A'} | Setor: {equipment.sector || 'Geral'}</div>
                 {equipment.address ? <div style={s.equipText}>Local: {equipment.address}</div> : null}
               </div>
             ))}
@@ -335,7 +348,7 @@ export default function ContactProfileModal({ contact, onClose, onUpdated, initi
 
           {activeTab === 'os' ? (
             <div>
-            {osHistory.length === 0 ? <div style={s.emptyText}>Nenhuma O.S. registrada.</div> : null}
+            {osHistory.length === 0 ? <div style={s.emptyText}>Nenhuma O.S. registrada para este cliente ainda.</div> : null}
             {osHistory.map((os) => (
               <div key={os.id} style={s.osCard}>
                 <div>
@@ -385,22 +398,22 @@ const s = {
     flex: 1,
     minHeight: 0,
   },
-  profileSummary: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.85rem 1.8rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-base)' },
-  profileIdentity: { display: 'flex', alignItems: 'center', gap: '0.7rem', minWidth: 0 },
-  profileAvatar: { width: 36, height: 36, flex: '0 0 auto', display: 'grid', placeItems: 'center', borderRadius: 10, color: 'var(--accent)', background: 'var(--accent-light)' },
-  profileName: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)', fontSize: '0.9rem' },
-  profileMeta: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: 2 },
-  profileCode: { flex: '0 0 auto', padding: '0.3rem 0.55rem', border: '1px solid var(--border-color)', borderRadius: 999, color: 'var(--text-dim)', fontSize: '0.68rem', fontWeight: 800 },
+  profileSummary: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', padding: 'var(--space-3) var(--space-8)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-base)' },
+  profileIdentity: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 },
+  profileAvatar: { width: 36, height: 36, flex: '0 0 auto', display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', background: 'var(--accent-light)' },
+  profileName: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)', fontSize: 'var(--text-sm)' },
+  profileMeta: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 2 },
+  profileCode: { flex: '0 0 auto', padding: 'var(--space-1) var(--space-2)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-pill)', color: 'var(--text-dim)', fontSize: 'var(--text-xs)', fontWeight: 800 },
   tabs: {
     display: 'flex',
     borderBottom: '1px solid var(--border-color)',
-    padding: '0 1.8rem',
-    gap: '0.5rem',
+    padding: '0 var(--space-8)',
+    gap: 'var(--space-2)',
     flexShrink: 0,
     overflowX: 'auto',
   },
   tab: {
-    padding: '0.8rem 0.85rem',
+    padding: 'var(--space-3)',
     cursor: 'pointer',
     fontWeight: 700,
     color: 'var(--text-muted)',
@@ -409,19 +422,19 @@ const s = {
     borderBottom: '2px solid transparent',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: 'var(--space-2)',
   },
   tabActive: {
     color: 'var(--accent)',
     borderBottomColor: 'var(--accent)',
   },
-  content: { padding: '1.25rem 1.8rem', overflowY: 'auto', flex: 1, minHeight: 0 },
-  sectionStack: { display: 'grid', gap: '0.85rem' },
-  fieldCard: { padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 14, background: 'var(--bg-base)' },
-  fieldCardTitle: { margin: '0 0 0.9rem', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.86rem' },
-  inputGroup: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' },
+  content: { padding: 'var(--space-5) var(--space-8)', overflowY: 'auto', flex: 1, minHeight: 0 },
+  sectionStack: { display: 'grid', gap: 'var(--space-3)' },
+  fieldCard: { padding: 'var(--space-4)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-base)' },
+  fieldCardTitle: { margin: '0 0 var(--space-4)', paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: 'var(--text-sm)' },
+  inputGroup: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' },
   label: {
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--accent)',
     fontWeight: 800,
     marginBottom: '6px',
@@ -431,62 +444,62 @@ const s = {
   },
   input: {
     width: '100%',
-    padding: '12px',
+    padding: 'var(--space-3)',
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-sm)',
     color: 'var(--text-main)',
     outline: 'none',
     boxSizing: 'border-box',
   },
-  actionsRow: { display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' },
+  actionsRow: { display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', marginTop: 'var(--space-4)' },
   equipFormCard: {
     background: 'var(--bg-panel)',
-    padding: '16px',
+    padding: 'var(--space-4)',
     borderRadius: '16px',
     border: '1px dashed var(--border-color)',
     marginBottom: '18px',
   },
-  equipFormTitle: { color: 'var(--accent)', fontWeight: 800, marginBottom: '12px' },
+  equipFormTitle: { color: 'var(--accent)', fontWeight: 800, marginBottom: 'var(--space-3)' },
   equipCard: {
     background: 'var(--bg-base)',
-    padding: '16px',
-    borderRadius: '14px',
+    padding: 'var(--space-4)',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--border-color)',
-    marginBottom: '12px',
+    marginBottom: 'var(--space-3)',
     position: 'relative',
   },
-  equipTitle: { fontWeight: 800, color: 'var(--text-main)', fontSize: '1.05rem', paddingRight: '60px' },
-  equipType: { color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', marginTop: '0.3rem' },
-  equipText: { color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' },
-  equipActions: { position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px' },
+  equipTitle: { fontWeight: 800, color: 'var(--text-main)', fontSize: 'var(--text-md)', paddingRight: '60px', overflowWrap: 'anywhere' },
+  equipType: { color: 'var(--accent)', fontSize: 'var(--text-xs)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 'var(--space-1)', marginTop: 'var(--space-1)' },
+  equipText: { color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-1)', overflowWrap: 'anywhere' },
+  equipActions: { position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' },
   actionBtn: (color) => ({
     background: 'transparent',
     border: 'none',
     color,
     cursor: 'pointer',
-    padding: '4px',
+    padding: 'var(--space-1)',
   }),
   osCard: {
     background: 'var(--bg-base)',
-    padding: '16px',
-    borderRadius: '14px',
+    padding: 'var(--space-4)',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--border-color)',
-    marginBottom: '12px',
+    marginBottom: 'var(--space-3)',
     display: 'flex',
     justifyContent: 'space-between',
-    gap: '1rem',
+    gap: 'var(--space-4)',
   },
   osTitle: { fontWeight: 800, color: 'var(--text-main)' },
-  osMeta: { fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' },
-  osDefect: { marginTop: '8px', fontSize: '0.9rem', color: 'var(--text-main)' },
-  osRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' },
-  osLink: { fontSize: '0.8rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 },
-  emptyText: { color: 'var(--text-muted)' },
+  osMeta: { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' },
+  osDefect: { marginTop: 'var(--space-2)', fontSize: 'var(--text-sm)', color: 'var(--text-main)', overflowWrap: 'anywhere' },
+  osRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' },
+  osLink: { fontSize: 'var(--text-xs)', color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 },
+  emptyText: { color: 'var(--text-muted)', fontSize: 'var(--text-sm)' },
   footer: {
     display: 'flex',
-    gap: '0.85rem',
-    padding: '1rem 1.8rem 1.8rem',
+    gap: 'var(--space-3)',
+    padding: 'var(--space-4) var(--space-8) var(--space-8)',
     borderTop: '1px solid var(--border-color)',
     background: 'var(--bg-surface)',
     flexShrink: 0,
