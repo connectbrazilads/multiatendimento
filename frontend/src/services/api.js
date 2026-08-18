@@ -150,6 +150,7 @@ export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getRevenueStats = () => api.get('/revenue/stats');
 export const getRevenueBenchmark = () => api.get('/revenue/benchmark');
 export const getRevenueDetective = () => api.get('/revenue/detective');
+export const getRevenueDrilldown = (type) => api.get(`/revenue/drilldown/${type}`);
 export const getAuditedTickets = () => api.get('/revenue/audit');
 export const auditTicket = (ticketId) => api.post(`/revenue/audit/${ticketId}`);
 

@@ -40,14 +40,10 @@ async function getRevenueDashboard(req, res) {
       }
     });
 
-    // Prioridade do valor de mensalidade em risco por cliente:
-    // 1) soma do monthlyValue dos contratos ativos reais (iLux/Firebird);
-    // 2) campo solto total_mensalidade do cadastro do cliente;
-    // 3) valor genérico configurado em kpiContractValue (fallback final).
     let mrrInRisk = 0;
     for (const c of contactsWithCrm) {
       const externalId = c.crmCustomer?.externalId;
-      let contractValue = null;
+      let contractValue = 0;
 
       if (externalId) {
         try {
@@ -60,13 +56,8 @@ async function getRevenueDashboard(req, res) {
           console.error('[revenueController] Erro ao carregar contratos do cliente:', err);
         }
       }
-
-      if (contractValue === null) {
-        const rawVal = c.crmCustomer?.raw?.['total_mensalidade'] || c.crmCustomer?.raw?.['TOTAL_MENSALIDADE'];
-        const parsedVal = (rawVal !== undefined && rawVal !== null) ? parseFloat(rawVal) : null;
-        contractValue = (parsedVal !== null && !isNaN(parsedVal)) ? parsedVal : kpiContractValue;
-      }
-
+      
+      // Se não tem contrato no Firebird, o valor é 0 (não usamos chutes)
       mrrInRisk += contractValue;
     }
 
@@ -78,10 +69,42 @@ async function getRevenueDashboard(req, res) {
         tenantId,
         status: 'AGUARDANDO_RETORNO',
         updatedAt: { lte: waitingApprovalLimitDate }
-      }
+      select: { id: true, externalId: true, contactId: true, ticketId: true, equipmentId: true }
     });
 
-    const stalledEstimates = waitingApprovalOrders.length * kpiServiceValue;
+    const uniqueStalledContacts = [...new Set(waitingApprovalOrders.map(so => so.contactId))];
+    const stalledContactsWithCrm = await prisma.contact.findMany({
+      where: { id: { in: uniqueStalledContacts } },
+      select: { id: true, crmCustomer: { select: { externalId: true } } }
+    });
+
+    let stalledEstimates = 0;
+    for (const c of stalledContactsWithCrm) {
+      const externalId = c.crmCustomer?.externalId;
+      if (externalId) {
+        try {
+          // Busca histórico de OS do cliente direto no Firebird usando métodos exportados
+          const customer = await crmController.findTenantCustomer(tenantId, externalId);
+          if (customer) {
+            const customerOrders = await crmController.loadCustomerOrders(tenantId, customer, 50);
+            
+            if (Array.isArray(customerOrders)) {
+              const localStalledOrdersForClient = waitingApprovalOrders.filter(so => so.contactId === c.id);
+              for (const localOS of localStalledOrdersForClient) {
+                if (localOS.externalId) {
+                  const firebirdOS = customerOrders.find(fo => fo.externalId === localOS.externalId || fo.number === localOS.externalId);
+                  if (firebirdOS && firebirdOS.value) {
+                    stalledEstimates += firebirdOS.value;
+                  }
+                }
+              }
+            }
+          }
+        } catch(err) {
+           console.error('[revenueController] Erro ao carregar ordens de servico do cliente para orcamento:', err);
+        }
+      }
+    }
 
     // TOTAL DE RECEITA EM RISCO HOJE
     const receitaEmRiscoHoje = mrrInRisk + stalledEstimates;
@@ -506,10 +529,71 @@ async function auditTicket(req, res) {
   }
 }
 
+async function getDrilldown(req, res) {
+  const tenantId = req.user.tenantId;
+  const { type } = req.params;
+
+  try {
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
+    const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    let results = [];
+
+    if (type === 'mrr_risk') {
+      const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
+      results = await prisma.serviceOrder.findMany({
+        where: { tenantId, status: { in: ['PENDENTE', 'EM_ATENDIMENTO'] }, createdAt: { lte: slaLimitDate } },
+        include: { contact: { select: { id: true, name: true, phone: true } } },
+        orderBy: { createdAt: 'asc' }
+      });
+    } else if (type === 'stalled_estimates') {
+      const waitingApprovalLimitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      results = await prisma.serviceOrder.findMany({
+        where: { tenantId, status: 'AGUARDANDO_RETORNO', updatedAt: { lte: waitingApprovalLimitDate } },
+        include: { contact: { select: { id: true, name: true, phone: true } } },
+        orderBy: { updatedAt: 'asc' }
+      });
+    } else if (type === 'no_technician') {
+      results = await prisma.serviceOrder.findMany({
+        where: { tenantId, status: 'PENDENTE', userId: null },
+        include: { contact: { select: { id: true, name: true, phone: true } } },
+        orderBy: { createdAt: 'asc' }
+      });
+    } else if (type === 'bad_csat') {
+      results = await prisma.ticket.findMany({
+        where: { tenantId, rating: { not: null, lte: 2 }, resolvedAt: { gte: thirtyDaysAgo } },
+        include: { contact: { select: { id: true, name: true, phone: true } } },
+        orderBy: { resolvedAt: 'desc' }
+      });
+    } else if (type === 'reincident_equipments') {
+      const grouped = await prisma.serviceOrder.groupBy({
+        by: ['equipmentId'],
+        where: { tenantId, createdAt: { gte: thirtyDaysAgo }, equipmentId: { not: null } },
+        _count: { id: true }
+      });
+      const reincidentIds = grouped.filter(g => g._count.id > 2).map(g => g.equipmentId);
+      
+      if (reincidentIds.length > 0) {
+        // Find CrmEquipment using the equipmentExternalId stored in ServiceOrder or if equipmentId maps directly
+        // Note: equipmentId in ServiceOrder usually maps to CrmEquipment id or a local id.
+        // As a simple fallback, we just return the group ids for now since equipment relation in ServiceOrder varies.
+        results = grouped.filter(g => g._count.id > 2);
+      }
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('[revenueController] Erro no getDrilldown:', error);
+    res.status(500).json({ error: 'Erro ao buscar dados detalhados' });
+  }
+}
+
 module.exports = { 
   getRevenueDashboard, 
   getBenchmark, 
   getDetective, 
   getAuditedTickets, 
-  auditTicket 
+  auditTicket,
+  getDrilldown
 };

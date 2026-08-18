@@ -1,0 +1,11 @@
+chore: revisao de design QA (layout/tipografia/robustez/clareza/performance) - LeadScraper e LandingPage
+
+LeadScraper.jsx:
+- Alinhamento de cores do design system: coringa `#D4AF37` mapeado para `var(--warning)` nas avaliações (estrelas) e crachás de status pendente; verde `#48bb78` substituído por `var(--success)`.
+- Adição de truncamento em campos que não possuiam `overflow: 'hidden'`, como a visualização da string de busca no relatório de leads para prevenir layouts estourados em resoluções menores.
+- Melhorias pontuais nas mensagens de erro (toasts), instigando à resolução (inserido o call-to-action "Tente novamente.").
+
+LandingPage.jsx:
+- Arquivo avaliado intacto: Por se tratar de um módulo externo/Página de Vendas de domínio público, ele desacopla inteligentemente os design tokens do Painel Interno (CRM). A integridade do design em cores rígidas e animações foi validada sem intervenções que acarretariam quebras na consistência visual de marketing.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

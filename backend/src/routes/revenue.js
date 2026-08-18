@@ -5,7 +5,8 @@ const {
   getBenchmark, 
   getDetective, 
   auditTicket, 
-  getAuditedTickets 
+  getAuditedTickets,
+  getDrilldown
 } = require('../controllers/revenueController');
 
 router.use(authenticate);
@@ -14,5 +15,6 @@ router.get('/benchmark', getBenchmark);
 router.get('/detective', getDetective);
 router.get('/audit', getAuditedTickets);
 router.post('/audit/:ticketId', auditTicket);
+router.get('/drilldown/:type', getDrilldown);
 
 module.exports = router;

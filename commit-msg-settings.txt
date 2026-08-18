@@ -1,0 +1,6 @@
+fix: ortografia e borda de foco na tela de Configuracoes
+
+- Adicionado `outline: 'none'` nas sub-abas (tabs) para evitar que o navegador injete o `focus ring` padrao nativo do Windows/Chrome sobre o background, eliminando a marcacao branca ao clicar.
+- Revisao ortografica aplicando acentuacao correta em toda a view (ex: Configurações, Robô, rápida, operações, etc).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

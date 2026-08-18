@@ -1,0 +1,19 @@
+chore: revisao de design QA (layout/tipografia/robustez/clareza/performance) - ServiceOrders + modais
+
+ServiceOrders.jsx:
+- Limpeza pesada de cores hardcoded para status e text/UI, substituídas por design tokens (--danger, --warning, --info, --success, --accent, --text-muted, --bg-panel)
+- Espaçamentos mágicos e bordas nos botões de filtro parametrizados para os respectivos tokens de radius e space
+- Relatório técnico ganha `resize: 'vertical'` em vez de fixed `none`
+- Falhas em requests ganham call to actions (ex: "Tente novamente") ao invés de mensagens de erro secas
+
+CreateOsModal.jsx:
+- Truncamento correto via overflow:hidden/textOverflow/whiteSpace/title do texto/equipamento longo, prevenindo vazamentos de layout
+- Remoção do #000 hardcoded
+- Refinamento das mensagens de erro na validação com o iLux, instigando o usuário a aguardar ou tentar novamente
+
+EquipmentPickerModal.jsx:
+- Cor do check de seleção customizado para `var(--text-inverse)`
+
+Nenhuma lógica de negócio, query ou API call alterada. Build local de produção passando ileso.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

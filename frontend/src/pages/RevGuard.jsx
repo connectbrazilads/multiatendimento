@@ -4,7 +4,8 @@ import {
   getRevenueBenchmark, 
   getRevenueDetective, 
   getAuditedTickets, 
-  auditTicket 
+  auditTicket,
+  getRevenueDrilldown
 } from '../services/api';
 import {
   BarChart,
@@ -52,6 +53,12 @@ export default function RevGuard() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   // Busca local na lista de atendimentos para auditoria (pode ter até 50 itens)
   const [auditSearch, setAuditSearch] = useState('');
+
+  // Drilldown states
+  const [drilldownData, setDrilldownData] = useState(null);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldownTitle, setDrilldownTitle] = useState('');
+  const [showDrilldownModal, setShowDrilldownModal] = useState(false);
 
   useEffect(() => {
     loadCrisis();
@@ -153,6 +160,23 @@ export default function RevGuard() {
     }
   }
 
+  async function handleOpenDrilldown(type, title) {
+    setDrilldownTitle(title);
+    setDrilldownData([]);
+    setShowDrilldownModal(true);
+    setDrilldownLoading(true);
+    try {
+      const res = await getRevenueDrilldown(type);
+      setDrilldownData(res.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar detalhamento:', error);
+      toast.error('Erro ao carregar dados detalhados. Tente novamente.');
+      setShowDrilldownModal(false);
+    } finally {
+      setDrilldownLoading(false);
+    }
+  }
+
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   };
@@ -246,21 +270,27 @@ export default function RevGuard() {
                 </p>
               </div>
 
-              <div style={s.kpiCard}>
+              <div 
+                style={{ ...s.kpiCard, cursor: 'pointer' }}
+                onClick={() => handleOpenDrilldown('mrr_risk', 'MRR Sob Risco (Detalhado)')}
+              >
                 <div style={{ ...s.kpiIcon, color: '#3b82f6' }}><Coins size={22} /></div>
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
                   <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
-                  <span style={s.kpiHint}>Baseado em {formatCurrency(crisisData.kpis.kpiContractValue)} de mensalidade média</span>
+                  <span style={s.kpiHint}>Baseado nos valores reais dos contratos (Firebird)</span>
                 </div>
               </div>
 
-              <div style={s.kpiCard}>
+              <div 
+                style={{ ...s.kpiCard, cursor: 'pointer' }}
+                onClick={() => handleOpenDrilldown('stalled_estimates', 'Orçamentos Avulsos Parados')}
+              >
                 <div style={{ ...s.kpiIcon, color: '#f59e0b' }}><Zap size={22} /></div>
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Orçamentos Avulsos Parados</span>
                   <span style={s.kpiValue}>{formatCurrency(crisisData.stalledEstimates)}</span>
-                  <span style={s.kpiHint}>Baseado em {formatCurrency(crisisData.kpis.kpiServiceValue)} por O.S. avulsa</span>
+                  <span style={s.kpiHint}>Baseado no valor das O.S. importadas do iLux</span>
                 </div>
               </div>
             </div>
@@ -276,8 +306,19 @@ export default function RevGuard() {
                   </div>
                 </div>
                 <div style={s.causesList}>
-                  {crisisData.causas.map((causa) => (
-                    <div key={causa.id} style={s.causeRow}>
+                  {crisisData.causas.map((causa) => {
+                    let type = '';
+                    if (causa.id === '1') type = 'no_technician';
+                    if (causa.id === '2') type = 'stalled_estimates';
+                    if (causa.id === '3') type = 'reincident_equipments';
+                    if (causa.id === '4') type = 'bad_csat';
+
+                    return (
+                    <div 
+                      key={causa.id} 
+                      style={{ ...s.causeRow, cursor: 'pointer' }}
+                      onClick={() => handleOpenDrilldown(type, causa.descricao)}
+                    >
                       <div style={s.causeInfo}>
                         <span
                           role="img"
@@ -296,7 +337,7 @@ export default function RevGuard() {
                         <span style={s.causeSub}>Ocorrências</span>
                       </div>
                     </div>
-                  ))}
+                  )})}
                   {crisisData.causas.length === 0 && (
                     <p style={s.emptyHint}>Nenhum gargalo crítico identificado no momento. Operação dentro do esperado.</p>
                   )}
@@ -740,6 +781,78 @@ export default function RevGuard() {
             </div>
           </div>
         )
+      {/* MODAL DE DRILLDOWN */}
+      {showDrilldownModal && (
+        <div style={s.modalOverlay} onClick={() => setShowDrilldownModal(false)}>
+          <div style={s.modalContent} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHeader}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 800 }}>{drilldownTitle}</h2>
+              <button style={s.modalCloseBtn} onClick={() => setShowDrilldownModal(false)}>✕</button>
+            </div>
+            
+            <div style={s.modalBody}>
+              {drilldownLoading ? (
+                <div style={s.loadingBox}><div style={s.spinner} /> Buscando detalhamento direto do banco iLux...</div>
+              ) : drilldownData.length === 0 ? (
+                <p style={s.emptyHint}>Nenhum registro encontrado para esta métrica no momento.</p>
+              ) : (
+                <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
+                  <table style={s.table}>
+                    <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-panel)' }}>
+                      <tr>
+                        <th style={s.th}>Cliente / Contato</th>
+                        <th style={s.th}>Registro Origem</th>
+                        <th style={s.th}>Ação Recomendada</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drilldownData.map((item, i) => {
+                        const nomeCliente = item.contact?.name || item.customer?.name || 'Cliente Avulso';
+                        const fone = item.contact?.phone || item.customer?.phone || '';
+                        
+                        return (
+                        <tr key={i} style={s.tr}>
+                          <td style={s.tdClientName} title={nomeCliente}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span>{nomeCliente}</span>
+                              {fone && <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{fone}</span>}
+                            </div>
+                          </td>
+                          <td style={s.td}>
+                            {item.externalId ? `O.S. #${item.externalId}` : (item.id ? `ID ${item.id.slice(0, 8)}...` : 'N/A')}
+                          </td>
+                          <td style={s.td}>
+                            {drilldownTitle.includes('Orçamento') && (
+                              <button 
+                                style={{ ...s.actionBtn, background: '#10b981' }} 
+                                onClick={() => {
+                                  if (!fone) return toast.error('Cliente sem telefone cadastrado.');
+                                  const num = fone.replace(/\D/g, '');
+                                  const text = encodeURIComponent(`Olá, tudo bem? Vimos que a O.S. ${item.externalId || ''} está aguardando sua aprovação de orçamento para prosseguirmos com o serviço. Podemos te ajudar com alguma dúvida?`);
+                                  window.open(`https://wa.me/${num}?text=${text}`, '_blank');
+                                }}
+                              >
+                                Cobrar no WhatsApp
+                              </button>
+                            )}
+                            {drilldownTitle.includes('técnico') && (
+                              <button style={{ ...s.actionBtn, background: '#3b82f6' }} onClick={() => toast.info('Funcionalidade de atribuição de técnico em desenvolvimento.')}>
+                                Atribuir Técnico
+                              </button>
+                            )}
+                            {(!drilldownTitle.includes('Orçamento') && !drilldownTitle.includes('técnico')) && (
+                              <span style={s.badge}>Análise Manual Necessária</span>
+                            )}
+                          </td>
+                        </tr>
+                      )})}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -857,7 +970,15 @@ const s = {
 
   loadingBox: { display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: 'var(--text-muted)', fontSize: '0.85rem' },
   spinner: { width: '28px', height: '28px', borderRadius: '50%', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent)', animation: 'spin-sk 1s infinite linear' },
-  errorBox: { padding: '2rem', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '18px', color: '#ef4444', fontSize: '0.85rem', textAlign: 'center' }
+  errorBox: { padding: '2rem', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '18px', color: '#ef4444', fontSize: '0.85rem', textAlign: 'center' },
+
+  // Drilldown Modal
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
+  modalContent: { background: 'var(--bg-panel)', width: '90%', maxWidth: '750px', borderRadius: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '85vh' },
+  modalHeader: { padding: '1.5rem 1.8rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-base)' },
+  modalCloseBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer', padding: '0.5rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  modalBody: { padding: '0', overflowY: 'auto' },
+  actionBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: '#fff', padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.2s', whiteSpace: 'nowrap' }
 };
 
 // Adiciona estilos globais para as animações

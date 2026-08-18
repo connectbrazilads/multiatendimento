@@ -1,0 +1,17 @@
+chore: revisao de design QA - ToastContainer, InternalChatDrawer e LinkContactModal
+
+ToastContainer.jsx:
+- Cores hexadecimais de erro/sucesso/warning convertidas de `#e53e3e` / `#10b981` etc para os respectivos fallbacks de design tokens `var(--danger, #e53e3e)`, `var(--success, #10b981)` para consistência de tema.
+
+LinkContactModal.jsx:
+- Substituída a cor da fonte `#000` por `var(--text-inverse)` no botão.
+- Adicionado truncamento flexível na string do nome para previnir quebras de UI.
+- Adicionado feedback visual pro usuário via Toast quando houver erro na busca de clientes.
+
+InternalChatDrawer.jsx:
+- Ajustada a mensagem de erro da API para instruir o usuário de forma mais empática (ex: "Tente novamente.").
+
+UI Kit (components/ui/*):
+- Validada a integridade de todos os componentes de base (ActionButton, ModalShell, StatusBadge, etc). Todos já consumindo as propriedades corretas (`var(--radius-X)`, `var(--space-X)`) do root `index.css`.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
