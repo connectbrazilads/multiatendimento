@@ -474,7 +474,7 @@ export default function RevGuard() {
                 <TrendingUp size={20} color="#10b981" />
                 <h2 style={s.sectionTitle}>Pipeline e Vazamento de Ordens de Serviço</h2>
               </div>
-              <span style={s.badge}>Leitura do PostgreSQL</span>
+              <span style={s.badge}>Leitura Sincronizada (Firebird)</span>
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem', marginTop: '1rem' }}>
@@ -484,17 +484,17 @@ export default function RevGuard() {
                     data={[
                       { name: 'Novas O.S.', value: crisisData.funnel.novosChamados, fill: '#8b5cf6' },
                       { name: 'Em Atendimento', value: crisisData.funnel.emAtendimento, fill: '#3b82f6' },
-                      { name: 'Aguardando Aprovação', value: crisisData.funnel.aguardandoCliente, fill: '#f59e0b' },
+                      { name: 'Aguardando', value: crisisData.funnel.aguardandoCliente, fill: '#f59e0b' },
                       { name: 'Finalizadas', value: crisisData.funnel.finalizadosMes, fill: '#10b981' }
                     ]} 
-                    barSize={45}
+                    barSize={80}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
                     <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-main)' }}
-                      cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                      cursor={{ fill: 'var(--bg-surface)' }}
                     />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                       {[
@@ -511,14 +511,14 @@ export default function RevGuard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
                 <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)' }}>Análise de Conversão & Perdas</h3>
                 <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                  O gráfico de funil reflete os chamados de assistência técnica cadastrados na clínica.
+                  O gráfico reflete a evolução de O.S. Identifique rapidamente gargalos e prejuízos financeiros.
                 </p>
-                <div style={{ ...s.causeRow, background: 'rgba(245,158,11,0.04)', borderColor: 'rgba(245,158,11,0.2)' }}>
+                <div style={{ ...s.causeRow, background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.2)' }}>
                   <div>
-                    <strong style={{ color: '#f59e0b', fontSize: '0.88rem', display: 'block' }}>Aguardando Cliente</strong>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Orçamentos de manutenção sem aprovação</span>
+                    <strong style={{ color: '#ef4444', fontSize: '0.88rem', display: 'block' }}>Vazamento Estimado no Funil</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{crisisData.funnel.vazamentoMes || 0} O.S. paradas há mais de 30 dias</span>
                   </div>
-                  <strong style={{ fontSize: '1.2rem', color: 'var(--text-main)' }}>{crisisData.funnel.aguardandoCliente}</strong>
+                  <strong style={{ fontSize: '1.2rem', color: '#ef4444' }}>{formatCurrency(crisisData.funnel.vazamentoValor || 0)}</strong>
                 </div>
                 <div style={{ ...s.causeRow, background: 'rgba(16,185,129,0.04)', borderColor: 'rgba(16,185,129,0.2)' }}>
                   <div>
@@ -560,18 +560,31 @@ export default function RevGuard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {benchmarkData.clientes.map((c) => (
-                      <tr key={c.id} style={s.tr}>
-                        <td style={s.tdClientName} title={c.nome}>{c.nome}</td>
-                        <td style={{ ...s.td, textAlign: 'center' }}>{c.osCount}</td>
-                        <td style={{ ...s.td, textAlign: 'center', color: c.avgSla > 24 ? '#ef4444' : 'var(--text-main)' }}>
-                          {c.avgSla ? `${c.avgSla}h` : '--'}
-                        </td>
-                        <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: c.avgCsat && c.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
-                          {c.avgCsat ? `★ ${c.avgCsat}` : '--'}
-                        </td>
-                      </tr>
-                    ))}
+                    {benchmarkData.clientes.map((c, idx) => {
+                      const maxOS = benchmarkData.clientes[0]?.osCount || 1;
+                      const pct = Math.min((c.osCount / maxOS) * 100, 100);
+                      const bgGradient = `linear-gradient(to right, rgba(16, 185, 129, 0.08) ${pct}%, transparent ${pct}%)`;
+                      let slaColor = 'var(--text-main)';
+                      if (c.avgSla) {
+                        if (c.avgSla <= 24) slaColor = '#10b981';
+                        else if (c.avgSla <= 72) slaColor = '#f59e0b';
+                        else slaColor = '#ef4444';
+                      }
+                      return (
+                        <tr key={c.id} style={s.tr}>
+                          <td style={s.tdClientName} title={c.nome}>
+                            <span style={{ fontWeight: '600' }}>#{idx+1} {c.nome}</span>
+                          </td>
+                          <td style={{ ...s.td, textAlign: 'center', background: bgGradient, fontWeight: 'bold' }}>{c.osCount}</td>
+                          <td style={{ ...s.td, textAlign: 'center', color: slaColor, fontWeight: 'bold' }}>
+                            {c.avgSla ? `${c.avgSla}h` : '--'}
+                          </td>
+                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: c.avgCsat && c.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
+                            {c.avgCsat ? `★ ${c.avgCsat}` : '--'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {benchmarkData.clientes.length === 0 && (
                       <tr>
                         <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: 'var(--text-dim)' }}>Nenhum dado de cliente para comparar.</td>
@@ -601,16 +614,33 @@ export default function RevGuard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {benchmarkData.atendentes.map((a) => (
-                      <tr key={a.id} style={s.tr}>
-                        <td style={s.tdClientName} title={a.nome}>{a.nome}</td>
-                        <td style={{ ...s.td, textAlign: 'center' }}>{a.osCount}</td>
-                        <td style={{ ...s.td, textAlign: 'center' }}>{a.avgSla ? `${a.avgSla}h` : '--'}</td>
-                        <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: a.avgCsat && a.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
-                          {a.avgCsat ? `★ ${a.avgCsat}` : '--'}
-                        </td>
-                      </tr>
-                    ))}
+                    {benchmarkData.atendentes.map((a, idx) => {
+                      const maxOS = benchmarkData.atendentes[0]?.osCount || 1;
+                      const pct = Math.min((a.osCount / maxOS) * 100, 100);
+                      const bgGradient = `linear-gradient(to right, rgba(59, 130, 246, 0.08) ${pct}%, transparent ${pct}%)`;
+                      let slaColor = 'var(--text-main)';
+                      if (a.avgSla) {
+                        if (a.avgSla <= 24) slaColor = '#10b981';
+                        else if (a.avgSla <= 72) slaColor = '#f59e0b';
+                        else slaColor = '#ef4444';
+                      }
+                      let medal = '';
+                      if (idx === 0) medal = '🥇 ';
+                      else if (idx === 1) medal = '🥈 ';
+                      else if (idx === 2) medal = '🥉 ';
+                      return (
+                        <tr key={a.id} style={s.tr}>
+                          <td style={s.tdClientName} title={a.nome}>
+                            <span style={{ fontWeight: '600' }}>{medal}{a.nome}</span>
+                          </td>
+                          <td style={{ ...s.td, textAlign: 'center', background: bgGradient, fontWeight: 'bold' }}>{a.osCount}</td>
+                          <td style={{ ...s.td, textAlign: 'center', color: slaColor, fontWeight: 'bold' }}>{a.avgSla ? `${a.avgSla}h` : '--'}</td>
+                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: a.avgCsat && a.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
+                            {a.avgCsat ? `★ ${a.avgCsat}` : '--'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {benchmarkData.atendentes.length === 0 && (
                       <tr>
                         <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: 'var(--text-dim)' }}>Nenhum atendente ativo registrado.</td>

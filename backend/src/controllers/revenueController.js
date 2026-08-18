@@ -147,6 +147,20 @@ async function getRevenueDashboard(req, res) {
     // ───────────────────────────────────────────────────────────────
     // RESPOSTA
     // ───────────────────────────────────────────────────────────────
+    // ───────────────────────────────────────────────────────────────
+    // VAZAMENTO DO FUNIL (Perda)
+    // ───────────────────────────────────────────────────────────────
+    const vazamento = aguardando.filter(o => o.openedAt && o.openedAt < thirtyDaysAgo);
+    const vazamentoMes = vazamento.length;
+    let vazamentoValor = 0;
+    
+    // Tenta somar valores dos orçamentos, ou fallback para uma estimativa se não houver
+    for (const o of vazamento) {
+      if (o.payload && o.payload.totalValue) {
+        vazamentoValor += parseFloat(o.payload.totalValue) || 0;
+      }
+    }
+
     res.json({
       receitaEmRiscoHoje: mrrInRisk,
       mrrInRisk,
@@ -166,7 +180,9 @@ async function getRevenueDashboard(req, res) {
         novosChamados: pendentes.length,
         emAtendimento: emAtendimento.length,
         aguardandoCliente: aguardando.length,
-        finalizadosMes: finalizadas30d.length
+        finalizadosMes: finalizadas30d.length,
+        vazamentoMes,
+        vazamentoValor
       }
     });
   } catch (error) {
@@ -178,102 +194,140 @@ async function getRevenueDashboard(req, res) {
 async function getBenchmark(req, res) {
   const tenantId = req.user.tenantId;
   try {
-    const contacts = await prisma.contact.findMany({
-      where: { tenantId },
-      select: { id: true, name: true, fantasyName: true }
-    });
-
-    const users = await prisma.user.findMany({
-      where: { tenantId },
-      select: { id: true, name: true }
-    });
-
-    const serviceOrders = await prisma.serviceOrder.findMany({
-      where: { tenantId },
-      select: { id: true, contactId: true, userId: true, status: true, createdAt: true, resolvedAt: true, closedAt: true }
+    const rawRecords = await prisma.externalSyncRecord.findMany({
+      where: { tenantId, entity: 'serviceOrders' }
     });
 
     const tickets = await prisma.ticket.findMany({
       where: { tenantId, rating: { not: null } },
-      select: { id: true, contactId: true, agentId: true, rating: true }
+      select: { id: true, contactId: true, agentId: true, rating: true, contact: { select: { externalId: true } } }
     });
 
-    // Calcular por Cliente
-    const clientBenchmark = contacts.map(c => {
-      const clientOrders = serviceOrders.filter(so => so.contactId === c.id);
-      const clientTickets = tickets.filter(t => t.contactId === c.id);
-      
-      const osCount = clientOrders.length;
-      
-      // SLA médio em horas para as finalizadas
-      const resolvedOrders = clientOrders.filter(so => so.status === 'FINALIZADA' && (so.resolvedAt || so.closedAt));
-      let avgSla = 0;
-      if (resolvedOrders.length > 0) {
-        const totalSla = resolvedOrders.reduce((sum, so) => {
-          const end = so.resolvedAt || so.closedAt;
-          const diffMs = end.getTime() - so.createdAt.getTime();
-          return sum + (diffMs / (1000 * 60 * 60)); // em horas
-        }, 0);
-        avgSla = Math.round((totalSla / resolvedOrders.length) * 10) / 10;
-      }
+    function fbStatus(payload) {
+      if (!payload) return 'DESCONHECIDO';
+      const statusStr = (payload.status || payload.SITUACAO || '').toString().toUpperCase();
+      if (statusStr.includes('PENDENTE') || statusStr === '1' || statusStr === 'ABERTO') return 'PENDENTE';
+      if (statusStr.includes('ATENDIMENTO') || statusStr === '2') return 'EM_ATENDIMENTO';
+      if (statusStr.includes('ORÇAMENTO') || statusStr.includes('ORCAMENTO') || statusStr === '3') return 'AGUARDANDO_APROVACAO';
+      if (statusStr.includes('FINALIZADA') || statusStr.includes('CONCLUÍDO') || statusStr === '4') return 'FINALIZADA';
+      if (statusStr.includes('CANCELADA') || statusStr === '5') return 'CANCELADA';
+      return 'DESCONHECIDO';
+    }
 
-      // CSAT médio
-      let avgCsat = 0;
+    function fbDate(val) {
+      if (!val) return null;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    const classified = rawRecords.map(r => {
+      const p = r.payload || {};
+      const status = fbStatus(p);
+      return {
+        externalId: r.externalId,
+        clientExternalId: p.clientExternalId || p.CODIGO_CLIENTE?.toString(),
+        clientName: p.clientName || p.NOME_CLIENTE || 'Cliente Desconhecido',
+        technicianName: p.technicianName || p.NOME_TECNICO || 'Sem Técnico',
+        status,
+        openedAt: fbDate(p.openedAt || p.DATA_ABERTURA),
+        closedAt: fbDate(p.closedAt || p.DATA_FECHAMENTO)
+      };
+    }).filter(o => o.openedAt);
+
+    // Agrupar por Cliente
+    const clientMap = {};
+    for (const o of classified) {
+      if (!o.clientName) continue;
+      if (!clientMap[o.clientName]) {
+        clientMap[o.clientName] = { nome: o.clientName, osCount: 0, finalizadas: [], clientExternalId: o.clientExternalId };
+      }
+      clientMap[o.clientName].osCount++;
+      if (o.status === 'FINALIZADA' && o.closedAt) {
+        clientMap[o.clientName].finalizadas.push(o);
+      }
+    }
+
+    const clientBenchmark = Object.values(clientMap).map(c => {
+      let avgSla = null;
+      if (c.finalizadas.length > 0) {
+        const totalSla = c.finalizadas.reduce((sum, so) => {
+          const diffMs = so.closedAt.getTime() - so.openedAt.getTime();
+          return sum + (diffMs / (1000 * 60 * 60)); // horas
+        }, 0);
+        avgSla = Math.round((totalSla / c.finalizadas.length) * 10) / 10;
+      }
+      
+      // CSAT
+      const clientTickets = tickets.filter(t => t.contact?.externalId === c.clientExternalId);
+      let avgCsat = null;
       if (clientTickets.length > 0) {
         const totalCsat = clientTickets.reduce((sum, t) => sum + t.rating, 0);
         avgCsat = Math.round((totalCsat / clientTickets.length) * 10) / 10;
       }
 
       return {
-        id: c.id,
-        nome: c.fantasyName || c.name || 'Cliente Sem Nome',
-        osCount,
-        avgSla: osCount > 0 ? avgSla : null,
-        avgCsat: clientTickets.length > 0 ? avgCsat : null
+        id: c.clientExternalId || c.nome,
+        nome: c.nome,
+        osCount: c.osCount,
+        avgSla,
+        avgCsat
       };
-    }).filter(cb => cb.osCount > 0 || cb.avgCsat !== null)
-      .sort((a, b) => b.osCount - a.osCount)
-      .slice(0, 10); // Top 10
+    }).sort((a, b) => b.osCount - a.osCount).slice(0, 10);
 
-    // Calcular por Atendente
-    const agentBenchmark = users.map(u => {
-      const agentOrders = serviceOrders.filter(so => so.userId === u.id);
-      const agentTickets = tickets.filter(t => t.agentId === u.id);
-      
-      const osCount = agentOrders.length;
+    // Agrupar por Atendente
+    const agentMap = {};
+    for (const o of classified) {
+      if (!o.technicianName || o.technicianName === 'Sem Técnico') continue;
+      if (!agentMap[o.technicianName]) {
+        agentMap[o.technicianName] = { nome: o.technicianName, osCount: 0, finalizadas: [] };
+      }
+      agentMap[o.technicianName].osCount++;
+      if (o.status === 'FINALIZADA' && o.closedAt) {
+        agentMap[o.technicianName].finalizadas.push(o);
+      }
+    }
 
-      const resolvedOrders = agentOrders.filter(so => so.status === 'FINALIZADA' && (so.resolvedAt || so.closedAt));
-      let avgSla = 0;
-      if (resolvedOrders.length > 0) {
-        const totalSla = resolvedOrders.reduce((sum, so) => {
-          const end = so.resolvedAt || so.closedAt;
-          const diffMs = end.getTime() - so.createdAt.getTime();
+    // Para CSAT do atendente local, precisariamos mapear o usuario logado, mas como o firebird só tem NOME_TECNICO, 
+    // vamos tentar cruzar pelo nome.
+    const users = await prisma.user.findMany({ where: { tenantId }, select: { id: true, name: true } });
+
+    const agentBenchmark = Object.values(agentMap).map(a => {
+      let avgSla = null;
+      if (a.finalizadas.length > 0) {
+        const totalSla = a.finalizadas.reduce((sum, so) => {
+          const diffMs = so.closedAt.getTime() - so.openedAt.getTime();
           return sum + (diffMs / (1000 * 60 * 60));
         }, 0);
-        avgSla = Math.round((totalSla / resolvedOrders.length) * 10) / 10;
+        avgSla = Math.round((totalSla / a.finalizadas.length) * 10) / 10;
       }
 
-      let avgCsat = 0;
-      if (agentTickets.length > 0) {
-        const totalCsat = agentTickets.reduce((sum, t) => sum + t.rating, 0);
-        avgCsat = Math.round((totalCsat / agentTickets.length) * 10) / 10;
+      // Tenta achar o atendente local para pegar o CSAT
+      const localUser = users.find(u => u.name.toLowerCase() === a.nome.toLowerCase());
+      let avgCsat = null;
+      if (localUser) {
+        const agentTickets = tickets.filter(t => t.agentId === localUser.id);
+        if (agentTickets.length > 0) {
+          const totalCsat = agentTickets.reduce((sum, t) => sum + t.rating, 0);
+          avgCsat = Math.round((totalCsat / agentTickets.length) * 10) / 10;
+        }
       }
 
       return {
-        id: u.id,
-        nome: u.name,
-        osCount,
-        avgSla: osCount > 0 ? avgSla : null,
-        avgCsat: agentTickets.length > 0 ? avgCsat : null
+        id: a.nome,
+        nome: a.nome,
+        osCount: a.osCount,
+        avgSla,
+        avgCsat
       };
-    }).filter(ab => ab.osCount > 0 || ab.avgCsat !== null)
-      .sort((a, b) => b.osCount - a.osCount)
-      .slice(0, 10);
+    }).sort((a, b) => b.osCount - a.osCount);
 
-    res.json({ clientes: clientBenchmark, atendentes: agentBenchmark });
+    res.json({
+      clientes: clientBenchmark,
+      atendentes: agentBenchmark
+    });
   } catch (error) {
     console.error('[revenueController] Erro ao obter benchmark:', error);
-    res.status(500).json({ error: 'Erro ao processar dados de benchmark.' });
+    res.status(500).json({ error: 'Erro interno ao processar benchmark.' });
   }
 }
 
