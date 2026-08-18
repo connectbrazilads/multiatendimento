@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, Copy, Pencil, Plus, Power, Upload, Users, Wifi } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { getTenants, createTenant, updateTenant, uploadFile, getMediaUrl } from '../services/api';
@@ -22,6 +22,7 @@ export default function SuperAdmin() {
     maxUsers: 5,
   });
   const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -33,7 +34,7 @@ export default function SuperAdmin() {
       const { data } = await getTenants();
       setTenants(data);
     } catch (e) {
-      toast.info('Erro ao carregar empresas. Verifique se voce tem permissao de superadmin.');
+      toast.error(e.response?.data?.error || 'Não foi possível carregar as empresas. Verifique sua conexão ou permissão de acesso.');
     } finally {
       setLoading(false);
     }
@@ -78,18 +79,39 @@ export default function SuperAdmin() {
       setModal(null);
       load();
     } catch (e) {
-      toast.info('Erro ao salvar empresa');
+      toast.error(
+        e.response?.data?.error ||
+          (modal === 'new'
+            ? 'Não foi possível criar a empresa. Verifique os dados e tente novamente.'
+            : 'Não foi possível salvar as alterações da empresa.')
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function toggleActive(tenant) {
-    try {
-      await updateTenant(tenant.id, { active: !tenant.active });
-      load();
-    } catch (e) {
-      toast.info('Erro ao mudar status');
+    if (pendingId) return;
+
+    const applyToggle = async () => {
+      setPendingId(tenant.id);
+      try {
+        await updateTenant(tenant.id, { active: !tenant.active });
+        load();
+      } catch (e) {
+        toast.error(e.response?.data?.error || `Não foi possível atualizar o status da empresa ${tenant.name}.`);
+      } finally {
+        setPendingId(null);
+      }
+    };
+
+    if (tenant.active) {
+      toast.confirm(
+        `Bloquear o acesso da empresa "${tenant.name}"? Todos os usuários dela perderão acesso ao sistema imediatamente.`,
+        applyToggle
+      );
+    } else {
+      applyToggle();
     }
   }
 
@@ -102,13 +124,20 @@ export default function SuperAdmin() {
       const { data } = await uploadFile(file);
       setForm({ ...form, logoUrl: data.url });
     } catch (e) {
-      toast.info('Erro ao fazer upload da logo');
+      toast.error(e.response?.data?.error || 'Não foi possível enviar a logo. Tente novamente ou informe a URL da imagem diretamente.');
     } finally {
       setSaving(false);
     }
   }
 
-  const totalUsers = tenants.reduce((acc, tenant) => acc + (tenant._count?.users || 0), 0);
+  const stats = useMemo(
+    () => ({
+      total: tenants.length,
+      active: tenants.filter((tenant) => tenant.active).length,
+      totalUsers: tenants.reduce((acc, tenant) => acc + (tenant._count?.users || 0), 0),
+    }),
+    [tenants]
+  );
 
   return (
     <div style={s.container}>
@@ -127,17 +156,17 @@ export default function SuperAdmin() {
       <div style={s.statsRow}>
         <SurfaceCard style={s.statCard}>
           <Building2 size={18} style={s.statIcon} />
-          <div style={s.statVal}>{tenants.length}</div>
+          <div style={s.statVal}>{stats.total}</div>
           <div style={s.statLabel}>Empresas totais</div>
         </SurfaceCard>
         <SurfaceCard style={s.statCard}>
           <Power size={18} style={s.statIcon} />
-          <div style={s.statVal}>{tenants.filter((tenant) => tenant.active).length}</div>
+          <div style={s.statVal}>{stats.active}</div>
           <div style={s.statLabel}>Empresas ativas</div>
         </SurfaceCard>
         <SurfaceCard style={s.statCard}>
           <Users size={18} style={s.statIcon} />
-          <div style={{ ...s.statVal, color: 'var(--accent)' }}>{totalUsers}</div>
+          <div style={{ ...s.statVal, color: 'var(--accent)' }}>{stats.totalUsers}</div>
           <div style={s.statLabel}>Usuarios totais</div>
         </SurfaceCard>
       </div>
@@ -175,8 +204,8 @@ export default function SuperAdmin() {
                           <Building2 size={16} />
                         )}
                       </div>
-                      <div>
-                        <div style={s.companyName}>{tenant.name}</div>
+                      <div style={s.companyInfo}>
+                        <div style={s.companyName} title={tenant.name}>{tenant.name}</div>
                         <div style={s.companyMeta}>ID: {tenant.id}</div>
                       </div>
                     </div>
@@ -204,7 +233,7 @@ export default function SuperAdmin() {
                         ...(tenant.plan === 'enterprise' ? s.badgeAccent : s.badgeMuted),
                       }}
                     >
-                      {tenant.plan.toUpperCase()}
+                      {(tenant.plan || 'sem plano').toUpperCase()}
                     </span>
                   </td>
                   <td style={s.td}>
@@ -219,7 +248,7 @@ export default function SuperAdmin() {
                   </td>
                   <td style={s.td}>
                     <div style={s.statusCell}>
-                      <span style={{ ...s.statusDot, background: tenant.active ? '#48bb78' : 'var(--text-dim)' }} />
+                      <span style={{ ...s.statusDot, background: tenant.active ? 'var(--success)' : 'var(--text-dim)' }} />
                       {tenant.active ? 'Ativa' : 'Bloqueada'}
                     </div>
                   </td>
@@ -229,9 +258,10 @@ export default function SuperAdmin() {
                         <Pencil size={16} />
                       </button>
                       <button
-                        style={{ ...s.iconBtn, color: tenant.active ? '#d85f5f' : '#2fb171' }}
+                        style={{ ...s.iconBtn, color: tenant.active ? 'var(--danger)' : 'var(--success)' }}
                         onClick={() => toggleActive(tenant)}
-                        title={tenant.active ? 'Bloquear empresa' : 'Reativar empresa'}
+                        disabled={pendingId === tenant.id}
+                        title={tenant.active ? `Bloquear empresa ${tenant.name}` : `Reativar empresa ${tenant.name}`}
                       >
                         <Power size={16} />
                       </button>
@@ -278,7 +308,7 @@ export default function SuperAdmin() {
                 <div style={s.colorRow}>
                   <input
                     type="color"
-                    style={{ ...s.input, width: '48px', height: '42px', padding: '4px' }}
+                    style={{ ...s.input, width: '48px', height: '42px', padding: 'var(--space-1)' }}
                     value={form.primaryColor}
                     onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
                   />
@@ -336,19 +366,20 @@ export default function SuperAdmin() {
 }
 
 const s = {
-  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' },
-  statCard: { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' },
+  container: { padding: 'var(--space-10)', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' },
+  statCard: { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' },
   statIcon: { color: 'var(--accent)' },
-  statVal: { fontSize: '1.9rem', fontWeight: 900, color: 'var(--text-main)' },
-  statLabel: { fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 },
+  statVal: { fontSize: 'var(--text-2xl)', fontWeight: 900, color: 'var(--text-main)' },
+  statLabel: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 },
   tableCard: { padding: 0, overflow: 'hidden' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
   thead: { background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-color)' },
-  th: { padding: '1.1rem 1.35rem', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  th: { padding: 'var(--space-4) var(--space-5)', fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' },
   tr: { borderBottom: '1px solid var(--border-color)' },
-  td: { padding: '1.15rem 1.35rem', fontSize: '0.92rem', color: 'var(--text-main)', verticalAlign: 'middle' },
-  companyCell: { display: 'flex', alignItems: 'center', gap: '0.9rem' },
+  td: { padding: 'var(--space-4) var(--space-5)', fontSize: 'var(--text-sm)', color: 'var(--text-main)', verticalAlign: 'middle' },
+  companyCell: { display: 'flex', alignItems: 'center', gap: 'var(--space-4)' },
+  companyInfo: { minWidth: 0 },
   logoThumb: {
     width: '40px',
     height: '40px',
@@ -363,14 +394,20 @@ const s = {
     flexShrink: 0,
   },
   logoImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  companyName: { fontWeight: 800, color: 'var(--text-main)' },
-  companyMeta: { fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' },
-  linkCell: { display: 'flex', alignItems: 'center', gap: '0.6rem' },
+  companyName: {
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  companyMeta: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', marginTop: 'var(--space-1)' },
+  linkCell: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)' },
   code: {
     background: 'var(--bg-panel)',
-    padding: '0.35rem 0.55rem',
+    padding: 'var(--space-1) var(--space-2)',
     borderRadius: '8px',
-    fontSize: '0.8rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--accent)',
     border: '1px solid var(--border-color)',
   },
@@ -386,7 +423,7 @@ const s = {
     borderRadius: '10px',
     cursor: 'pointer',
   },
-  badge: { padding: '0.38rem 0.75rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, border: '1px solid transparent' },
+  badge: { padding: 'var(--space-2) var(--space-3)', borderRadius: '999px', fontSize: 'var(--text-xs)', fontWeight: 800, border: '1px solid transparent' },
   badgeAccent: {
     background: 'var(--accent-light)',
     color: 'var(--accent)',
@@ -397,10 +434,10 @@ const s = {
     color: 'var(--text-muted)',
     borderColor: 'var(--border-color)',
   },
-  limitRow: { display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-muted)', fontSize: '0.85rem' },
-  statusCell: { display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 },
+  limitRow: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' },
+  statusCell: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 700 },
   statusDot: { width: '8px', height: '8px', borderRadius: '50%' },
-  actions: { display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' },
+  actions: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' },
   iconBtn: {
     width: '36px',
     height: '36px',
@@ -413,35 +450,35 @@ const s = {
     cursor: 'pointer',
     borderRadius: '12px',
   },
-  empty: { padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' },
-  form: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  label: { fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  empty: { padding: 'var(--space-10) var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' },
+  form: { padding: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' },
+  field: { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' },
+  label: { fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em' },
   input: {
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
     borderRadius: '14px',
-    padding: '0.9rem 1rem',
+    padding: 'var(--space-4)',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
     fontFamily: 'inherit',
   },
-  twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
-  colorRow: { display: 'flex', gap: '8px', alignItems: 'center' },
-  logoRow: { display: 'flex', gap: '8px', alignItems: 'stretch' },
+  twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' },
+  colorRow: { display: 'flex', gap: 'var(--space-2)', alignItems: 'center' },
+  logoRow: { display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' },
   uploadBtn: {
     background: 'var(--bg-panel)',
     border: '1px solid var(--border-color)',
     borderRadius: '14px',
-    padding: '0.75rem 1rem',
+    padding: 'var(--space-3) var(--space-4)',
     color: 'var(--accent)',
     cursor: 'pointer',
-    fontSize: '0.85rem',
+    fontSize: 'var(--text-sm)',
     fontWeight: 700,
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.45rem',
+    gap: 'var(--space-2)',
   },
-  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '0.5rem' },
+  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-2)' },
 };
