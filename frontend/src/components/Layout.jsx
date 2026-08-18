@@ -29,6 +29,16 @@ import { getMe, getMediaUrl, getInstances } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ToastContainer from './ToastContainer';
 import InternalChatDrawer from './InternalChatDrawer';
+
+const PRIMARY_NAV_PATHS = ['/dashboard', '/inbox', '/crm'];
+
+const MOBILE_LINKS = [
+  { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
+  { to: '/inbox', icon: <MessageSquare size={22} />, label: 'Chat' },
+  { to: '/crm', icon: <Database size={22} />, label: 'CRM' },
+  { to: '/settings', icon: <Settings size={22} />, label: 'Ajustes' },
+];
+
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,26 +189,30 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
 
-  const desktopLinks = [
+  const disconnectedInstances = React.useMemo(
+    () => instances.filter((instance) => instance.status !== 'connected'),
+    [instances]
+  );
+
+  const desktopLinks = React.useMemo(() => [
     { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', roles: ['admin', 'agent', 'superadmin'] },
     { action: () => setIsChatOpen(true), icon: <MessageCircle size={18} />, label: 'Chat Interno', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexoes', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexões', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/contacts', icon: <Users size={18} />, label: 'Clientes WhatsApp', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/crm', icon: <Database size={18} />, label: 'CRM', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rapidas', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rápidas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/revenue', icon: <Coins size={18} />, label: 'iLux Sentinela', roles: ['admin', 'superadmin'] },
     { to: '/settings', icon: <Settings size={18} />, label: 'Ajustes', roles: ['admin', 'superadmin'] },
     { to: '/superadmin', icon: <ShieldCheck size={18} />, label: 'Painel Admin', roles: ['superadmin'] },
-  ];
+  ], [setIsChatOpen]);
 
   const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
-  const primaryPaths = ['/dashboard', '/inbox', '/crm'];
-  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => primaryPaths.includes(link.to));
-  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !primaryPaths.includes(link.to));
+  const primaryDesktopLinks = visibleDesktopLinks.filter((link) => PRIMARY_NAV_PATHS.includes(link.to));
+  const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !PRIMARY_NAV_PATHS.includes(link.to));
   const commandResults = visibleDesktopLinks.filter((link) => (
     !commandQuery.trim() || link.label.toLowerCase().includes(commandQuery.trim().toLowerCase())
   ));
@@ -211,13 +225,6 @@ export default function Layout() {
     else link.action?.();
   }
 
-  const mobileLinks = [
-    { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
-    { to: '/inbox', icon: <MessageSquare size={22} />, label: 'Chat' },
-    { to: '/crm', icon: <Database size={22} />, label: 'CRM' },
-    { to: '/settings', icon: <Settings size={22} />, label: 'Ajustes' },
-  ];
-
   return (
     <div style={styles.root}>
       <style>{`
@@ -225,12 +232,12 @@ export default function Layout() {
           display: none;
         }
       `}</style>
-      <nav style={{ ...styles.nav, padding: isMobile ? '0 1rem' : '0 1.5rem' }}>
+      <nav style={{ ...styles.nav, padding: isMobile ? '0 var(--space-4)' : '0 var(--space-6)' }}>
         <div style={styles.brandGroup}>
           {tenant?.logoUrl ? (
             <img
               src={getMediaUrl(tenant.logoUrl)}
-              alt="Logo"
+              alt={tenant?.name || 'Logo da empresa'}
               style={{
                 height: isMobile ? '32px' : '40px',
                 width: 'auto',
@@ -301,13 +308,13 @@ export default function Layout() {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          <button type="button" style={{ ...styles.logout, padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1rem' }} onClick={logout} aria-label="Sair do sistema">
+          <button type="button" style={{ ...styles.logout, padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1rem' }} onClick={logout} title="Sair do sistema" aria-label="Sair do sistema">
             {isMobile ? <LogOut size={18} /> : 'Sair'}
           </button>
         </div>
       </nav>
 
-      {instances.filter(i => i.status !== 'connected').length > 0 && (
+      {disconnectedInstances.length > 0 && (
         <div style={{
           backgroundColor: 'var(--danger, #EF4444)',
           color: '#fff',
@@ -319,10 +326,10 @@ export default function Layout() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.5rem',
+          gap: 'var(--space-2)',
           boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
         }}>
-          ⚠️ Atenção: Você tem {instances.filter(i => i.status !== 'connected').length === 1 ? 'uma conexão do WhatsApp desconectada' : `${instances.filter(i => i.status !== 'connected').length} conexões do WhatsApp desconectadas`}! Clique em "Conexões" no menu para reconectar e voltar a receber mensagens.
+          ⚠️ Atenção: Você tem {disconnectedInstances.length === 1 ? 'uma conexão do WhatsApp desconectada' : `${disconnectedInstances.length} conexões do WhatsApp desconectadas`}! Clique em "Conexões" no menu para reconectar e voltar a receber mensagens.
         </div>
       )}
 
@@ -332,7 +339,7 @@ export default function Layout() {
 
       {isMobile ? (
         <div style={styles.bottomNav}>
-          {mobileLinks.map((link) => (
+          {MOBILE_LINKS.map((link) => (
             <NavLink key={link.to} to={link.to} style={({ isActive }) => ({ ...styles.bottomLink, ...(isActive ? styles.bottomLinkActive : {}) })}>
               {link.icon}
               <span style={styles.bottomLabel}>{link.label}</span>
@@ -343,7 +350,7 @@ export default function Layout() {
 
       {notification ? (
         <div
-          style={{ ...styles.toast, right: isMobile ? '1rem' : '2rem', left: isMobile ? '1rem' : 'auto' }}
+          style={{ ...styles.toast, right: isMobile ? 'var(--space-4)' : 'var(--space-8)', left: isMobile ? 'var(--space-4)' : 'auto' }}
           onClick={() => {
             if (notification.isInternal) {
               setIsChatOpen(true);
@@ -377,7 +384,7 @@ export default function Layout() {
                 placeholder="Ir para uma área ou ação..."
                 style={styles.commandInput}
               />
-              <button type="button" onClick={() => setCommandOpen(false)} style={styles.commandClose} aria-label="Fechar busca"><X size={18} /></button>
+              <button type="button" onClick={() => setCommandOpen(false)} style={styles.commandClose} title="Fechar busca" aria-label="Fechar busca"><X size={18} /></button>
             </div>
             <div style={styles.commandResults}>
               <div style={styles.commandSectionLabel}><Command size={14} /> Navegação</div>
@@ -406,14 +413,15 @@ const styles = {
     zIndex: 200,
     display: 'flex',
     alignItems: 'center',
-    gap: '1.25rem',
+    justifyContent: 'space-between',
+    gap: 'var(--space-5)',
     height: '68px',
     background: 'var(--bg-panel)',
     borderBottom: '1px solid var(--border-color)',
     color: 'var(--text-main)',
     flexShrink: 0,
   },
-  brandGroup: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 },
+  brandGroup: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 },
   brandIcon: {
     width: '34px',
     height: '34px',
@@ -437,7 +445,7 @@ const styles = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem',
+    gap: 'var(--space-2)',
     color: 'var(--text-muted)',
     textDecoration: 'none',
     borderRadius: 'var(--radius-control, 10px)',
@@ -446,7 +454,7 @@ const styles = {
     cursor: 'pointer',
     fontFamily: 'inherit',
     fontSize: '0.86rem',
-    fontWeight: 650,
+    fontWeight: 600,
     whiteSpace: 'nowrap',
   },
   link: {
@@ -610,7 +618,7 @@ const styles = {
     flexShrink: 0,
   },
   toastBody: { minWidth: 0 },
-  toastName: { fontWeight: 800, color: 'var(--text-main)', fontSize: '0.9rem' },
+  toastName: { fontWeight: 800, color: 'var(--text-main)', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   toastMsg: { color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px', lineHeight: 1.45 },
   commandOverlay: {
     position: 'fixed',
