@@ -289,8 +289,8 @@ export default function RevGuard() {
                 <div style={{ ...s.kpiIcon, color: '#f59e0b' }}><Zap size={22} /></div>
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Orçamentos Avulsos Parados</span>
-                  <span style={s.kpiValue}>{formatCurrency(crisisData.stalledEstimates)}</span>
-                  <span style={s.kpiHint}>Baseado no valor das O.S. importadas do iLux</span>
+                  <span style={s.kpiValue}>{crisisData.stalledEstimatesCount ?? 0} O.S.</span>
+                  <span style={s.kpiHint}>Aguardando aprovação do cliente (iLux)</span>
                 </div>
               </div>
             </div>
@@ -809,8 +809,8 @@ export default function RevGuard() {
                     </thead>
                     <tbody>
                       {drilldownData.map((item, i) => {
-                        const nomeCliente = item.contact?.name || item.customer?.name || 'Cliente Avulso';
-                        const fone = item.contact?.phone || item.customer?.phone || '';
+                        const nomeCliente = item.clientName || 'Cliente Avulso';
+                        const fone = item.clientPhone || '';
                         
                         return (
                         <tr key={i} style={s.tr}>
@@ -818,32 +818,40 @@ export default function RevGuard() {
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span>{nomeCliente}</span>
                               {fone && <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{fone}</span>}
+                              {item.technician && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Técnico: {item.technician}</span>}
                             </div>
                           </td>
                           <td style={s.td}>
-                            {item.externalId ? `O.S. #${item.externalId}` : (item.id ? `ID ${item.id.slice(0, 8)}...` : 'N/A')}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              {item.externalId ? <span>O.S. #{item.externalId}</span> : <span>N/A</span>}
+                              {item.osType && <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{item.osType}</span>}
+                              {item.equipmentModel && <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{item.equipmentModel}</span>}
+                              {item.count && <span style={{ fontSize: '0.7rem', color: '#f59e0b' }}>{item.count} chamados</span>}
+                              {item.rating != null && <span style={{ fontSize: '0.7rem', color: '#ef4444' }}>★ {item.rating}/5</span>}
+                            </div>
                           </td>
                           <td style={s.td}>
-                            {drilldownTitle.includes('Orçamento') && (
+                            {item.externalId && !item.rating && (
                               <button 
-                                style={{ ...s.actionBtn, background: '#10b981' }} 
+                                style={{ ...s.actionBtn, background: 'var(--accent)' }} 
                                 onClick={() => {
-                                  if (!fone) return toast.error('Cliente sem telefone cadastrado.');
+                                  window.open(`/service-orders?os=${item.externalId}`, '_blank');
+                                }}
+                              >
+                                Ver O.S.
+                              </button>
+                            )}
+                            {fone && (
+                              <button 
+                                style={{ ...s.actionBtn, background: '#10b981', marginLeft: '6px' }} 
+                                onClick={() => {
                                   const num = fone.replace(/\D/g, '');
-                                  const text = encodeURIComponent(`Olá, tudo bem? Vimos que a O.S. ${item.externalId || ''} está aguardando sua aprovação de orçamento para prosseguirmos com o serviço. Podemos te ajudar com alguma dúvida?`);
+                                  const text = encodeURIComponent(`Olá, tudo bem? Referente à O.S. ${item.externalId || ''}, gostaríamos de verificar como podemos ajudá-lo.`);
                                   window.open(`https://wa.me/${num}?text=${text}`, '_blank');
                                 }}
                               >
-                                Cobrar no WhatsApp
+                                WhatsApp
                               </button>
-                            )}
-                            {drilldownTitle.includes('técnico') && (
-                              <button style={{ ...s.actionBtn, background: '#3b82f6' }} onClick={() => toast.info('Funcionalidade de atribuição de técnico em desenvolvimento.')}>
-                                Atribuir Técnico
-                              </button>
-                            )}
-                            {(!drilldownTitle.includes('Orçamento') && !drilldownTitle.includes('técnico')) && (
-                              <span style={s.badge}>Análise Manual Necessária</span>
                             )}
                           </td>
                         </tr>

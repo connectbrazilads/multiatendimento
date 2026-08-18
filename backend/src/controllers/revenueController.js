@@ -5,170 +5,122 @@ async function getRevenueDashboard(req, res) {
   const tenantId = req.user.tenantId;
 
   try {
-    // 1. Buscar as configurações de KPI do Tenant
-    const settings = await prisma.tenantSettings.findUnique({
-      where: { tenantId }
-    });
-
-    const kpiContractValue = settings?.kpiContractValue ?? 1200.0;
-    const kpiServiceValue = settings?.kpiServiceValue ?? 350.0;
+    const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
     const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
-
-    // 2. CALCULAR MENSALIDADES (MRR) EM RISCO POR QUEBRA DE SLA
-    // Consideramos ordens de serviço (O.S.) ativas (PENDENTE ou EM_ATENDIMENTO)
-    // criadas há mais de X horas (kpiSlaLimitHours) sem resolução.
     const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
-    const criticalServiceOrders = await prisma.serviceOrder.findMany({
-      where: {
-        tenantId,
-        status: { in: ['PENDENTE', 'EM_ATENDIMENTO'] },
-        createdAt: { lte: slaLimitDate }
-      },
-      select: { contactId: true }
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // ───────────────────────────────────────────────────────────────
+    // 1. CARREGAR TODAS AS O.S. REAIS DO iLux (Firebird) 
+    //    Fonte: ExternalSyncRecord com entity = 'serviceOrders'
+    // ───────────────────────────────────────────────────────────────
+    const allFirebirdOS = await prisma.externalSyncRecord.findMany({
+      where: { tenantId, source: 'firebird', entity: 'serviceOrders' },
+      select: { externalId: true, payload: true, receivedAt: true },
     });
 
-    // Remover duplicados de clientes para contar quantos contratos de locação estão sob risco
-    const uniqueContactsWithDowntime = [...new Set(criticalServiceOrders.map(so => so.contactId))];
-    
-    // Buscar os CrmCustomers associados aos contatos para somar o valor real de contrato
-    const contactsWithCrm = await prisma.contact.findMany({
-      where: { id: { in: uniqueContactsWithDowntime } },
-      select: {
-        crmCustomer: {
-          select: { externalId: true, raw: true }
-        }
+    function fbStatus(payload) {
+      const raw = payload?.raw || payload || {};
+      const status = String(raw.status || raw.nmstatus || payload?.status || '').trim().toUpperCase();
+      const closedAt = raw.dtfechamento || payload?.closedAt;
+      if (closedAt || ['O', 'F', 'C', 'FINALIZADA', 'CONCLUIDA'].includes(status)) return 'FINALIZADA';
+      if (status.includes('AGUARD')) return 'AGUARDANDO_RETORNO';
+      if (status.includes('ATEND') || ['E', 'M', 'T'].includes(status)) return 'EM_ATENDIMENTO';
+      return 'PENDENTE';
+    }
+
+    function fbDate(payload, ...keys) {
+      const raw = payload?.raw || payload || {};
+      for (const key of keys) {
+        const val = raw[key] || raw[key.toLowerCase()] || raw[key.toUpperCase()] || payload?.[key];
+        if (val) { const d = new Date(val); if (!Number.isNaN(d.getTime())) return d; }
       }
+      return null;
+    }
+
+    const classified = allFirebirdOS.map(r => {
+      const p = r.payload || {};
+      const status = fbStatus(p);
+      const openedAt = fbDate(p, 'dtinclusao', 'createdAt', 'updatedAt');
+      const closedAt = fbDate(p, 'dtfechamento', 'closedAt');
+      const raw = p.raw || p;
+      return {
+        externalId: r.externalId,
+        payload: p,
+        status,
+        openedAt,
+        closedAt,
+        clientExternalId: String(raw.cdcliente || p.clientExternalId || ''),
+        technician: raw.nmsuportet || raw.nmsuportel || p.technician || '',
+        equipmentId: String(raw.cdequipamento || p.equipmentExternalId || ''),
+      };
     });
+
+    // ───────────────────────────────────────────────────────────────
+    // 2. FUNIL DE ATENDIMENTO (dados reais do iLux)
+    // ───────────────────────────────────────────────────────────────
+    const pendentes = classified.filter(o => o.status === 'PENDENTE');
+    const emAtendimento = classified.filter(o => o.status === 'EM_ATENDIMENTO');
+    const aguardando = classified.filter(o => o.status === 'AGUARDANDO_RETORNO');
+    const finalizadas30d = classified.filter(o => o.status === 'FINALIZADA' && o.closedAt && o.closedAt >= thirtyDaysAgo);
+
+    // ───────────────────────────────────────────────────────────────
+    // 3. MRR EM RISCO — O.S. abertas que quebraram SLA
+    // ───────────────────────────────────────────────────────────────
+    const criticalOS = classified.filter(o =>
+      (o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO') &&
+      o.openedAt && o.openedAt <= slaLimitDate
+    );
+    const uniqueClientsAtRisk = [...new Set(criticalOS.map(o => o.clientExternalId).filter(Boolean))];
 
     let mrrInRisk = 0;
-    for (const c of contactsWithCrm) {
-      const externalId = c.crmCustomer?.externalId;
-      let contractValue = 0;
-
-      if (externalId) {
-        try {
-          const contracts = await crmController.loadContracts(tenantId, externalId);
-          const activeContracts = contracts.filter((contract) => contract.isActive);
-          if (activeContracts.length > 0) {
-            contractValue = activeContracts.reduce((sum, contract) => sum + (contract.monthlyValue || 0), 0);
-          }
-        } catch (err) {
-          console.error('[revenueController] Erro ao carregar contratos do cliente:', err);
+    for (const clientExtId of uniqueClientsAtRisk) {
+      try {
+        const contracts = await crmController.loadContracts(tenantId, clientExtId);
+        const activeContracts = contracts.filter(c => c.isActive);
+        if (activeContracts.length > 0) {
+          mrrInRisk += activeContracts.reduce((sum, c) => sum + (c.monthlyValue || 0), 0);
         }
-      }
-      
-      // Se não tem contrato no Firebird, o valor é 0 (não usamos chutes)
-      mrrInRisk += contractValue;
+      } catch (_err) { /* ignora erro individual */ }
     }
 
-    // 3. ORÇAMENTOS DE MANUTENÇÃO PARADOS (DINHEIRO NA MESA)
-    // O.S. que estão aguardando retorno de aprovação do cliente há mais de 24 horas
-    const waitingApprovalLimitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const waitingApprovalOrders = await prisma.serviceOrder.findMany({
-      where: {
-        tenantId,
-        status: 'AGUARDANDO_RETORNO',
-        updatedAt: { lte: waitingApprovalLimitDate }
-      },
-      select: { id: true, externalId: true, contactId: true, ticketId: true, equipmentId: true }
-    });
+    // ───────────────────────────────────────────────────────────────
+    // 4. GARGALOS CRÍTICOS (dados reais do Firebird)
+    // ───────────────────────────────────────────────────────────────
+    const noTechnicianCount = pendentes.filter(o => !o.technician).length;
 
-    const uniqueStalledContacts = [...new Set(waitingApprovalOrders.map(so => so.contactId))];
-    const stalledContactsWithCrm = await prisma.contact.findMany({
-      where: { id: { in: uniqueStalledContacts } },
-      select: { id: true, crmCustomer: { select: { externalId: true } } }
-    });
-
-    let stalledEstimates = 0;
-    for (const c of stalledContactsWithCrm) {
-      const externalId = c.crmCustomer?.externalId;
-      if (externalId) {
-        try {
-          // Busca histórico de OS do cliente direto no Firebird usando métodos exportados
-          const customer = await crmController.findTenantCustomer(tenantId, externalId);
-          if (customer) {
-            const customerOrders = await crmController.loadCustomerOrders(tenantId, customer, 50);
-            
-            if (Array.isArray(customerOrders)) {
-              const localStalledOrdersForClient = waitingApprovalOrders.filter(so => so.contactId === c.id);
-              for (const localOS of localStalledOrdersForClient) {
-                if (localOS.externalId) {
-                  const firebirdOS = customerOrders.find(fo => fo.externalId === localOS.externalId || fo.number === localOS.externalId);
-                  if (firebirdOS && firebirdOS.value) {
-                    stalledEstimates += firebirdOS.value;
-                  }
-                }
-              }
-            }
-          }
-        } catch(err) {
-           console.error('[revenueController] Erro ao carregar ordens de servico do cliente para orcamento:', err);
-        }
+    const equipmentCounts = {};
+    for (const o of classified) {
+      if (o.openedAt && o.openedAt >= thirtyDaysAgo && o.equipmentId) {
+        equipmentCounts[o.equipmentId] = (equipmentCounts[o.equipmentId] || 0) + 1;
       }
     }
+    const reincidentEquipmentsCount = Object.values(equipmentCounts).filter(c => c > 2).length;
 
-    // TOTAL DE RECEITA EM RISCO HOJE
-    const receitaEmRiscoHoje = mrrInRisk + stalledEstimates;
-
-    // 4. CAUSAS RAIZ (Gargalos Técnicos)
-    // Gargalo A: Chamados pendentes sem técnico alocado
-    const noTechnicianCount = await prisma.serviceOrder.count({
-      where: { tenantId, status: 'PENDENTE', userId: null }
-    });
-
-    // Gargalo B: Impressoras com problemas reincidentes (mais de 2 chamados nos últimos 30 dias)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const serviceOrdersLast30Days = await prisma.serviceOrder.groupBy({
-      by: ['equipmentId'],
-      where: { 
-        tenantId, 
-        createdAt: { gte: thirtyDaysAgo }
-      },
-      _count: { id: true }
-    });
-    const reincidentEquipmentsCount = serviceOrdersLast30Days.filter(group => group._count.id > 2).length;
-
-    // Gargalo C: Clientes insatisfeitos (CSAT ruim <= 2 estrelas) nos últimos 30 dias
     const badCsatCount = await prisma.ticket.count({
-      where: {
-        tenantId,
-        rating: { not: null, lte: 2 },
-        resolvedAt: { gte: thirtyDaysAgo }
-      }
+      where: { tenantId, rating: { not: null, lte: 2 }, resolvedAt: { gte: thirtyDaysAgo } }
     });
 
-    // 5. FUNIL DE ATENDIMENTO
-    const totalPendente = await prisma.serviceOrder.count({ where: { tenantId, status: 'PENDENTE' } });
-    const totalEmAtendimento = await prisma.serviceOrder.count({ where: { tenantId, status: 'EM_ATENDIMENTO' } });
-    const totalAguardandoRetorno = await prisma.serviceOrder.count({ where: { tenantId, status: 'AGUARDANDO_RETORNO' } });
-    const totalFinalizada = await prisma.serviceOrder.count({ 
-      where: { 
-        tenantId, 
-        status: 'FINALIZADA',
-        resolvedAt: { gte: thirtyDaysAgo } 
-      } 
-    });
-
+    // ───────────────────────────────────────────────────────────────
+    // RESPOSTA
+    // ───────────────────────────────────────────────────────────────
     res.json({
-      receitaEmRiscoHoje,
+      receitaEmRiscoHoje: mrrInRisk,
       mrrInRisk,
-      stalledEstimates,
-      kpis: {
-        kpiContractValue,
-        kpiServiceValue,
-        kpiSlaLimitHours
-      },
+      stalledEstimates: 0,
+      stalledEstimatesCount: aguardando.length,
+      kpis: { kpiSlaLimitHours },
       causas: [
         { id: '1', descricao: 'Chamados pendentes sem técnico designado', quantidade: noTechnicianCount, prioridade: 'alta' },
-        { id: '2', descricao: 'Orçamentos de peças/serviço aguardando aprovação > 24h', quantidade: waitingApprovalOrders.length, prioridade: 'media' },
+        { id: '2', descricao: 'Orçamentos de peças/serviço aguardando aprovação', quantidade: aguardando.length, prioridade: 'media' },
         { id: '3', descricao: 'Equipamentos reincidentes com falhas recorrentes (> 2 OS/mês)', quantidade: reincidentEquipmentsCount, prioridade: 'alta' },
-        { id: '4', descricao: 'Chamados com avaliações ruins dos clientes (CSAT <= 2)', quantidade: badCsatCount, prioridade: 'alta' }
+        { id: '4', descricao: 'Chamados com avaliações ruins dos clientes (CSAT ≤ 2)', quantidade: badCsatCount, prioridade: 'alta' }
       ],
       funnel: {
-        novosChamados: totalPendente,
-        emAtendimento: totalEmAtendimento,
-        aguardandoCliente: totalAguardandoRetorno,
-        finalizadosMes: totalFinalizada
+        novosChamados: pendentes.length,
+        emAtendimento: emAtendimento.length,
+        aguardandoCliente: aguardando.length,
+        finalizadosMes: finalizadas30d.length
       }
     });
   } catch (error) {
@@ -537,50 +489,125 @@ async function getDrilldown(req, res) {
   try {
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
     const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
+    const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Carregar O.S. reais do Firebird
+    const allFirebirdOS = await prisma.externalSyncRecord.findMany({
+      where: { tenantId, source: 'firebird', entity: 'serviceOrders' },
+      select: { externalId: true, payload: true, receivedAt: true },
+    });
+
+    function fbStatus(payload) {
+      const raw = payload?.raw || payload || {};
+      const status = String(raw.status || raw.nmstatus || payload?.status || '').trim().toUpperCase();
+      const closedAt = raw.dtfechamento || payload?.closedAt;
+      if (closedAt || ['O', 'F', 'C', 'FINALIZADA', 'CONCLUIDA'].includes(status)) return 'FINALIZADA';
+      if (status.includes('AGUARD')) return 'AGUARDANDO_RETORNO';
+      if (status.includes('ATEND') || ['E', 'M', 'T'].includes(status)) return 'EM_ATENDIMENTO';
+      return 'PENDENTE';
+    }
+
+    function fbDate(payload, ...keys) {
+      const raw = payload?.raw || payload || {};
+      for (const key of keys) {
+        const val = raw[key] || raw[key.toLowerCase()] || raw[key.toUpperCase()] || payload?.[key];
+        if (val) { const d = new Date(val); if (!Number.isNaN(d.getTime())) return d; }
+      }
+      return null;
+    }
+
+    const classified = allFirebirdOS.map(r => {
+      const p = r.payload || {};
+      const raw = p.raw || p;
+      return {
+        externalId: r.externalId,
+        status: fbStatus(p),
+        openedAt: fbDate(p, 'dtinclusao', 'createdAt', 'updatedAt'),
+        closedAt: fbDate(p, 'dtfechamento', 'closedAt'),
+        clientExternalId: String(raw.cdcliente || p.clientExternalId || ''),
+        clientName: String(raw.nmcliente || p.clientName || ''),
+        technician: raw.nmsuportet || raw.nmsuportel || p.technician || '',
+        equipmentId: String(raw.cdequipamento || p.equipmentExternalId || ''),
+        equipmentModel: String(raw.modelo || p.equipmentModel || ''),
+        osType: String(raw.nmostp || p.osType || ''),
+        defect: String(raw.obsdefeitocli || p.defect || ''),
+      };
+    });
+
+    // Buscar nomes de clientes do CRM para complementar
+    const allClientIds = [...new Set(classified.map(o => o.clientExternalId).filter(Boolean))];
+    const crmCustomers = allClientIds.length > 0
+      ? await prisma.crmCustomer.findMany({
+          where: { tenantId, externalId: { in: allClientIds } },
+          select: { externalId: true, name: true, fantasyName: true, phone: true },
+        })
+      : [];
+    const customerMap = Object.fromEntries(crmCustomers.map(c => [c.externalId, c]));
+
+    function enrich(item) {
+      const cust = customerMap[item.clientExternalId];
+      return {
+        externalId: item.externalId,
+        status: item.status,
+        openedAt: item.openedAt,
+        clientName: cust?.fantasyName || cust?.name || item.clientName || 'Cliente #' + item.clientExternalId,
+        clientPhone: cust?.phone || '',
+        technician: item.technician,
+        equipmentModel: item.equipmentModel,
+        osType: item.osType,
+        defect: item.defect,
+      };
+    }
 
     let results = [];
 
     if (type === 'mrr_risk') {
-      const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
-      results = await prisma.serviceOrder.findMany({
-        where: { tenantId, status: { in: ['PENDENTE', 'EM_ATENDIMENTO'] }, createdAt: { lte: slaLimitDate } },
-        include: { contact: { select: { id: true, name: true, phone: true } } },
-        orderBy: { createdAt: 'asc' }
-      });
+      results = classified
+        .filter(o => (o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO') && o.openedAt && o.openedAt <= slaLimitDate)
+        .map(enrich);
     } else if (type === 'stalled_estimates') {
-      const waitingApprovalLimitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      results = await prisma.serviceOrder.findMany({
-        where: { tenantId, status: 'AGUARDANDO_RETORNO', updatedAt: { lte: waitingApprovalLimitDate } },
-        include: { contact: { select: { id: true, name: true, phone: true } } },
-        orderBy: { updatedAt: 'asc' }
-      });
+      results = classified
+        .filter(o => o.status === 'AGUARDANDO_RETORNO')
+        .map(enrich);
     } else if (type === 'no_technician') {
-      results = await prisma.serviceOrder.findMany({
-        where: { tenantId, status: 'PENDENTE', userId: null },
-        include: { contact: { select: { id: true, name: true, phone: true } } },
-        orderBy: { createdAt: 'asc' }
-      });
+      results = classified
+        .filter(o => o.status === 'PENDENTE' && !o.technician)
+        .map(enrich);
     } else if (type === 'bad_csat') {
-      results = await prisma.ticket.findMany({
+      // CSAT vem dos tickets do WhatsApp (tabela local)
+      const tickets = await prisma.ticket.findMany({
         where: { tenantId, rating: { not: null, lte: 2 }, resolvedAt: { gte: thirtyDaysAgo } },
         include: { contact: { select: { id: true, name: true, phone: true } } },
         orderBy: { resolvedAt: 'desc' }
       });
+      results = tickets.map(t => ({
+        externalId: t.id,
+        status: 'CSAT ≤ 2',
+        openedAt: t.resolvedAt,
+        clientName: t.contact?.name || 'Desconhecido',
+        clientPhone: t.contact?.phone || '',
+        rating: t.rating,
+      }));
     } else if (type === 'reincident_equipments') {
-      const grouped = await prisma.serviceOrder.groupBy({
-        by: ['equipmentId'],
-        where: { tenantId, createdAt: { gte: thirtyDaysAgo }, equipmentId: { not: null } },
-        _count: { id: true }
-      });
-      const reincidentIds = grouped.filter(g => g._count.id > 2).map(g => g.equipmentId);
-      
-      if (reincidentIds.length > 0) {
-        // Find CrmEquipment using the equipmentExternalId stored in ServiceOrder or if equipmentId maps directly
-        // Note: equipmentId in ServiceOrder usually maps to CrmEquipment id or a local id.
-        // As a simple fallback, we just return the group ids for now since equipment relation in ServiceOrder varies.
-        results = grouped.filter(g => g._count.id > 2);
+      const equipCounts = {};
+      for (const o of classified) {
+        if (o.openedAt && o.openedAt >= thirtyDaysAgo && o.equipmentId) {
+          if (!equipCounts[o.equipmentId]) equipCounts[o.equipmentId] = { count: 0, model: o.equipmentModel, clientName: '', items: [] };
+          equipCounts[o.equipmentId].count++;
+          equipCounts[o.equipmentId].items.push(o);
+          const cust = customerMap[o.clientExternalId];
+          if (cust) equipCounts[o.equipmentId].clientName = cust.fantasyName || cust.name || '';
+        }
       }
+      results = Object.entries(equipCounts)
+        .filter(([, v]) => v.count > 2)
+        .map(([equipId, v]) => ({
+          externalId: equipId,
+          equipmentModel: v.model,
+          clientName: v.clientName,
+          count: v.count,
+        }));
     }
 
     res.json(results);
