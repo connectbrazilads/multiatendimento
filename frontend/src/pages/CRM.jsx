@@ -1007,6 +1007,8 @@ function ContractsTab({ contracts }) {
       {contracts.map((contract, index) => {
         const active = isContractActive(contract);
         const equipmentCount = Number(pick(contract, 'equipmentCount', 'equipmentsCount') || contract.equipments?.length || 0);
+        const pageFranchise = Number(pick(contract, 'pageFranchise') || 0);
+        const billingModeLabel = { fixo: 'Fixo', contador: 'Por contador', misto: 'Misto' }[pick(contract, 'billingMode')] || '—';
         return (
           <article key={contract.id || contract.externalId || index} style={s.contractCard}>
             <div style={s.contractHeader}>
@@ -1022,6 +1024,9 @@ function ContractsTab({ contracts }) {
               <Info label="Valor mensal" value={formatCurrency(pick(contract, 'monthlyValue', 'value', 'amount'))} />
               <Info label="Valor fixo" value={formatCurrency(pick(contract, 'fixedValue'))} />
               <Info label="Franquia" value={formatCurrency(pick(contract, 'franchiseValue'))} />
+              <Info label="Franquia de páginas" value={pageFranchise > 0 ? `${pageFranchise.toLocaleString('pt-BR')} páginas` : 'Sem franquia'} />
+              <Info label="Valor do excedente" value={formatCurrency(pick(contract, 'overageValue'))} />
+              <Info label="Faturamento" value={billingModeLabel} />
               <Info label="Equipamentos" value={`${equipmentCount} vinculado${equipmentCount === 1 ? '' : 's'}`} />
               <Info label="Tipo" value={pick(contract, 'typeName', 'contractType', 'type')} />
             </div>

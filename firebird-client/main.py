@@ -841,6 +841,9 @@ class FirebirdRepository:
                 ct.CDCONTRATOTP, tp.NMCONTRATOTP,
                 ct.VALOR_TOTAL_CONTRATO, ct.TR_VL_FIXO,
                 coalesce(med.VALOR_FRANQUIA, 0) as VALOR_FRANQUIA,
+                coalesce(med.QT_FRANQUIA, 0) as QT_FRANQUIA,
+                coalesce(med.VAL_EXCEDENTE, 0) as VAL_EXCEDENTE,
+                med.BILLING_MODE,
                 coalesce(it.QT_EQUIPAMENTOS, 0) as QT_EQUIPAMENTOS,
                 ct.TFATENDIMENTO, ct.TF_BLOQUEIA_OS, ct.INCLUSAO, ct.ATUALIZADO
             from IXLCONTRATOS ct
@@ -851,7 +854,16 @@ class FirebirdRepository:
                 group by SEQCONTRATO
             ) it on it.SEQCONTRATO = ct.SEQCONTRATO
             left join (
-                select SEQCONTRATO, sum(coalesce(VALFRANQUIA, 0)) as VALOR_FRANQUIA
+                select
+                    SEQCONTRATO,
+                    sum(coalesce(VALFRANQUIA, 0)) as VALOR_FRANQUIA,
+                    sum(coalesce(QTFRANQUIA, 0)) as QT_FRANQUIA,
+                    sum(coalesce(VALEXCEDENTE, 0)) as VAL_EXCEDENTE,
+                    case
+                        when sum(case when TFFATURAFIXO = 'S' then 1 else 0 end) = count(*) then 'fixo'
+                        when sum(case when TFFATURAFIXO = 'S' then 1 else 0 end) = 0 then 'contador'
+                        else 'misto'
+                    end as BILLING_MODE
                 from IXLCONTRATOSMED
                 where coalesce(TFMEDIDORATIVO, 'S') <> 'N'
                 group by SEQCONTRATO
@@ -1898,6 +1910,9 @@ def normalize_contract(record: dict[str, Any]) -> dict[str, Any]:
         "franchiseValue": franchise_value,
         "totalValue": total_value,
         "equipmentCount": int(record.get("qt_equipamentos") or 0),
+        "pageFranchise": int(record.get("qt_franquia") or 0),
+        "overageValue": float(record.get("val_excedente") or 0),
+        "billingMode": first_non_empty(record.get("billing_mode")),
         "startsAt": parse_firebird_timestamp(record.get("dtcontratoini")),
         "endsAt": parse_firebird_timestamp(record.get("dtcontratofin")),
         "updatedAt": parse_firebird_timestamp(record.get("atualizado")),
