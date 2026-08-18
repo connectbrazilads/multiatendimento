@@ -11,12 +11,12 @@ function isConnected(instance) {
 
 function getInstanceLabel(instance) {
   const suffix = instance?.instanceName?.split('_').pop();
-  return suffix?.toUpperCase() || instance?.instanceName || 'INSTANCIA';
+  return suffix?.toUpperCase() || instance?.instanceName || 'INSTÂNCIA';
 }
 
 export default function InstanceSelectionModal({
   instances = [],
-  title = 'Escolher instancia',
+  title = 'Escolher instância',
   description,
   confirmLabel = 'Abrir conversa',
   loading = false,
@@ -33,7 +33,7 @@ export default function InstanceSelectionModal({
     <ModalShell kicker="Canal WhatsApp" title={title} onClose={onClose} maxWidth="34rem">
       <div style={s.body}>
         <p style={s.description}>
-          {description || 'Selecione a instancia que sera vinculada a esta conversa.'}
+          {description || 'Selecione a instância que será vinculada a esta conversa.'}
         </p>
 
         <div style={s.list}>
@@ -60,7 +60,7 @@ export default function InstanceSelectionModal({
 
           {connectedInstances.length === 0 ? (
             <div style={s.empty}>
-              Nenhuma instancia conectada. Reconecte uma instancia antes de abrir a conversa.
+              Nenhuma instância conectada. Reconecte uma instância antes de abrir a conversa.
             </div>
           ) : null}
         </div>
@@ -120,7 +120,12 @@ const s = {
     flex: 1,
     minWidth: 0,
   },
-  optionTitle: { fontSize: '0.9rem' },
+  optionTitle: {
+    fontSize: '0.9rem',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   optionMeta: {
     color: 'var(--text-muted)',
     fontSize: '0.76rem',
@@ -129,16 +134,18 @@ const s = {
     whiteSpace: 'nowrap',
   },
   connected: {
-    color: '#48bb78',
+    color: 'var(--success)',
     fontSize: '0.68rem',
     fontWeight: 800,
     textTransform: 'uppercase',
+    flexShrink: 0,
   },
   empty: {
     padding: '1rem',
     borderRadius: '12px',
     background: 'var(--warning-light)',
-    color: 'var(--warning)',
+    border: '1px solid var(--warning-border)',
+    color: 'var(--warning-text)',
     lineHeight: 1.5,
     fontSize: '0.85rem',
   },
