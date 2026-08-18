@@ -14,8 +14,10 @@ export default function Connections() {
   const [selectedInst, setSelectedInst] = useState(null);
   const [name, setName] = useState('');
   const [qrcode, setQrcode] = useState(null);
+  const [qrError, setQrError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [repairingId, setRepairingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -35,7 +37,7 @@ export default function Connections() {
       const { data } = await getInstances();
       setInstances(data);
     } catch (err) {
-      toast.info('Erro ao carregar conexoes');
+      toast.error(err.response?.data?.error || 'Erro ao carregar as conexoes. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -43,6 +45,7 @@ export default function Connections() {
 
   async function handleAdd(e) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       const { data } = await createInstance(name);
@@ -59,27 +62,35 @@ export default function Connections() {
 
   async function loadQr(id) {
     setQrcode(null);
+    setQrError(false);
     try {
       const { data } = await getInstanceQrCode(id);
       setQrcode(data.qrcode);
-    } catch {
-      toast.info('Erro ao gerar QR Code');
+    } catch (err) {
+      setQrError(true);
+      toast.error(err.response?.data?.error || 'Nao foi possivel gerar o QR Code. Tente novamente.');
     }
   }
 
-  async function handleDelete(id) {
-    toast.confirm('Excluir esta conexao? O numero sera desconectado.', async () => {
+  async function handleDelete(inst) {
+    if (deletingId) return;
+    const label = inst.instanceName.split('_').pop().toUpperCase();
+    toast.confirm(`Excluir a conexao "${label}"? O numero sera desconectado e nao podera ser desfeito.`, async () => {
+      setDeletingId(inst.id);
       try {
-        await deleteInstance(id);
+        await deleteInstance(inst.id);
         load();
-      } catch {
-        toast.info('Erro ao excluir');
+      } catch (err) {
+        toast.error(err.response?.data?.error || `Erro ao excluir a conexao "${label}".`);
+      } finally {
+        setDeletingId(null);
       }
     });
   }
 
   async function handleRepair(inst) {
-    toast.confirm('Recriar a sessao desta conexao? Use quando o QR Code travar ou a Evolution ficar presa.', async () => {
+    const label = inst.instanceName.split('_').pop().toUpperCase();
+    toast.confirm(`Recriar a sessao da conexao "${label}"? Use quando o QR Code travar ou a Evolution ficar presa.`, async () => {
       setRepairingId(inst.id);
       setQrcode(null);
       try {
@@ -125,17 +136,22 @@ export default function Connections() {
                     {isConnected ? <Wifi size={20} /> : <WifiOff size={20} />}
                   </div>
                   <div style={s.cardInfo}>
-                    <h3 style={s.cardTitle}>{label}</h3>
+                    <h3 style={s.cardTitle} title={label}>{label}</h3>
                     <span style={{ ...s.cardStatus, color: isConnected ? 'var(--success)' : 'var(--text-muted)' }}>
                       {isConnected ? 'Conectado' : 'Desconectado'}
                     </span>
                     {inst.phone && (
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
+                      <div style={s.cardPhone}>
                         +{inst.phone}
                       </div>
                     )}
                   </div>
-                  <button style={s.deleteBtn} onClick={() => handleDelete(inst.id)} title="Excluir conexao">
+                  <button
+                    style={{ ...s.deleteBtn, ...(deletingId === inst.id ? s.deleteBtnBusy : {}) }}
+                    onClick={() => handleDelete(inst)}
+                    disabled={deletingId === inst.id}
+                    title={deletingId === inst.id ? 'Excluindo...' : 'Excluir conexao'}
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -213,6 +229,13 @@ export default function Connections() {
               <div style={s.qrBox}>
                 {qrcode ? (
                   <img src={qrcode} alt="QR Code" style={s.qrImg} />
+                ) : qrError ? (
+                  <div style={s.qrErrorState}>
+                    <span>Nao foi possivel gerar o QR Code.</span>
+                    <button type="button" style={s.qrRetryBtn} onClick={() => loadQr(selectedInst.id)}>
+                      Tentar novamente
+                    </button>
+                  </div>
                 ) : (
                   <div style={s.qrLoading}>Gerando codigo...</div>
                 )}
@@ -227,31 +250,8 @@ export default function Connections() {
 }
 
 const s = {
-  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '1rem',
-    marginBottom: '2.5rem',
-    flexWrap: 'wrap'
-  },
-  title: { fontSize: '1.8rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' },
-  subtitle: { fontSize: '0.95rem', color: 'var(--text-muted)', marginTop: '0.4rem' },
-  addBtn: {
-    background: 'var(--accent)',
-    color: 'var(--text-inverse)',
-    border: 'none',
-    padding: '0.8rem 1.25rem',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    fontWeight: 800,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: 'var(--shadow-sm)'
-  },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
+  container: { padding: 'var(--space-10)', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-6)' },
   card: {
     padding: '1.4rem',
     background: 'var(--bg-surface)',
@@ -261,7 +261,7 @@ const s = {
     flexDirection: 'column',
     gap: '1rem'
   },
-  cardTop: { display: 'flex', alignItems: 'center', gap: '1rem' },
+  cardTop: { display: 'flex', alignItems: 'center', gap: 'var(--space-4)' },
   statusIcon: {
     width: '42px',
     height: '42px',
@@ -274,8 +274,17 @@ const s = {
     flexShrink: 0
   },
   cardInfo: { flex: 1, minWidth: 0 },
-  cardTitle: { margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' },
-  cardStatus: { fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' },
+  cardTitle: {
+    margin: 0,
+    fontSize: 'var(--text-md)',
+    fontWeight: 800,
+    color: 'var(--text-main)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
+  cardStatus: { fontSize: 'var(--text-xs)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' },
+  cardPhone: { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', fontWeight: 600 },
   deleteBtn: {
     background: 'transparent',
     border: '1px solid var(--border-color)',
@@ -289,12 +298,13 @@ const s = {
     justifyContent: 'center',
     flexShrink: 0
   },
+  deleteBtnBusy: { opacity: 0.5, cursor: 'not-allowed' },
   cardMeta: { display: 'flex' },
   statusPill: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '0.72rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     padding: '6px 10px',
     borderRadius: '999px',
@@ -304,7 +314,7 @@ const s = {
     textTransform: 'uppercase'
   },
   statusDot: { width: '7px', height: '7px', borderRadius: '50%' },
-  cardBody: { marginTop: '0.25rem' },
+  cardBody: { marginTop: 'var(--space-1)' },
   disconnectedActions: { display: 'grid', gap: '0.65rem' },
   qrBtn: {
     width: '100%',
@@ -325,7 +335,7 @@ const s = {
     background: 'var(--bg-panel)',
     color: 'var(--text-muted)',
     border: '1px solid var(--border-color)',
-    padding: '0.75rem',
+    padding: 'var(--space-3)',
     borderRadius: '12px',
     fontWeight: 800,
     cursor: 'pointer',
@@ -350,13 +360,13 @@ const s = {
   empty: { padding: '4rem', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1 / -1' },
   emptyCard: {
     gridColumn: '1 / -1',
-    padding: '3rem',
+    padding: 'var(--space-12)',
     borderRadius: '24px',
     border: '1px dashed var(--border-color)',
     background: 'var(--bg-panel)',
     textAlign: 'center'
   },
-  emptyTitle: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' },
+  emptyTitle: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 'var(--space-2)' },
   emptyText: { color: 'var(--text-muted)', fontSize: '0.95rem' },
   overlay: {
     position: 'fixed',
@@ -396,7 +406,7 @@ const s = {
   },
   form: { padding: '1.75rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.55rem' },
-  label: { fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  label: { fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' },
   input: {
     background: 'var(--bg-panel)',
     border: '1px solid var(--border-color)',
@@ -426,8 +436,8 @@ const s = {
     fontWeight: 800
   },
   qrContent: { padding: '1.75rem', textAlign: 'center' },
-  qrText: { fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.55' },
-  qrBox: { background: '#fff', padding: '1rem', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem' },
+  qrText: { fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: 'var(--space-6)', lineHeight: 'var(--leading-normal)' },
+  qrBox: { background: '#fff', padding: 'var(--space-4)', borderRadius: '16px', display: 'inline-block', marginBottom: 'var(--space-6)' },
   qrImg: { width: '220px', height: '220px', display: 'block' },
   qrLoading: {
     width: '220px',
@@ -437,6 +447,31 @@ const s = {
     justifyContent: 'center',
     color: '#000',
     fontWeight: 700
+  },
+  qrErrorState: {
+    width: '220px',
+    height: '220px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 'var(--space-3)',
+    color: 'var(--danger)',
+    fontWeight: 700,
+    fontSize: 'var(--text-sm)',
+    textAlign: 'center',
+    padding: 'var(--space-4)',
+    boxSizing: 'border-box'
+  },
+  qrRetryBtn: {
+    background: 'var(--danger-light)',
+    color: 'var(--danger)',
+    border: '1px solid var(--danger-border)',
+    borderRadius: '10px',
+    padding: '0.55rem 0.9rem',
+    fontWeight: 800,
+    fontSize: 'var(--text-xs)',
+    cursor: 'pointer'
   },
   doneBtn: {
     width: '100%',
