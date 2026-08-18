@@ -110,29 +110,37 @@ export default function Campaigns() {
       setSelectedContacts([]);
     } catch (err) {
       console.error(err);
-      toast.info('Erro ao salvar grupo');
+      toast.error('Nao foi possivel salvar o grupo. Tente novamente.');
     }
   }
 
   async function handleStart() {
+    if (loading || status === 'processing') return;
     if (!tag && selectedContacts.length === 0) return toast.info('Selecione uma tag ou adicione contatos');
     if (!message) return toast.info('Escreva uma mensagem');
 
-    setLoading(true);
-    try {
-      await sendCampaign({
-        tag: tag || null,
-        contactIds: selectedContacts.length > 0 ? selectedContacts.map((contact) => contact.id) : null,
-        message,
-        delay: delay * 1000,
-      });
-      setStatus('processing');
-      setProgress({ sent: 0, errors: 0, total: 0 });
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao iniciar disparo');
-    } finally {
-      setLoading(false);
-    }
+    const audience =
+      selectedContacts.length > 0
+        ? `${selectedContacts.length} contato${selectedContacts.length > 1 ? 's' : ''} selecionado${selectedContacts.length > 1 ? 's' : ''}`
+        : `todos os contatos com a tag "${tag}"`;
+
+    toast.confirm(`Disparar esta campanha agora para ${audience}? As mensagens serao enviadas de imediato e o disparo nao pode ser cancelado.`, async () => {
+      setLoading(true);
+      try {
+        await sendCampaign({
+          tag: tag || null,
+          contactIds: selectedContacts.length > 0 ? selectedContacts.map((contact) => contact.id) : null,
+          message,
+          delay: delay * 1000,
+        });
+        setStatus('processing');
+        setProgress({ sent: 0, errors: 0, total: 0 });
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Erro ao iniciar o disparo. Tente novamente em instantes.');
+      } finally {
+        setLoading(false);
+      }
+    });
   }
 
   const processed = progress.sent + progress.errors;
@@ -182,14 +190,22 @@ export default function Campaigns() {
                 }}
                 disabled={status === 'processing'}
               />
-              {searchResults.length > 0 ? (
+              {search.trim().length >= 2 ? (
                 <div style={s.results}>
-                  {searchResults.map((contact) => (
-                    <div key={contact.id} style={s.resultItem} onClick={() => addContact(contact)}>
-                      <div style={s.resultName}>{contact.name}</div>
-                      <div style={s.resultPhone}>{contact.phone}</div>
-                    </div>
-                  ))}
+                  {searchResults.length > 0 ? (
+                    searchResults.map((contact) => (
+                      <div key={contact.id} style={s.resultItem} onClick={() => addContact(contact)}>
+                        <div style={s.resultName}>{contact.name}</div>
+                        <div style={s.resultPhone}>{contact.phone}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState
+                      title={`Nenhum contato encontrado para "${search}"`}
+                      description="Tente buscar por outro nome ou numero de telefone."
+                      style={s.searchEmpty}
+                    />
+                  )}
                 </div>
               ) : null}
             </div>
@@ -199,8 +215,10 @@ export default function Campaigns() {
         {selectedContacts.length > 0 ? (
           <div style={s.selectedPanel}>
             <div style={s.selectedHeader}>
-              <label style={{ ...s.label, marginBottom: 0 }}>Selecionados ({selectedContacts.length})</label>
-              <ActionButton variant="secondary" style={s.smallBtn} onClick={() => setShowSaveTag(true)}>
+              <label style={{ ...s.label, marginBottom: 0, fontVariantNumeric: 'tabular-nums' }}>
+                Selecionados ({selectedContacts.length})
+              </label>
+              <ActionButton variant="secondary" size="sm" onClick={() => setShowSaveTag(true)}>
                 <Save size={14} />
                 Salvar como grupo
               </ActionButton>
@@ -209,7 +227,9 @@ export default function Campaigns() {
             <div style={s.chipsWrap}>
               {selectedContacts.map((contact) => (
                 <span key={contact.id} style={s.selectedChip}>
-                  {contact.name || contact.phone}
+                  <span style={s.selectedChipText} title={contact.name || contact.phone}>
+                    {contact.name || contact.phone}
+                  </span>
                   <button style={s.removeChip} onClick={() => setSelectedContacts(selectedContacts.filter((item) => item.id !== contact.id))}>
                     x
                   </button>
@@ -223,11 +243,14 @@ export default function Campaigns() {
           <label style={s.label}>Modelo de mensagem (opcional)</label>
           <select style={s.input} onChange={(e) => setMessage(e.target.value)} disabled={status === 'processing'}>
             <option value="">Selecione um modelo pronto...</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.message}>
-                {template.shortcut} - {(template.message || '').slice(0, 30)}...
-              </option>
-            ))}
+            {templates.map((template) => {
+              const preview = template.message || '';
+              return (
+                <option key={template.id} value={template.message}>
+                  {template.shortcut} - {preview.length > 30 ? `${preview.slice(0, 30)}...` : preview}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -255,17 +278,18 @@ export default function Campaigns() {
 
         <ActionButton
           onClick={handleStart}
-          disabled={status === 'processing' || loading}
-          style={{ width: '100%', marginTop: '0.4rem', opacity: status === 'processing' || loading ? 0.65 : 1 }}
+          disabled={status === 'processing'}
+          loading={loading}
+          style={{ width: '100%', marginTop: '0.4rem' }}
         >
-          {status === 'processing' ? <Sparkles size={18} /> : <Megaphone size={18} />}
-          {status === 'processing' ? 'Processando disparo...' : 'Iniciar disparo agora'}
+          {status === 'processing' ? <Sparkles size={18} /> : loading ? null : <Megaphone size={18} />}
+          {status === 'processing' ? 'Processando disparo...' : loading ? 'Iniciando disparo...' : 'Iniciar disparo agora'}
         </ActionButton>
 
         {status !== 'idle' ? (
           <div style={s.progressBox}>
             <div style={s.progressHeader}>
-              <span style={{ ...s.progressTitle, color: status === 'finished' ? '#2fb171' : 'var(--accent)' }}>
+              <span style={{ ...s.progressTitle, color: status === 'finished' ? 'var(--success-text)' : 'var(--accent)' }}>
                 {status === 'finished' ? 'Disparo concluido' : 'Enviando mensagens...'}
               </span>
               <span style={s.progressCount}>
@@ -278,8 +302,8 @@ export default function Campaigns() {
             </div>
 
             <div style={s.stats}>
-              <span style={{ color: '#2fb171' }}>Enviados: {progress.sent}</span>
-              <span style={{ color: '#d85f5f' }}>Falhas: {progress.errors}</span>
+              <span style={{ color: 'var(--success-text)' }}>Enviados: {progress.sent}</span>
+              <span style={{ color: 'var(--danger-text)' }}>Falhas: {progress.errors}</span>
             </div>
           </div>
         ) : null}
@@ -306,12 +330,12 @@ export default function Campaigns() {
 }
 
 const s = {
-  container: { padding: '2.5rem', maxWidth: '900px', margin: '0 auto', color: 'var(--text-main)', width: '100%', display: 'block' },
-  card: { padding: '2rem' },
+  container: { padding: 'var(--space-10)', maxWidth: '900px', margin: '0 auto', color: 'var(--text-main)', width: '100%', display: 'block' },
+  card: { padding: 'var(--space-8)' },
   label: {
     display: 'block',
-    marginBottom: '0.5rem',
-    fontSize: '0.78rem',
+    marginBottom: 'var(--space-2)',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
@@ -321,11 +345,11 @@ const s = {
     width: '100%',
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-md)',
     padding: '0.95rem 1rem',
     color: 'var(--text-main)',
     marginBottom: '1.2rem',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
     outline: 'none',
     boxSizing: 'border-box',
   },
@@ -333,11 +357,11 @@ const s = {
     width: '100%',
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
-    padding: '1rem',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
     color: 'var(--text-main)',
-    marginBottom: '1rem',
-    fontSize: '0.95rem',
+    marginBottom: 'var(--space-4)',
+    fontSize: 'var(--text-md)',
     outline: 'none',
     minHeight: '150px',
     resize: 'vertical',
@@ -345,9 +369,9 @@ const s = {
     fontFamily: 'inherit',
     lineHeight: 1.6,
   },
-  hint: { fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 0, marginBottom: '1.2rem' },
-  twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' },
-  searchBox: { position: 'relative' },
+  hint: { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: 0, marginBottom: '1.2rem' },
+  twoCols: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', minWidth: 0 },
+  searchBox: { position: 'relative', minWidth: 0 },
   searchIcon: { position: 'absolute', left: '0.95rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', zIndex: 1 },
   results: {
     position: 'absolute',
@@ -356,35 +380,42 @@ const s = {
     right: 0,
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-md)',
     zIndex: 10,
     maxHeight: '220px',
     overflowY: 'auto',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.18)',
+    boxShadow: 'var(--shadow-md)',
   },
   resultItem: { padding: '0.85rem 1rem', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' },
   resultName: { fontWeight: 700, color: 'var(--text-main)' },
-  resultPhone: { fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' },
+  resultPhone: { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '0.2rem' },
+  searchEmpty: { border: 'none', background: 'transparent', padding: 'var(--space-6) var(--space-4)' },
   selectedPanel: {
     marginBottom: '1.2rem',
     background: 'var(--bg-panel)',
-    padding: '1rem',
-    borderRadius: '16px',
+    padding: 'var(--space-4)',
+    borderRadius: 'var(--radius-lg)',
     border: '1px dashed var(--border-color)',
   },
-  selectedHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' },
-  smallBtn: { padding: '0.55rem 0.85rem', borderRadius: '10px', fontSize: '0.8rem' },
-  chipsWrap: { display: 'flex', flexWrap: 'wrap', gap: '0.45rem' },
+  selectedHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' },
+  chipsWrap: { display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' },
   selectedChip: {
     display: 'inline-flex',
     alignItems: 'center',
+    maxWidth: '100%',
     background: 'var(--accent-light)',
     border: '1px solid var(--accent-border)',
     padding: '0.38rem 0.75rem',
-    borderRadius: '999px',
-    fontSize: '0.8rem',
+    borderRadius: 'var(--radius-pill)',
+    fontSize: 'var(--text-xs)',
     color: 'var(--accent)',
-    gap: '0.45rem',
+    gap: 'var(--space-2)',
+  },
+  selectedChipText: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '14rem',
   },
   removeChip: {
     background: 'transparent',
@@ -394,21 +425,29 @@ const s = {
     fontWeight: 900,
     padding: 0,
     lineHeight: 1,
+    flexShrink: 0,
   },
   progressBox: {
     marginTop: '1.8rem',
     padding: '1.4rem',
     background: 'var(--accent-light)',
-    borderRadius: '18px',
+    borderRadius: 'var(--radius-lg)',
     border: '1px solid var(--accent-border)',
   },
-  progressHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' },
+  progressHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' },
   progressTitle: { fontWeight: 800 },
-  progressCount: { fontSize: '0.82rem', color: 'var(--text-muted)' },
-  progressBar: { height: '8px', background: 'var(--border-color)', borderRadius: '999px', overflow: 'hidden', marginTop: '1rem' },
+  progressCount: { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' },
+  progressBar: { height: '8px', background: 'var(--border-color)', borderRadius: 'var(--radius-pill)', overflow: 'hidden', marginTop: 'var(--space-4)' },
   progressFill: { height: '100%', background: 'var(--accent)', transition: 'width 0.3s' },
-  stats: { display: 'flex', justifyContent: 'space-between', marginTop: '0.85rem', fontSize: '0.88rem', fontWeight: 700 },
-  modalBody: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
+  stats: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginTop: '0.85rem',
+    fontSize: 'var(--text-sm)',
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  modalBody: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' },
   modalText: { margin: 0, color: 'var(--text-muted)', lineHeight: 1.6 },
   modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '0.4rem' },
 };

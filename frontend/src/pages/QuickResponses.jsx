@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from '../utils/toast';
 import { getQuickResponses, createQuickResponse, deleteQuickResponse } from '../services/api';
 import { MessageSquare, Plus, Trash2, Search, Zap } from 'lucide-react';
@@ -12,6 +12,7 @@ export default function QuickResponses() {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ shortcut: '', message: '' });
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -23,8 +24,8 @@ export default function QuickResponses() {
       const { data } = await getQuickResponses();
       setResponses(data);
     } catch (e) {
-      console.error('Erro ao carregar respostas rapidas');
-      toast.info('Erro ao carregar respostas rapidas');
+      console.error('Erro ao carregar modelos de mensagem:', e);
+      toast.error(e.response?.data?.error || 'Nao foi possivel carregar os modelos de mensagem. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -32,6 +33,7 @@ export default function QuickResponses() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       await createQuickResponse(form);
@@ -39,27 +41,36 @@ export default function QuickResponses() {
       setModal(false);
       load();
     } catch (e) {
-      toast.info('Erro ao salvar modelo');
+      toast.error(e.response?.data?.error || 'Nao foi possivel salvar o modelo. Verifique os campos e tente novamente.');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Deseja excluir este modelo?')) return;
-    try {
-      await deleteQuickResponse(id);
-      load();
-    } catch (e) {
-      toast.info('Erro ao excluir');
-    }
+  function handleDelete(id, shortcut) {
+    if (deletingId) return;
+    toast.confirm(`Excluir o modelo "/${shortcut}"? Essa acao nao pode ser desfeita.`, async () => {
+      setDeletingId(id);
+      try {
+        await deleteQuickResponse(id);
+        load();
+      } catch (e) {
+        toast.error(e.response?.data?.error || 'Nao foi possivel excluir o modelo. Tente novamente.');
+      } finally {
+        setDeletingId(null);
+      }
+    });
   }
 
-  const filtered = responses.filter(
-    (item) =>
-      item.shortcut.toLowerCase().includes(search.toLowerCase()) ||
-      item.message.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return responses;
+    return responses.filter(
+      (item) =>
+        item.shortcut.toLowerCase().includes(term) ||
+        item.message.toLowerCase().includes(term)
+    );
+  }, [responses, search]);
 
   return (
     <div style={s.container}>
@@ -96,8 +107,13 @@ export default function QuickResponses() {
           filtered.map((item) => (
             <article key={item.id} style={s.card}>
               <div style={s.cardHeader}>
-                <div style={s.shortcut}>/{item.shortcut}</div>
-                <button style={s.delBtn} onClick={() => handleDelete(item.id)} title="Excluir modelo">
+                <div style={s.shortcut} title={`/${item.shortcut}`}>/{item.shortcut}</div>
+                <button
+                  style={{ ...s.delBtn, opacity: deletingId === item.id ? 0.5 : 1, cursor: deletingId === item.id ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleDelete(item.id, item.shortcut)}
+                  disabled={deletingId === item.id}
+                  title="Excluir modelo"
+                >
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -121,7 +137,7 @@ export default function QuickResponses() {
             <div style={s.modalHeader}>
               <div>
                 <p style={s.modalKicker}>Novo modelo</p>
-                <h3 style={s.modalTitle}>Cadastrar mensagem pronta</h3>
+                <h3 style={s.modalTitle}>Cadastrar modelo de mensagem</h3>
               </div>
               <button style={s.closeBtn} onClick={() => setModal(false)}>
                 x
@@ -151,7 +167,7 @@ export default function QuickResponses() {
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
                   required
-                  placeholder="Escreva a resposta completa aqui..."
+                  placeholder="Escreva o modelo completo aqui..."
                 />
                 <p style={s.hint}>No chat, digite "/" para listar os modelos disponiveis.</p>
               </div>
@@ -173,7 +189,7 @@ export default function QuickResponses() {
 }
 
 const s = {
-  container: { padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
+  container: { padding: 'var(--space-10)', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -211,11 +227,11 @@ const s = {
     alignItems: 'center',
     gap: '8px',
   },
-  searchRow: { marginBottom: '2rem' },
+  searchRow: { marginBottom: 'var(--space-8)' },
   searchBox: {
     background: 'var(--bg-surface)',
-    borderRadius: '14px',
-    padding: '0 1rem',
+    borderRadius: 'var(--radius-md)',
+    padding: '0 var(--space-4)',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
@@ -230,27 +246,32 @@ const s = {
     color: 'var(--text-main)',
     outline: 'none',
     flex: 1,
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-sm)',
   },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-6)' },
   card: {
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-color)',
-    borderRadius: '18px',
-    padding: '1.4rem',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-6)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
+    gap: 'var(--space-4)',
+    minWidth: 0,
   },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' },
+  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)', minWidth: 0 },
   shortcut: {
     background: 'var(--accent-light)',
     color: 'var(--accent)',
     padding: '0.35rem 0.75rem',
-    borderRadius: '999px',
-    fontSize: '0.82rem',
+    borderRadius: 'var(--radius-pill)',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     border: '1px solid var(--accent-border)',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   delBtn: {
     width: '36px',
@@ -263,14 +284,22 @@ const s = {
     color: 'var(--text-muted)',
     cursor: 'pointer',
     borderRadius: '12px',
+    flexShrink: 0,
   },
-  cardBody: { fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.7, whiteSpace: 'pre-wrap', flex: 1 },
+  cardBody: {
+    fontSize: 'var(--text-sm)',
+    color: 'var(--text-main)',
+    lineHeight: 'var(--leading-relaxed)',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+    flex: 1,
+  },
   cardFooter: { borderTop: '1px solid var(--border-color)', paddingTop: '0.9rem' },
   metaBadge: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.45rem',
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--text-muted)',
     fontWeight: 700,
   },
@@ -280,12 +309,12 @@ const s = {
     background: 'var(--bg-panel)',
     border: '1px dashed var(--border-color)',
     borderRadius: '22px',
-    padding: '3rem',
+    padding: 'var(--space-12)',
     textAlign: 'center',
     color: 'var(--text-muted)',
   },
-  emptyTitle: { marginTop: '0.9rem', marginBottom: '0.45rem', color: 'var(--text-main)', fontWeight: 800, fontSize: '1.05rem' },
-  emptyText: { fontSize: '0.9rem', lineHeight: 1.6 },
+  emptyTitle: { marginTop: '0.9rem', marginBottom: '0.45rem', color: 'var(--text-main)', fontWeight: 800, fontSize: 'var(--text-lg)' },
+  emptyText: { fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-relaxed)' },
   overlay: {
     position: 'fixed',
     inset: 0,
@@ -299,76 +328,76 @@ const s = {
   },
   modal: {
     background: 'var(--bg-surface)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-xl)',
     width: '100%',
     maxWidth: '34rem',
     border: '1px solid var(--border-color)',
     boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
   },
   modalHeader: {
-    padding: '1.5rem 1.8rem',
+    padding: 'var(--space-6) var(--space-8)',
     borderBottom: '1px solid var(--border-color)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: '1rem',
+    gap: 'var(--space-4)',
   },
   modalKicker: {
     margin: '0 0 0.35rem',
     color: 'var(--accent)',
-    fontSize: '0.74rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
   },
-  modalTitle: { margin: 0, fontSize: '1.18rem', fontWeight: 800, color: 'var(--text-main)' },
+  modalTitle: { margin: 0, fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-main)' },
   closeBtn: {
     background: 'transparent',
     border: '1px solid var(--border-color)',
     color: 'var(--text-dim)',
     width: '34px',
     height: '34px',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
   },
-  form: { padding: '1.8rem', display: 'flex', flexDirection: 'column', gap: '1.4rem' },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  form: { padding: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: '1.4rem' },
+  field: { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' },
   label: {
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
   },
   inputWrapper: { position: 'relative', display: 'flex', alignItems: 'center' },
-  prefix: { position: 'absolute', left: '1rem', color: 'var(--accent)', fontWeight: 800 },
+  prefix: { position: 'absolute', left: 'var(--space-4)', color: 'var(--accent)', fontWeight: 800 },
   inputWithPrefix: {
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-md)',
     padding: '0.9rem 1rem 0.9rem 2rem',
     color: 'var(--text-main)',
     outline: 'none',
     width: '100%',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-sm)',
   },
   textarea: {
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
-    padding: '1rem',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
     color: 'var(--text-main)',
     outline: 'none',
     resize: 'none',
     fontFamily: 'inherit',
-    fontSize: '0.95rem',
-    lineHeight: 1.6,
+    fontSize: 'var(--text-sm)',
+    lineHeight: 'var(--leading-relaxed)',
   },
-  hint: { fontSize: '0.8rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 },
-  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '0.5rem' },
+  hint: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)', margin: 0, lineHeight: 'var(--leading-normal)' },
+  modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: 'var(--space-2)' },
   cancelBtn: {
     padding: '0.85rem 1.2rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--border-color)',
     background: 'transparent',
     color: 'var(--text-muted)',
@@ -377,7 +406,7 @@ const s = {
   },
   saveBtn: {
     padding: '0.85rem 1.2rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--accent)',
     background: 'var(--accent)',
     color: 'var(--text-inverse)',
