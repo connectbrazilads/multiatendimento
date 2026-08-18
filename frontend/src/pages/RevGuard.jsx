@@ -781,6 +781,8 @@ export default function RevGuard() {
             </div>
           </div>
         )
+      )}
+
       {/* MODAL DE DRILLDOWN */}
       {showDrilldownModal && (
         <div style={s.modalOverlay} onClick={() => setShowDrilldownModal(false)}>

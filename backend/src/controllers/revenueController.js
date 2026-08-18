@@ -69,6 +69,7 @@ async function getRevenueDashboard(req, res) {
         tenantId,
         status: 'AGUARDANDO_RETORNO',
         updatedAt: { lte: waitingApprovalLimitDate }
+      },
       select: { id: true, externalId: true, contactId: true, ticketId: true, equipmentId: true }
     });
 
