@@ -14,6 +14,8 @@ export default function Teams() {
   const [name, setName] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deletingTeamId, setDeletingTeamId] = useState(null);
+  const [removingMemberKey, setRemovingMemberKey] = useState(null);
 
   useEffect(() => {
     load();
@@ -26,7 +28,7 @@ export default function Teams() {
       setTeams(teamsResponse.data);
       setUsers(usersResponse.data);
     } catch (err) {
-      toast.info('Erro ao carregar dados');
+      toast.error(err.response?.data?.error || 'Nao foi possivel carregar as equipes e os agentes.');
     } finally {
       setLoading(false);
     }
@@ -44,19 +46,22 @@ export default function Teams() {
       setModal(null);
       load();
     } catch (err) {
-      toast.info('Erro ao salvar equipe');
+      toast.error(err.response?.data?.error || (selectedTeam ? 'Erro ao atualizar a equipe.' : 'Erro ao criar a equipe.'));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteTeam(id) {
-    toast.confirm('Excluir esta equipe permanentemente?', async () => {
+  async function handleDeleteTeam(id, teamName) {
+    toast.confirm(`Excluir a equipe "${teamName}" permanentemente? Os agentes vinculados serao desvinculados.`, async () => {
+      setDeletingTeamId(id);
       try {
         await deleteTeam(id);
         load();
       } catch (err) {
-        toast.info('Erro ao excluir');
+        toast.error(err.response?.data?.error || `Erro ao excluir a equipe "${teamName}".`);
+      } finally {
+        setDeletingTeamId(null);
       }
     });
   }
@@ -71,19 +76,23 @@ export default function Teams() {
       setModal(null);
       load();
     } catch (err) {
-      toast.info('Agente ja faz parte desta equipe');
+      toast.error(err.response?.data?.error || 'Nao foi possivel adicionar o agente a equipe. Ele pode ja fazer parte dela.');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleRemoveMember(teamId, userId) {
-    toast.confirm('Remover este agente da equipe?', async () => {
+  async function handleRemoveMember(teamId, userId, memberName) {
+    toast.confirm(`Remover ${memberName} desta equipe?`, async () => {
+      const key = `${teamId}:${userId}`;
+      setRemovingMemberKey(key);
       try {
         await removeTeamMember(teamId, userId);
         load();
       } catch (err) {
-        toast.info('Erro ao remover');
+        toast.error(err.response?.data?.error || `Erro ao remover ${memberName} da equipe.`);
+      } finally {
+        setRemovingMemberKey(null);
       }
     });
   }
@@ -114,8 +123,8 @@ export default function Teams() {
           {teams.map((team) => (
             <section key={team.id} style={s.teamCard}>
               <div style={s.teamHeader}>
-                <div>
-                  <h3 style={s.teamName}>{team.name}</h3>
+                <div style={s.teamInfo}>
+                  <h3 style={s.teamName} title={team.name}>{team.name}</h3>
                   <span style={s.memberCount}>{team.members.length} agente(s) vinculado(s)</span>
                 </div>
 
@@ -131,7 +140,12 @@ export default function Teams() {
                   >
                     <Pencil size={16} />
                   </button>
-                  <button style={{ ...s.iconBtn, ...s.iconBtnDanger }} onClick={() => handleDeleteTeam(team.id)} title="Excluir equipe">
+                  <button
+                    style={{ ...s.iconBtn, ...s.iconBtnDanger, opacity: deletingTeamId === team.id ? 0.5 : 1 }}
+                    onClick={() => handleDeleteTeam(team.id, team.name)}
+                    disabled={deletingTeamId === team.id}
+                    title="Excluir equipe"
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -143,15 +157,24 @@ export default function Teams() {
                 {team.members.length === 0 ? (
                   <div style={s.emptyInline}>Nenhum membro vinculado ainda.</div>
                 ) : (
-                  team.members.map((member) => (
-                    <div key={member.userId} style={s.memberRow}>
-                      <div style={s.avatarSmall}>{member.user.name[0]}</div>
-                      <span style={s.memberName}>{member.user.name}</span>
-                      <button style={s.removeBtn} onClick={() => handleRemoveMember(team.id, member.userId)} title="Remover membro">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))
+                  team.members.map((member) => {
+                    const memberKey = `${team.id}:${member.userId}`;
+                    const isRemoving = removingMemberKey === memberKey;
+                    return (
+                      <div key={member.userId} style={s.memberRow}>
+                        <div style={s.avatarSmall}>{member.user.name[0]}</div>
+                        <span style={s.memberName} title={member.user.name}>{member.user.name}</span>
+                        <button
+                          style={{ ...s.removeBtn, opacity: isRemoving ? 0.5 : 1 }}
+                          onClick={() => handleRemoveMember(team.id, member.userId, member.user.name)}
+                          disabled={isRemoving}
+                          title="Remover membro"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
 
                 <button
@@ -185,16 +208,16 @@ export default function Teams() {
             <div style={s.modalHeader}>
               <div>
                 <p style={s.modalKicker}>{selectedTeam ? 'Editar equipe' : 'Nova equipe'}</p>
-                <h3 style={s.modalTitle}>{selectedTeam ? 'Atualizar departamento' : 'Criar departamento'}</h3>
+                <h3 style={s.modalTitle}>{selectedTeam ? 'Atualizar equipe' : 'Criar equipe'}</h3>
               </div>
-              <button style={s.closeBtn} onClick={() => setModal(null)}>
-                x
+              <button style={s.closeBtn} onClick={() => setModal(null)} title="Fechar">
+                <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleSaveTeam} style={s.form}>
               <div style={s.field}>
-                <label style={s.label}>Nome do departamento</label>
+                <label style={s.label}>Nome da equipe</label>
                 <input style={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Financeiro, Comercial..." required />
               </div>
               <div style={s.modalFooter}>
@@ -214,12 +237,12 @@ export default function Teams() {
         <div style={s.overlay}>
           <div style={s.modal}>
             <div style={s.modalHeader}>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <p style={s.modalKicker}>Vincular agente</p>
-                <h3 style={s.modalTitle}>Adicionar em {selectedTeam?.name}</h3>
+                <h3 style={s.modalTitle} title={selectedTeam?.name}>Adicionar em {selectedTeam?.name}</h3>
               </div>
-              <button style={s.closeBtn} onClick={() => setModal(null)}>
-                x
+              <button style={s.closeBtn} onClick={() => setModal(null)} title="Fechar">
+                <X size={16} />
               </button>
             </div>
 
@@ -227,7 +250,7 @@ export default function Teams() {
               <div style={s.field}>
                 <label style={s.label}>Selecionar agente</label>
                 <select style={s.input} value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} required>
-                  <option value="">Selecione um colaborador...</option>
+                  <option value="">Selecione um agente...</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name} ({user.email})
@@ -309,17 +332,26 @@ const s = {
     paddingBottom: '1rem',
     borderBottom: '1px solid var(--border-color)',
   },
-  teamName: { margin: 0, fontSize: '1.12rem', fontWeight: 800, color: 'var(--accent)' },
+  teamInfo: { minWidth: 0, flex: 1 },
+  teamName: {
+    margin: 0,
+    fontSize: 'var(--text-lg)',
+    fontWeight: 800,
+    color: 'var(--accent)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   memberCount: {
     display: 'inline-block',
     marginTop: '0.4rem',
-    fontSize: '0.75rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
     fontWeight: 800,
     letterSpacing: '0.06em',
   },
-  teamActions: { display: 'flex', gap: '0.5rem' },
+  teamActions: { display: 'flex', gap: '0.5rem', flexShrink: 0 },
   iconBtn: {
     width: '36px',
     height: '36px',
@@ -333,11 +365,11 @@ const s = {
     borderRadius: '12px',
   },
   iconBtnDanger: {
-    color: '#d85f5f',
+    color: 'var(--danger-text)',
   },
   memberList: { display: 'flex', flexDirection: 'column', gap: '0.7rem' },
   memberTitle: {
-    fontSize: '0.75rem',
+    fontSize: 'var(--text-xs)',
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
@@ -363,13 +395,22 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: 800,
-    fontSize: '0.75rem',
+    fontSize: 'var(--text-xs)',
     flexShrink: 0,
   },
-  memberName: { flex: 1, fontSize: '0.9rem', color: 'var(--text-main)' },
+  memberName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 'var(--text-sm)',
+    color: 'var(--text-main)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   removeBtn: {
     width: '28px',
     height: '28px',
+    flexShrink: 0,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -387,7 +428,7 @@ const s = {
     padding: '0.85rem',
     borderRadius: '14px',
     cursor: 'pointer',
-    fontSize: '0.88rem',
+    fontSize: 'var(--text-sm)',
     fontWeight: 700,
     display: 'inline-flex',
     alignItems: 'center',
@@ -401,7 +442,7 @@ const s = {
     borderRadius: '12px',
     padding: '1rem',
     color: 'var(--text-dim)',
-    fontSize: '0.85rem',
+    fontSize: 'var(--text-sm)',
   },
   emptyCard: {
     gridColumn: '1 / -1',
@@ -412,8 +453,8 @@ const s = {
     textAlign: 'center',
     color: 'var(--text-muted)',
   },
-  emptyTitle: { marginTop: '0.9rem', marginBottom: '0.45rem', color: 'var(--text-main)', fontWeight: 800, fontSize: '1.05rem' },
-  emptyText: { fontSize: '0.9rem', lineHeight: 1.6 },
+  emptyTitle: { marginTop: '0.9rem', marginBottom: '0.45rem', color: 'var(--text-main)', fontWeight: 800, fontSize: 'var(--text-lg)' },
+  emptyText: { fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-relaxed)' },
   overlay: {
     position: 'fixed',
     inset: 0,
@@ -444,12 +485,12 @@ const s = {
   modalKicker: {
     margin: '0 0 0.35rem',
     color: 'var(--accent)',
-    fontSize: '0.74rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
   },
-  modalTitle: { margin: 0, fontSize: '1.18rem', fontWeight: 800, color: 'var(--text-main)' },
+  modalTitle: { margin: 0, fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-main)' },
   closeBtn: {
     background: 'transparent',
     border: '1px solid var(--border-color)',
@@ -458,11 +499,15 @@ const s = {
     height: '34px',
     borderRadius: '10px',
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   form: { padding: '1.8rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   label: {
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
@@ -475,7 +520,7 @@ const s = {
     padding: '0.9rem 1rem',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
     width: '100%',
   },
   modalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '1.6rem' },

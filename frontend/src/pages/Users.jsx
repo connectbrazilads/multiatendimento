@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BadgeCheck, Pencil, Plus, Search, Shield, Trash2, UserRound, UserX } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BadgeCheck, Pencil, Plus, Search, Shield, Trash2, UserRound, UserX, X } from 'lucide-react';
 import { toast } from '../utils/toast';
 import api, { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
 import PageHeader from '../components/ui/PageHeader';
@@ -15,6 +15,7 @@ export default function Users() {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '' });
   const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState(null);
 
   useEffect(() => {
     load();
@@ -32,7 +33,7 @@ export default function Users() {
       setTeams(tData);
       setTechnicians(techsData);
     } catch (err) {
-      toast.info('Erro ao carregar dados');
+      toast.error('Não foi possível carregar os usuários. Recarregue a página.');
     } finally {
       setLoading(false);
     }
@@ -61,43 +62,53 @@ export default function Users() {
       setModal(null);
       load();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao salvar');
+      toast.error(err.response?.data?.error || 'Não foi possível salvar o usuário. Tente novamente.');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleToggleStatus(user) {
+    if (pendingId) return;
+    setPendingId(user.id);
     try {
       await updateUser(user.id, { active: !user.active });
       load();
     } catch {
-      toast.info('Erro ao mudar status');
+      toast.error('Não foi possível atualizar o status do usuário.');
+    } finally {
+      setPendingId(null);
     }
   }
 
   async function handleDelete(user) {
     toast.confirm(
-      `Excluir o atendente ${user.name}? Essa acao remove o acesso dele e desvincula atendimentos anteriores.`,
+      `Excluir o usuário ${user.name}? Essa ação remove o acesso dele e desvincula atendimentos anteriores.`,
       async () => {
+        if (pendingId) return;
+        setPendingId(user.id);
         try {
           await deleteUser(user.id);
-          toast.success('Atendente excluido com sucesso');
+          toast.success('Usuário excluído com sucesso');
           load();
         } catch (err) {
-          toast.error(err.response?.data?.error || 'Erro ao excluir atendente');
+          toast.error(err.response?.data?.error || 'Não foi possível excluir o usuário.');
+        } finally {
+          setPendingId(null);
         }
       }
     );
   }
 
-  const filtered = users.filter((user) => {
-    const term = search.toLowerCase();
-    const matchesSearch =
-      user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
-    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? user.active : !user.active);
-    return matchesSearch && matchesStatus;
-  });
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? user.active : !user.active);
+      return matchesSearch && matchesStatus;
+    });
+  }, [users, search, statusFilter]);
 
   return (
     <div style={s.container}>
@@ -105,7 +116,7 @@ export default function Users() {
         kicker="Administração"
         title="Gestão de usuários"
         subtitle="Controle acessos, funções e disponibilidade da equipe."
-        actions={<ActionButton onClick={() => openModal()}><Plus size={16} /> Adicionar agente</ActionButton>}
+        actions={<ActionButton onClick={() => openModal()}><Plus size={16} /> Adicionar usuário</ActionButton>}
         compact
       />
 
@@ -129,9 +140,13 @@ export default function Users() {
 
       <div style={s.tableCard}>
         {loading ? (
-          <div style={s.empty}>Carregando agentes...</div>
+          <div style={s.empty}>Carregando usuários...</div>
         ) : filtered.length === 0 ? (
-          <div style={s.empty}>Nenhum usuario encontrado.</div>
+          <div style={s.empty}>
+            {users.length === 0
+              ? 'Nenhum usuário cadastrado ainda. Clique em "Adicionar usuário" para criar o primeiro acesso.'
+              : 'Nenhum usuário encontrado para esse filtro. Ajuste a busca ou o status selecionado.'}
+          </div>
         ) : (
           <table style={s.table}>
             <thead>
@@ -140,7 +155,7 @@ export default function Users() {
                 <th style={s.th}>E-mail</th>
                 <th style={s.th}>Cargo</th>
                 <th style={s.th}>Status</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Acoes</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -151,13 +166,15 @@ export default function Users() {
                     <td style={s.td}>
                       <div style={s.nameCell}>
                         <div style={s.avatar}>{user.name[0].toUpperCase()}</div>
-                        <div>
-                          <div style={s.nameText}>{user.name}</div>
-                          <div style={s.metaText}>{user.active ? 'Disponivel' : 'Arquivado'}</div>
+                        <div style={s.nameInfo}>
+                          <div style={s.nameText} title={user.name}>{user.name}</div>
+                          <div style={s.metaText}>{user.active ? 'Disponível' : 'Arquivado'}</div>
                         </div>
                       </div>
                     </td>
-                    <td style={s.td}>{user.email}</td>
+                    <td style={s.td}>
+                      <span style={s.emailText} title={user.email}>{user.email}</span>
+                    </td>
                     <td style={s.td}>
                       <span
                         style={{
@@ -185,6 +202,7 @@ export default function Users() {
                         <button
                           style={{ ...s.actionBtn, ...(user.active ? s.actionWarn : s.actionSuccess) }}
                           onClick={() => handleToggleStatus(user)}
+                          disabled={pendingId === user.id}
                           title={user.active ? 'Arquivar' : 'Reativar'}
                         >
                           {user.active ? <UserX size={16} /> : <BadgeCheck size={16} />}
@@ -192,7 +210,8 @@ export default function Users() {
                         <button
                           style={{ ...s.actionBtn, ...s.actionDanger }}
                           onClick={() => handleDelete(user)}
-                          title="Excluir atendente"
+                          disabled={pendingId === user.id}
+                          title="Excluir usuário"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -212,10 +231,10 @@ export default function Users() {
             <div style={s.modalHeader}>
               <div>
                 <p style={s.modalKicker}>{modal === 'new' ? 'Novo cadastro' : 'Editar acesso'}</p>
-                <h3 style={s.modalTitle}>{modal === 'new' ? 'Adicionar agente' : 'Atualizar agente'}</h3>
+                <h3 style={s.modalTitle}>{modal === 'new' ? 'Adicionar usuário' : 'Atualizar usuário'}</h3>
               </div>
-              <button style={s.closeBtn} onClick={() => setModal(null)}>
-                x
+              <button style={s.closeBtn} onClick={() => setModal(null)} aria-label="Fechar">
+                <X size={16} />
               </button>
             </div>
 
@@ -280,7 +299,7 @@ export default function Users() {
                   Cancelar
                 </button>
                 <button type="submit" style={s.saveBtn} disabled={saving}>
-                  {saving ? 'Processando...' : 'Salvar alteracoes'}
+                  {saving ? 'Processando...' : modal === 'new' ? 'Criar usuário' : 'Salvar alterações'}
                 </button>
               </div>
             </form>
@@ -293,7 +312,7 @@ export default function Users() {
 
 const s = {
   container: {
-    padding: '2.5rem',
+    padding: 'var(--space-10)',
     flex: 1,
     overflowY: 'auto',
     background: 'var(--bg-base)',
@@ -345,8 +364,8 @@ const s = {
   },
   filterBar: {
     display: 'flex',
-    gap: '1rem',
-    marginBottom: '1.5rem',
+    gap: 'var(--space-4)',
+    marginBottom: 'var(--space-6)',
     flexWrap: 'wrap',
   },
   searchWrap: {
@@ -355,7 +374,7 @@ const s = {
   },
   searchIcon: {
     position: 'absolute',
-    left: '1rem',
+    left: 'var(--space-4)',
     top: '50%',
     transform: 'translateY(-50%)',
     color: 'var(--text-dim)',
@@ -364,22 +383,22 @@ const s = {
     width: '100%',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
-    padding: '0.85rem 1rem 0.85rem 2.7rem',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-3) var(--space-4) var(--space-3) var(--space-10)',
     color: 'var(--text-main)',
     outline: 'none',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
   },
   select: {
     minWidth: '13rem',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
-    padding: '0.85rem 1rem',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-3) var(--space-4)',
     color: 'var(--text-main)',
     outline: 'none',
     cursor: 'pointer',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
   },
   tableCard: {
     background: 'var(--bg-surface)',
@@ -398,7 +417,7 @@ const s = {
   },
   th: {
     padding: '1.15rem 1.4rem',
-    fontSize: '0.78rem',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     color: 'var(--text-dim)',
     textTransform: 'uppercase',
@@ -409,7 +428,7 @@ const s = {
   },
   td: {
     padding: '1.2rem 1.4rem',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-md)',
     color: 'var(--text-main)',
     verticalAlign: 'middle',
   },
@@ -417,6 +436,11 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.9rem',
+    minWidth: 0,
+  },
+  nameInfo: {
+    minWidth: 0,
+    maxWidth: '14rem',
   },
   avatar: {
     width: '38px',
@@ -435,10 +459,20 @@ const s = {
     fontWeight: 700,
     color: 'var(--text-main)',
     marginBottom: '0.2rem',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   metaText: {
     fontSize: '0.8rem',
     color: 'var(--text-dim)',
+  },
+  emailText: {
+    display: 'block',
+    maxWidth: '16rem',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   roleBadge: {
     display: 'inline-flex',
