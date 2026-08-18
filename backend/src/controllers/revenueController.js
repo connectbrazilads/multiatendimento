@@ -148,17 +148,20 @@ async function getRevenueDashboard(req, res) {
     // RESPOSTA
     // ───────────────────────────────────────────────────────────────
     // ───────────────────────────────────────────────────────────────
-    // VAZAMENTO DO FUNIL (Perda)
+    // VAZAMENTO DO FUNIL (Perda Estimada)
     // ───────────────────────────────────────────────────────────────
-    const vazamento = aguardando.filter(o => o.openedAt && o.openedAt < thirtyDaysAgo);
+    const vazamento = classified.filter(o => 
+      (o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO' || o.status === 'AGUARDANDO_RETORNO' || o.status === 'AGUARDANDO_APROVACAO') && 
+      o.openedAt && o.openedAt < thirtyDaysAgo
+    );
     const vazamentoMes = vazamento.length;
     let vazamentoValor = 0;
     
     // Tenta somar valores dos orçamentos, ou fallback para uma estimativa se não houver
     for (const o of vazamento) {
-      if (o.payload && o.payload.totalValue) {
-        vazamentoValor += parseFloat(o.payload.totalValue) || 0;
-      }
+      const raw = o.payload?.raw || o.payload || {};
+      const val = parseFloat(raw.vltotal || raw.vlservico || raw.vlpecas || o.payload?.totalValue) || 0;
+      vazamentoValor += val;
     }
 
     res.json({
@@ -204,33 +207,38 @@ async function getBenchmark(req, res) {
     });
 
     function fbStatus(payload) {
-      if (!payload) return 'DESCONHECIDO';
-      const statusStr = (payload.status || payload.SITUACAO || '').toString().toUpperCase();
-      if (statusStr.includes('PENDENTE') || statusStr === '1' || statusStr === 'ABERTO') return 'PENDENTE';
-      if (statusStr.includes('ATENDIMENTO') || statusStr === '2') return 'EM_ATENDIMENTO';
-      if (statusStr.includes('ORÇAMENTO') || statusStr.includes('ORCAMENTO') || statusStr === '3') return 'AGUARDANDO_APROVACAO';
-      if (statusStr.includes('FINALIZADA') || statusStr.includes('CONCLUÍDO') || statusStr === '4') return 'FINALIZADA';
-      if (statusStr.includes('CANCELADA') || statusStr === '5') return 'CANCELADA';
-      return 'DESCONHECIDO';
+      const raw = payload?.raw || payload || {};
+      const status = String(raw.status || raw.nmstatus || payload?.status || '').trim().toUpperCase();
+      const closedAt = raw.dtfechamento || payload?.closedAt;
+      if (closedAt || ['O', 'F', 'C', 'FINALIZADA', 'CONCLUIDA'].includes(status)) return 'FINALIZADA';
+      if (status.includes('AGUARD')) return 'AGUARDANDO_RETORNO';
+      if (status.includes('ATEND') || ['E', 'M', 'T'].includes(status)) return 'EM_ATENDIMENTO';
+      return 'PENDENTE';
     }
 
-    function fbDate(val) {
-      if (!val) return null;
-      const d = new Date(val);
-      return isNaN(d.getTime()) ? null : d;
+    function fbDate(payload, ...keys) {
+      const raw = payload?.raw || payload || {};
+      for (const key of keys) {
+        const val = raw[key] || raw[key.toLowerCase()] || raw[key.toUpperCase()] || payload?.[key];
+        if (val) { const d = new Date(val); if (!Number.isNaN(d.getTime())) return d; }
+      }
+      return null;
     }
 
     const classified = rawRecords.map(r => {
       const p = r.payload || {};
       const status = fbStatus(p);
+      const openedAt = fbDate(p, 'dtinclusao', 'createdAt', 'updatedAt');
+      const closedAt = fbDate(p, 'dtfechamento', 'closedAt');
+      const raw = p.raw || p;
       return {
         externalId: r.externalId,
-        clientExternalId: p.clientExternalId || p.CODIGO_CLIENTE?.toString(),
-        clientName: p.clientName || p.NOME_CLIENTE || 'Cliente Desconhecido',
-        technicianName: p.technicianName || p.NOME_TECNICO || 'Sem Técnico',
+        clientExternalId: String(raw.cdcliente || p.clientExternalId || ''),
+        clientName: String(raw.nmcliente || p.clientName || 'Cliente Desconhecido'),
+        technicianName: String(raw.nmsuportet || raw.nmsuportel || p.technician || 'Sem Técnico'),
         status,
-        openedAt: fbDate(p.openedAt || p.DATA_ABERTURA),
-        closedAt: fbDate(p.closedAt || p.DATA_FECHAMENTO)
+        openedAt,
+        closedAt
       };
     }).filter(o => o.openedAt);
 
