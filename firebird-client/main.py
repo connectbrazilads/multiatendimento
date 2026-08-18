@@ -2274,7 +2274,11 @@ def run_cycle(
 ) -> None:
     repo = FirebirdRepository(config)
     crm = CRMClient(config)
-    contract_details_version = 2
+    # v3: passou a trazer franquia de paginas, valor do excedente e o modo de
+    # faturamento (fixo/contador/misto) por contrato. Sem o bump, contratos ja
+    # sincronizados antes dessa mudanca (a maioria) nunca receberiam esses 3
+    # campos -- so contratos novos, criados depois do cursor atual, teriam.
+    contract_details_version = 3
     receivable_details_version = 2
     refresh_contract_details = int(state.data.get("contract_details_version", 0) or 0) < contract_details_version
     refresh_receivable_details = int(state.data.get("receivable_details_version", 0) or 0) < receivable_details_version
