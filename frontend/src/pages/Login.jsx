@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { getMediaUrl, getTenantBySlug, login } from '../services/api';
 
 function getMonogram(name) {
@@ -15,9 +16,11 @@ function getMonogram(name) {
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [tenantInfo, setTenantInfo] = useState(null);
+  const [tenantError, setTenantError] = useState(false);
   const navigate = useNavigate();
   const { slug } = useParams();
   const firstPath = window.location.pathname.split('/').filter(Boolean)[0] || '';
@@ -27,6 +30,7 @@ export default function Login() {
     if (!routeSlug) return;
 
     let active = true;
+    setTenantError(false);
     async function loadTenant() {
       try {
         const { data } = await getTenantBySlug(routeSlug);
@@ -40,6 +44,7 @@ export default function Login() {
         }
       } catch {
         console.error('Tenant not found');
+        if (active) setTenantError(true);
       }
     }
 
@@ -49,6 +54,7 @@ export default function Login() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
@@ -58,8 +64,14 @@ export default function Login() {
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('role', data.user.role);
       navigate(data.user.role === 'superadmin' ? '/superadmin' : '/dashboard');
-    } catch {
-      setError('E-mail ou senha inválidos. Tente novamente.');
+    } catch (err) {
+      if (!err?.response) {
+        setError('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');
+      } else if (err.response.status >= 500) {
+        setError('O servidor está indisponível no momento. Tente novamente em instantes.');
+      } else {
+        setError(err.response.data?.error || 'E-mail ou senha inválidos. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -83,6 +95,12 @@ export default function Login() {
         }
         .login-button:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
         .login-button:active:not(:disabled) { transform: translateY(0); }
+        .login-toggle-password:hover { color: var(--text-muted) !important; }
+        .login-toggle-password:focus-visible {
+          outline: 2px solid var(--login-accent) !important;
+          outline-offset: 2px;
+          color: var(--text-muted) !important;
+        }
         @media (max-width: 540px) {
           .login-card { padding: 1.6rem !important; border-radius: 16px !important; }
         }
@@ -109,6 +127,11 @@ export default function Login() {
           <p style={s.subtitle}>
             {tenantInfo?.name ? `Acesse o ambiente de ${tenantInfo.name}.` : 'Sua operação de atendimento em um só lugar.'}
           </p>
+          {tenantError ? (
+            <p style={s.tenantNotice} role="alert">
+              Não foi possível carregar os dados desta empresa pelo link acessado. Você ainda pode tentar entrar abaixo.
+            </p>
+          ) : null}
         </div>
 
         <form onSubmit={handleSubmit} style={s.form}>
@@ -130,17 +153,29 @@ export default function Login() {
 
           <div style={s.inputGroup}>
             <label htmlFor="login-password" style={s.label}>Senha</label>
-            <input
-              id="login-password"
-              className="login-input"
-              style={s.input}
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div style={s.passwordWrapper}>
+              <input
+                id="login-password"
+                className="login-input"
+                style={{ ...s.input, paddingRight: 'var(--space-12)' }}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                className="login-toggle-password"
+                style={s.togglePassword}
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error ? <div role="alert" style={s.error}>{error}</div> : null}
@@ -224,21 +259,32 @@ const s = {
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
-    fontSize: '1.25rem',
+    fontSize: 'var(--text-lg)',
     fontWeight: 700,
     letterSpacing: '-0.04em',
     boxShadow: 'var(--shadow-sm)',
   },
   monogramAccent: { position: 'absolute', inset: '0 auto 0 0', width: '3px' },
   eyebrow: { margin: '0 0 var(--space-2)', fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase' },
-  title: { fontSize: '1.65rem', lineHeight: 1.2, fontWeight: 700, color: '#F4F6FA', letterSpacing: '-0.035em', margin: 0 },
-  subtitle: { color: '#AAB4C5', fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 'var(--space-2) auto 0', maxWidth: '22rem' },
+  title: { fontSize: 'var(--text-2xl)', lineHeight: 'var(--leading-tight)', fontWeight: 700, color: '#F4F6FA', letterSpacing: '-0.035em', margin: 0 },
+  subtitle: { color: '#AAB4C5', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-relaxed)', margin: 'var(--space-2) auto 0', maxWidth: '22rem' },
+  tenantNotice: {
+    color: 'var(--warning-text)',
+    background: 'var(--warning-light)',
+    border: '1px solid var(--warning-border)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--text-xs)',
+    lineHeight: 'var(--leading-normal)',
+    margin: 'var(--space-3) auto 0',
+    padding: 'var(--space-2) var(--space-3)',
+    maxWidth: '22rem',
+  },
   form: { display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' },
   label: { fontSize: 'var(--text-xs)', fontWeight: 600, color: '#AAB4C5' },
   input: {
     minHeight: '48px',
-    padding: '0.8rem 0.95rem',
+    padding: 'var(--space-3) var(--space-4)',
     background: '#171C26',
     border: '1px solid #293241',
     borderRadius: 'var(--radius-sm)',
@@ -248,9 +294,28 @@ const s = {
     transition: 'border-color 0.16s ease, box-shadow 0.16s ease',
     width: '100%',
   },
+  passwordWrapper: { position: 'relative', display: 'flex' },
+  togglePassword: {
+    position: 'absolute',
+    top: '50%',
+    right: 'var(--space-2)',
+    transform: 'translateY(-50%)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+    padding: 0,
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 'var(--radius-xs)',
+    color: 'var(--text-dim)',
+    cursor: 'pointer',
+    transition: 'color 0.16s ease',
+  },
   button: {
     minHeight: '50px',
-    padding: '0.85rem 1rem',
+    padding: 'var(--space-3) var(--space-4)',
     color: '#17130A',
     border: 'none',
     borderRadius: 'var(--radius-sm)',
@@ -265,7 +330,7 @@ const s = {
     gap: 'var(--space-2)',
     boxShadow: '0 10px 26px rgba(201, 168, 78, 0.15)',
   },
-  error: { color: '#FCA5A5', fontSize: 'var(--text-sm)', background: 'rgba(239, 68, 68, 0.1)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(239, 68, 68, 0.26)' },
+  error: { color: 'var(--danger-text)', fontSize: 'var(--text-sm)', background: 'var(--danger-light)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger-border)' },
   footer: { marginTop: 'var(--space-8)', paddingTop: 'var(--space-5)', borderTop: '1px solid #293241', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', textAlign: 'center', fontSize: 'var(--text-xs)', color: '#7C899E' },
   footerDot: { color: '#C9A84E' },
 };
