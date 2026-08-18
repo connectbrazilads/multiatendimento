@@ -369,7 +369,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
   }, [onClose]);
 
   return (
-    <div style={s.modalBackdrop} onMouseDown={onClose}>
+    <div className="crm-profile-backdrop" style={s.modalBackdrop} onMouseDown={onClose}>
       <section className="crm-profile-modal" style={s.modal} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="crm-profile-title">
         <header className="crm-profile-header" style={s.modalHeader}>
           <div style={s.modalIdentity}>
@@ -1373,10 +1373,20 @@ const crmResponsiveCss = `
     .crm-profile-tabs,
     .crm-quick-actions,
     .crm-profile-modal footer { display: none !important; }
+    /* O backdrop e position:fixed + inset:0 (uma caixa do tamanho da tela).
+       Chrome trata elementos fixed de forma inconsistente na impressao --
+       geralmente repete em toda pagina ou corta o que passa de 1 tela.
+       Sem isso, uma ficha com muitos alertas/O.S. ficaria cortada em 1 pagina. */
+    .crm-profile-backdrop {
+      position: static !important;
+      display: block !important;
+      background: none !important;
+      padding: 0 !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
     .crm-profile-modal {
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
+      position: static !important;
       width: 100% !important;
       height: auto !important;
       max-height: none !important;

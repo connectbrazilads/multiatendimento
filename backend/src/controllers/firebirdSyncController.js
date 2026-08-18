@@ -461,7 +461,8 @@ async function pushBatch(req, res) {
         } else if (entity === 'technicians') {
           await upsertCrmTechnician(tenant, record);
         } else if (entity === 'serviceOrders') {
-          stats.skipped += 1;
+          await upsertServiceOrder(tenant, instance, record);
+          stats.serviceOrders += 1;
         } else {
           stats.skipped += 1;
         }
