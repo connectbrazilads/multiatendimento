@@ -316,7 +316,13 @@ export default function RevGuard() {
                 <div style={{ ...s.kpiIcon, color: '#8b5cf6' }}><Clock size={22} /></div>
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Tempo Médio em Aberto</span>
-                  <span style={s.kpiValue}>{crisisData.averageOpenTimeHours ? (crisisData.averageOpenTimeHours > 24 ? (crisisData.averageOpenTimeHours/24).toFixed(1) + ' dias' : crisisData.averageOpenTimeHours.toFixed(1) + ' horas') : '0 h'}</span>
+                  <span style={s.kpiValue}>
+                    {typeof crisisData.averageOpenTimeHours === 'number' && crisisData.averageOpenTimeHours > 0 
+                      ? (crisisData.averageOpenTimeHours > 24 
+                          ? (crisisData.averageOpenTimeHours/24).toFixed(1) + ' dias' 
+                          : crisisData.averageOpenTimeHours.toFixed(1) + ' horas') 
+                      : '0 h'}
+                  </span>
                   <span style={s.kpiHint}>Média geral de tempo para O.S. ativas</span>
                 </div>
               </div>
@@ -429,7 +435,7 @@ export default function RevGuard() {
                             {formatCurrency(client.mrr)}
                           </td>
                           <td style={s.td}>
-                            {client.daysLate.toFixed(1)} dias
+                            {typeof client.daysLate === 'number' ? client.daysLate.toFixed(1) : 0} dias
                           </td>
                           <td style={s.td}>
                             {client.oldestOSExternalId && (
