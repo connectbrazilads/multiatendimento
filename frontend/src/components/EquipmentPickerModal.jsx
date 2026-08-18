@@ -134,7 +134,7 @@ export default function EquipmentPickerModal({ open, equipments, selectedId, onS
                   {address ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-main)', fontSize: 'var(--text-xs)', lineHeight: 1.35 }}><MapPin size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '1px' }} /><span>{address}</span></div> : null}
                   {operationalLocation ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.35, marginTop: '5px' }}><Building2 size={14} style={{ flexShrink: 0, marginTop: '1px' }} /><span>{operationalLocation}</span></div> : null}
                 </div>
-                <span style={{ width: '27px', height: '27px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: selected ? 'none' : '1px solid var(--border-color)', background: selected ? 'var(--accent)' : 'transparent', color: selected ? '#000' : 'transparent' }}><Check size={16} /></span>
+                <span style={{ width: '27px', height: '27px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: selected ? 'none' : '1px solid var(--border-color)', background: selected ? 'var(--accent)' : 'transparent', color: selected ? 'var(--text-inverse)' : 'transparent' }}><Check size={16} /></span>
               </button>
             );
           })}

@@ -105,7 +105,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
       completeOrder(res.data);
     } catch (e) {
       setPendingOrderId(e.response?.data?.serviceOrderId || '');
-      setError(e.response?.data?.error || 'Não foi possível confirmar a abertura no iLux.');
+      setError(e.response?.data?.error || 'Não foi possível confirmar a abertura no iLux. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -118,12 +118,12 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
     try {
       const { data } = await api.get(`/os/${pendingOrderId}/status`);
       if (!data.externalId) {
-        setError('A abertura ainda não foi confirmada pelo agente do iLux.');
+        setError('A abertura ainda não foi confirmada pelo agente do iLux. Aguarde alguns segundos e tente novamente.');
         return;
       }
       completeOrder(data);
     } catch (e) {
-      setError(e.response?.data?.error || 'Não foi possível consultar a abertura.');
+      setError(e.response?.data?.error || 'Não foi possível consultar a abertura. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -137,7 +137,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
     equipmentTrigger: { width: '100%', minHeight: '54px', padding: '10px 12px', marginBottom: 'var(--space-4)', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', textAlign: 'left' },
     label: { fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 700, marginBottom: '6px', display: 'block' },
     btnGroup: { display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-2)' },
-    saveBtn: { flex: 1, background: 'var(--accent)', color: '#000', border: 'none', padding: 'var(--space-3)', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' },
+    saveBtn: { flex: 1, background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', padding: 'var(--space-3)', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' },
     cancelBtn: { flex: 1, background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-color)', padding: 'var(--space-3)', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }
   };
 
@@ -178,11 +178,15 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
             <label style={s.label}>EQUIPAMENTO</label>
             <button type="button" style={s.equipmentTrigger} onClick={() => setEquipmentPickerOpen(true)}>
               <MapPin size={18} color={selectedEquipment ? 'var(--accent)' : 'var(--text-muted)'} />
-              <span style={{ minWidth: 0 }}>
+              <span style={{ minWidth: 0, overflow: 'hidden' }}>
                 {selectedEquipment ? (
                   <>
-                    <strong style={{ display: 'block', fontSize: 'var(--text-sm)', marginBottom: '3px' }}>{selectedEquipment.model} · Série {selectedEquipment.serialNumber || 'S/N'}</strong>
-                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.35 }}>{equipmentAddress(selectedEquipment) || equipmentOperationalLocation(selectedEquipment) || 'Localização não informada'}</span>
+                    <strong style={{ display: 'block', fontSize: 'var(--text-sm)', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${selectedEquipment.model} · Série ${selectedEquipment.serialNumber || 'S/N'}`}>
+                      {selectedEquipment.model} · Série {selectedEquipment.serialNumber || 'S/N'}
+                    </strong>
+                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={equipmentAddress(selectedEquipment) || equipmentOperationalLocation(selectedEquipment) || 'Localização não informada'}>
+                      {equipmentAddress(selectedEquipment) || equipmentOperationalLocation(selectedEquipment) || 'Localização não informada'}
+                    </span>
                   </>
                 ) : <span style={{ color: 'var(--text-muted)' }}>Selecionar equipamento...</span>}
               </span>
