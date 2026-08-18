@@ -286,15 +286,15 @@ export default function RevGuard() {
                 </div>
                 {crisisData.mrrRiskBands && (
                   <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #10b981', border: '1px solid var(--border-color)' }}>
+                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #10b981', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                       <div style={{ color: 'var(--text-dim)' }}>1-3 dias</div>
                       <div style={{ color: 'var(--text-base)', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.band1to3)}</div>
                     </div>
-                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #f59e0b', border: '1px solid var(--border-color)' }}>
+                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #f59e0b', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                       <div style={{ color: 'var(--text-dim)' }}>3-7 dias</div>
                       <div style={{ color: 'var(--text-base)', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.band3to7)}</div>
                     </div>
-                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #ef4444', border: '1px solid var(--border-color)' }}>
+                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #ef4444', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                       <div style={{ color: 'var(--text-dim)' }}>+7 dias</div>
                       <div style={{ color: 'var(--text-base)', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.bandOver7)}</div>
                     </div>
