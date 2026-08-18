@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api, { BACKEND_URL, getEquipments } from '../services/api';
 import { CheckCircle2, ChevronDown, FileText, LoaderCircle, MapPin, Printer, Wand2 } from 'lucide-react';
 import EquipmentPickerModal, { equipmentAddress, equipmentOperationalLocation } from './EquipmentPickerModal';
+import { toast } from '../utils/toast';
 
 export default function CreateOsModal({ ticket, onClose, onCreated }) {
   const [equipments, setEquipments] = useState([]);
@@ -41,7 +42,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
     try {
       const contactId = ticket.contact?.id;
       if (!contactId) {
-        alert('Contato não vinculado ao ticket.');
+        toast.error('Contato não vinculado ao ticket.');
         onClose();
         return;
       }
@@ -78,6 +79,7 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
       });
     } catch (e) {
       console.error(e);
+      setError('Não foi possível carregar os dados para abrir a O.S. Feche e tente novamente.');
     } finally {
       setLoading(false);
       setDrafting(false);
@@ -85,9 +87,9 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
   }
 
   async function handleSave() {
-    if (!formData.equipmentId) return alert('Selecione um equipamento');
-    if (!formData.cdOstp) return alert('Selecione o tipo de O.S.');
-    if (!formData.defect) return alert('Informe o defeito reportado');
+    if (!formData.equipmentId) return toast.error('Selecione um equipamento.');
+    if (!formData.cdOstp) return toast.error('Selecione o tipo de O.S.');
+    if (!formData.defect) return toast.error('Informe o defeito reportado.');
     setSaving(true);
     setError('');
     try {
@@ -129,14 +131,14 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
 
   const s = {
     overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-    modal: { background: 'var(--bg-panel)', width: '500px', maxWidth: '95%', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column' },
-    title: { fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' },
-    input: { width: '100%', padding: '12px', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none', marginBottom: '16px' },
-    equipmentTrigger: { width: '100%', minHeight: '54px', padding: '10px 12px', marginBottom: '16px', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', textAlign: 'left' },
-    label: { fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '6px', display: 'block' },
-    btnGroup: { display: 'flex', gap: '12px', marginTop: '8px' },
-    saveBtn: { flex: 1, background: 'var(--accent)', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' },
-    cancelBtn: { flex: 1, background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }
+    modal: { background: 'var(--bg-panel)', width: '500px', maxWidth: '95%', borderRadius: '16px', padding: 'var(--space-6)', display: 'flex', flexDirection: 'column' },
+    title: { fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-main)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' },
+    input: { width: '100%', padding: 'var(--space-3)', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none', marginBottom: 'var(--space-4)' },
+    equipmentTrigger: { width: '100%', minHeight: '54px', padding: '10px 12px', marginBottom: 'var(--space-4)', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', textAlign: 'left' },
+    label: { fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 700, marginBottom: '6px', display: 'block' },
+    btnGroup: { display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-2)' },
+    saveBtn: { flex: 1, background: 'var(--accent)', color: '#000', border: 'none', padding: 'var(--space-3)', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' },
+    cancelBtn: { flex: 1, background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-color)', padding: 'var(--space-3)', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }
   };
 
   return (
@@ -145,13 +147,13 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
         <h2 style={s.title}><FileText size={20}/> Nova Ordem de Serviço</h2>
         
         {createdOrder ? (
-          <div style={{ textAlign: 'center', padding: '24px 8px 8px' }}>
-            <CheckCircle2 size={48} color="#22c55e" style={{ marginBottom: '12px' }} />
+          <div style={{ textAlign: 'center', padding: 'var(--space-6) var(--space-2) var(--space-2)' }}>
+            <CheckCircle2 size={48} color="var(--success)" style={{ marginBottom: 'var(--space-3)' }} />
             <h3 style={{ margin: '0 0 8px', color: 'var(--text-main)' }}>O.S. criada no iLux</h3>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--accent)', marginBottom: '8px' }}>
+            <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 900, color: 'var(--accent)', marginBottom: 'var(--space-2)', fontVariantNumeric: 'tabular-nums' }}>
               Nº {createdOrder.externalId}
             </div>
-            <p style={{ color: 'var(--text-muted)', margin: '0 0 20px' }}>
+            <p style={{ color: 'var(--text-muted)', margin: '0 0 var(--space-5)' }}>
               O número acima foi confirmado diretamente pelo banco do iLux.
             </p>
             <div style={s.btnGroup}>
@@ -167,8 +169,8 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
             </div>
           </div>
         ) : loading || drafting ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-            <Wand2 size={32} style={{ animation: 'spin 2s linear infinite', marginBottom: '16px' }} />
+          <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--text-muted)' }}>
+            <Wand2 size={32} style={{ animation: 'ui-spin 2s linear infinite', marginBottom: 'var(--space-4)' }} />
             <div>A IA está lendo a conversa e rascunhando a O.S...</div>
           </div>
         ) : (
@@ -179,8 +181,8 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
               <span style={{ minWidth: 0 }}>
                 {selectedEquipment ? (
                   <>
-                    <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '3px' }}>{selectedEquipment.model} · Série {selectedEquipment.serialNumber || 'S/N'}</strong>
-                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.74rem', lineHeight: 1.35 }}>{equipmentAddress(selectedEquipment) || equipmentOperationalLocation(selectedEquipment) || 'Localização não informada'}</span>
+                    <strong style={{ display: 'block', fontSize: 'var(--text-sm)', marginBottom: '3px' }}>{selectedEquipment.model} · Série {selectedEquipment.serialNumber || 'S/N'}</strong>
+                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.35 }}>{equipmentAddress(selectedEquipment) || equipmentOperationalLocation(selectedEquipment) || 'Localização não informada'}</span>
                   </>
                 ) : <span style={{ color: 'var(--text-muted)' }}>Selecionar equipamento...</span>}
               </span>
@@ -220,14 +222,15 @@ export default function CreateOsModal({ ticket, onClose, onCreated }) {
             </select>
 
             <label style={s.label}>DEFEITO REPORTADO (Extraído pela IA)</label>
-            <textarea 
-              style={{...s.input, minHeight: '100px', resize: 'vertical'}} 
-              value={formData.defect} 
+            <textarea
+              style={{...s.input, minHeight: '100px', resize: 'vertical'}}
+              placeholder="Descreva o defeito relatado pelo cliente..."
+              value={formData.defect}
               onChange={e => setFormData({...formData, defect: e.target.value})}
             />
 
             {error ? (
-              <div style={{ padding: '10px 12px', marginBottom: '12px', borderRadius: '8px', background: 'rgba(229, 62, 62, 0.08)', border: '1px solid rgba(229, 62, 62, 0.35)', color: '#ef4444', fontSize: '0.85rem' }}>
+              <div style={{ padding: '10px 12px', marginBottom: 'var(--space-3)', borderRadius: '8px', background: 'var(--danger-light)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', fontSize: 'var(--text-sm)' }}>
                 {error}
               </div>
             ) : null}

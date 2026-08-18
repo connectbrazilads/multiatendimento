@@ -63,14 +63,14 @@ export default function EquipmentPickerModal({ open, equipments, selectedId, onS
   const s = {
     overlay: { position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0, 0, 0, 0.82)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
     modal: { width: '760px', maxWidth: '100%', height: 'min(760px, 92vh)', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '16px', boxShadow: '0 24px 80px rgba(0, 0, 0, 0.55)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '20px 22px 14px', borderBottom: '1px solid var(--border-color)' },
-    title: { margin: 0, color: 'var(--text-main)', fontSize: '1.15rem', fontWeight: 900 },
-    subtitle: { margin: '5px 0 0', color: 'var(--text-muted)', fontSize: '0.82rem' },
+    header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-4)', padding: '20px 22px 14px', borderBottom: '1px solid var(--border-color)' },
+    title: { margin: 0, color: 'var(--text-main)', fontSize: 'var(--text-lg)', fontWeight: 900 },
+    subtitle: { margin: '5px 0 0', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' },
     close: { width: '36px', height: '36px', borderRadius: '9px', border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-muted)', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0 },
     searchWrap: { position: 'relative', margin: '16px 22px 12px' },
     searchIcon: { position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' },
-    search: { width: '100%', height: '44px', padding: '0 14px 0 42px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-main)', fontSize: '0.92rem', outline: 'none' },
-    count: { padding: '0 22px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 },
+    search: { width: '100%', height: '44px', padding: '0 14px 0 42px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-main)', fontSize: 'var(--text-sm)', outline: 'none' },
+    count: { padding: '0 22px 10px', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
     list: { flex: 1, overflowY: 'auto', padding: '0 22px 22px', display: 'flex', flexDirection: 'column', gap: '9px' },
     empty: { padding: '48px 20px', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '12px', color: 'var(--text-muted)' },
   };
@@ -99,7 +99,16 @@ export default function EquipmentPickerModal({ open, equipments, selectedId, onS
         <div style={s.count}>{filteredEquipments.length} equipamento(s) encontrado(s)</div>
 
         <div style={s.list}>
-          {filteredEquipments.length === 0 ? <div style={s.empty}>Nenhum equipamento encontrado para essa busca.</div> : null}
+          {filteredEquipments.length === 0 ? (
+            <div style={s.empty}>
+              {search ? (
+                <>
+                  <div>Nenhum equipamento encontrado para "{search}".</div>
+                  <button type="button" onClick={() => setSearch('')} style={{ marginTop: '10px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--accent)', borderRadius: '8px', padding: '6px 14px', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer' }}>Limpar busca</button>
+                </>
+              ) : 'Nenhum equipamento cadastrado para este cliente.'}
+            </div>
+          ) : null}
           {filteredEquipments.map((equipment) => {
             const selected = equipment.id === selectedId;
             const address = equipmentAddress(equipment);
@@ -118,12 +127,12 @@ export default function EquipmentPickerModal({ open, equipments, selectedId, onS
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px', marginBottom: '7px' }}>
-                    <strong style={{ fontSize: '0.95rem' }}>{equipment.model}</strong>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Série: {equipment.serialNumber || 'S/N'}</span>
-                    {equipment.externalId ? <span style={{ color: 'var(--accent)', fontSize: '0.68rem', fontWeight: 800, border: '1px solid rgba(226, 184, 44, 0.35)', borderRadius: '999px', padding: '2px 7px' }}>iLux {equipment.externalId}</span> : null}
+                    <strong style={{ fontSize: 'var(--text-md)', wordBreak: 'break-word' }}>{equipment.model}</strong>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>Série: {equipment.serialNumber || 'S/N'}</span>
+                    {equipment.externalId ? <span style={{ color: 'var(--accent)', fontSize: 'var(--text-xs)', fontWeight: 800, border: '1px solid rgba(226, 184, 44, 0.35)', borderRadius: '999px', padding: '2px 7px', fontVariantNumeric: 'tabular-nums' }}>iLux {equipment.externalId}</span> : null}
                   </div>
-                  {address ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-main)', fontSize: '0.8rem', lineHeight: 1.35 }}><MapPin size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '1px' }} /><span>{address}</span></div> : null}
-                  {operationalLocation ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-muted)', fontSize: '0.77rem', lineHeight: 1.35, marginTop: '5px' }}><Building2 size={14} style={{ flexShrink: 0, marginTop: '1px' }} /><span>{operationalLocation}</span></div> : null}
+                  {address ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-main)', fontSize: 'var(--text-xs)', lineHeight: 1.35 }}><MapPin size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '1px' }} /><span>{address}</span></div> : null}
+                  {operationalLocation ? <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.35, marginTop: '5px' }}><Building2 size={14} style={{ flexShrink: 0, marginTop: '1px' }} /><span>{operationalLocation}</span></div> : null}
                 </div>
                 <span style={{ width: '27px', height: '27px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: selected ? 'none' : '1px solid var(--border-color)', background: selected ? 'var(--accent)' : 'transparent', color: selected ? '#000' : 'transparent' }}><Check size={16} /></span>
               </button>
