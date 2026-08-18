@@ -23,7 +23,7 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 
-const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'RevGuard AI', 'Minha conta', 'Agente Local'];
+const TABS = ['Robo IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rapidas', 'Etiquetas', 'iLux Sentinela', 'Minha conta', 'Agente Local'];
 const TAB_GROUPS = [
   { label: 'Automação', indexes: [0, 1, 5, 6] },
   { label: 'Equipe', indexes: [2, 3] },
@@ -872,7 +872,7 @@ export default function Settings() {
       {tab === 7 && (
         <div style={s.sections}>
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Configurações de KPIs do RevGuard AI</h2>
+            <h2 style={s.cardTitle}>Configurações de KPIs do iLux Sentinela</h2>
             <form onSubmit={handleSave} style={s.form}>
               <div style={s.field}>
                 <label style={s.label}>Valor do Contrato de Locação (R$/mês)</label>
@@ -913,7 +913,7 @@ export default function Settings() {
               </div>
 
               <button style={s.saveBtn} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar configurações do RevGuard'}
+                {saving ? 'Salvando...' : 'Salvar configurações do iLux Sentinela'}
               </button>
             </form>
           </div>

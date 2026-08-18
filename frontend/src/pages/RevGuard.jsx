@@ -182,8 +182,8 @@ export default function RevGuard() {
       <header style={s.header}>
         <div style={s.headerInfo}>
           <div style={s.kickerGroup}>
-            <span style={s.kicker}>RevGuard AI</span>
-            <span style={s.intelligenceBadge}>Módulo Revenue Intelligence</span>
+            <span style={s.kicker}>iLux Sentinela</span>
+            <span style={s.intelligenceBadge}>Inteligência sobre dados reais do iLux</span>
           </div>
           <h1 style={s.title}>Painel de Inteligência de Receita</h1>
           <p style={s.subtitle}>Monitore SLAs técnicos, gargalos operacionais e audite atendimentos automaticamente.</p>
@@ -213,7 +213,7 @@ export default function RevGuard() {
             <div style={s.spinner} /> Carregando centro de crise...
           </div>
         ) : !crisisData ? (
-          <div style={s.errorBox}>Erro ao carregar dados do RevGuard.</div>
+          <div style={s.errorBox}>Erro ao carregar dados do iLux Sentinela.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             {/* KPI Grid */}

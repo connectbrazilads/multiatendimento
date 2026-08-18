@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const crmController = require('./crmController');
 
 async function getRevenueDashboard(req, res) {
   const tenantId = req.user.tenantId;
@@ -34,16 +35,39 @@ async function getRevenueDashboard(req, res) {
       where: { id: { in: uniqueContactsWithDowntime } },
       select: {
         crmCustomer: {
-          select: { raw: true }
+          select: { externalId: true, raw: true }
         }
       }
     });
 
+    // Prioridade do valor de mensalidade em risco por cliente:
+    // 1) soma do monthlyValue dos contratos ativos reais (iLux/Firebird);
+    // 2) campo solto total_mensalidade do cadastro do cliente;
+    // 3) valor genérico configurado em kpiContractValue (fallback final).
     let mrrInRisk = 0;
     for (const c of contactsWithCrm) {
-      const rawVal = c.crmCustomer?.raw?.['total_mensalidade'] || c.crmCustomer?.raw?.['TOTAL_MENSALIDADE'];
-      const parsedVal = (rawVal !== undefined && rawVal !== null) ? parseFloat(rawVal) : null;
-      mrrInRisk += (parsedVal !== null && !isNaN(parsedVal)) ? parsedVal : kpiContractValue;
+      const externalId = c.crmCustomer?.externalId;
+      let contractValue = null;
+
+      if (externalId) {
+        try {
+          const contracts = await crmController.loadContracts(tenantId, externalId);
+          const activeContracts = contracts.filter((contract) => contract.isActive);
+          if (activeContracts.length > 0) {
+            contractValue = activeContracts.reduce((sum, contract) => sum + (contract.monthlyValue || 0), 0);
+          }
+        } catch (err) {
+          console.error('[revenueController] Erro ao carregar contratos do cliente:', err);
+        }
+      }
+
+      if (contractValue === null) {
+        const rawVal = c.crmCustomer?.raw?.['total_mensalidade'] || c.crmCustomer?.raw?.['TOTAL_MENSALIDADE'];
+        const parsedVal = (rawVal !== undefined && rawVal !== null) ? parseFloat(rawVal) : null;
+        contractValue = (parsedVal !== null && !isNaN(parsedVal)) ? parsedVal : kpiContractValue;
+      }
+
+      mrrInRisk += contractValue;
     }
 
     // 3. ORÇAMENTOS DE MANUTENÇÃO PARADOS (DINHEIRO NA MESA)
@@ -310,13 +334,13 @@ async function getDetective(req, res) {
     let aiDiagnosis = '';
 
     if (!settings?.geminiKey) {
-      aiDiagnosis = '**Chave do Gemini não configurada.** Vá em Ajustes > RevGuard AI para cadastrar sua chave e liberar o diagnóstico automático por inteligência artificial.';
+      aiDiagnosis = '**Chave do Gemini não configurada.** Vá em Ajustes > iLux Sentinela para cadastrar sua chave e liberar o diagnóstico automático por inteligência artificial.';
     } else {
       try {
         const genAI = new GoogleGenerativeAI(settings.geminiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-        const prompt = `Você é o Detetive IA do RevGuard, um analista operacional de suporte e inteligência de receita especialista em locação de impressoras.
+        const prompt = `Você é o Detetive IA do iLux Sentinela, um analista operacional de suporte e inteligência de receita especialista em locação de impressoras.
         Analise o relatório operacional abaixo de duas semanas consecutivas da empresa e escreva um diagnóstico operacional conciso (em português, formato de parágrafos corridos, use negrito nas métricas chaves para dar impacto).
         Explique as possíveis causas dos desvios (ex: por que o SLA aumentou, impacto nas rescisões de contrato) e sugira 2 ações corretivas imediatas.
         NÃO retorne tópicos, marcadores (bullets) ou cabeçalhos. Apenas texto fluido e profissional em 2 a 3 parágrafos.

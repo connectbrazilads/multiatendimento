@@ -190,7 +190,7 @@ export default function Layout() {
     { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rapidas', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/revenue', icon: <Coins size={18} />, label: 'RevGuard AI', roles: ['admin', 'superadmin'] },
+    { to: '/revenue', icon: <Coins size={18} />, label: 'iLux Sentinela', roles: ['admin', 'superadmin'] },
     { to: '/settings', icon: <Settings size={18} />, label: 'Ajustes', roles: ['admin', 'superadmin'] },
     { to: '/superadmin', icon: <ShieldCheck size={18} />, label: 'Painel Admin', roles: ['superadmin'] },
   ];

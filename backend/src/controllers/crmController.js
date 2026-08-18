@@ -1257,4 +1257,5 @@ module.exports = {
   sendReceivableDocuments,
   listFlaggedBillingDocuments,
   listEquipments,
+  loadContracts,
 };
