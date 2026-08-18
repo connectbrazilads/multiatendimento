@@ -248,8 +248,8 @@ export function Avatar({ name, src, size = 40 }) {
     <div
       style={{
         ...base,
-        background: 'rgba(212,175,55,0.1)',
-        color: '#D4AF37',
+        background: 'var(--accent-light)',
+        color: 'var(--accent)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -275,7 +275,7 @@ function AudioPlayer({ src, fromMe, transcription, styles }) {
         <div
           style={{
             ...styles.transcription,
-            borderLeft: `2px solid ${fromMe ? '#000' : '#D4AF37'}`,
+            borderLeft: `2px solid ${fromMe ? '#000' : 'var(--accent)'}`,
             color: fromMe ? 'rgba(0,0,0,0.6)' : 'var(--text-muted)',
           }}
         >
@@ -398,7 +398,7 @@ export function MediaContent({ message, onImageClick, styles }) {
           color: 'var(--danger)',
         }}
       >
-        <span style={{ fontSize: '1rem' }}>Indisponivel</span> Midia indisponivel
+        Mídia indisponível
       </div>
     );
   }
@@ -408,17 +408,17 @@ export function MediaContent({ message, onImageClick, styles }) {
       <div
         style={{
           padding: '1rem',
-          background: 'rgba(212,175,55,0.05)',
+          background: 'var(--accent-light)',
           borderRadius: '8px',
-          border: '1px dashed rgba(212,175,55,0.2)',
+          border: '1px dashed var(--accent-border)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           fontSize: '0.85rem',
-          color: '#D4AF37',
+          color: 'var(--accent)',
         }}
       >
-        <span style={{ fontSize: '1.2rem' }}>Baixando</span> Baixando midia do WhatsApp...
+        Baixando mídia do WhatsApp...
       </div>
     );
   }
@@ -625,7 +625,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
             type="checkbox" 
             checked={enableWhatsAppBilling} 
             onChange={(e) => handleToggleBilling(e.target.checked)} 
-            style={{ width: '16px', height: '16px', accentColor: '#D4AF37', cursor: 'pointer' }}
+            style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
           />
           <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 700 }}>
             Enviar Faturas no WhatsApp
@@ -890,9 +890,9 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               </button>
             </div>
           ) : (
-            <h4 style={{ ...styles.infoName, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setIsEditingName(true); setNewName(contact.name || ''); }} title="Clique para editar o nome">
-              {contactName}
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <h4 style={{ ...styles.infoName, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }} onClick={() => { setIsEditingName(true); setNewName(contact.name || ''); }} title="Clique para editar o nome">
+              <span style={{ minWidth: 0, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{contactName}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             </h4>
           )}
           </div>
@@ -918,7 +918,7 @@ export function ContactPanel({ ticket, onClose, onUpdate, onImageClick, isMobile
               <ClipboardList size={15} /> Visão 360 — {linkedCrm.fantasyName || linkedCrm.name}
             </button>
           ) : contact.fantasyName ? (
-            <div style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', padding: '4px 12px', background: 'rgba(212,175,55,0.1)', borderRadius: '8px', display: 'inline-block' }}>
+            <div style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', padding: '4px 12px', background: 'var(--accent-light)', borderRadius: '8px', display: 'inline-block' }}>
               CRM {contact.fantasyName}
             </div>
           ) : null}
@@ -993,7 +993,7 @@ export function TransferModal({ users, teams, onClose, onTransfer, styles }) {
 
   const handleSave = () => {
     if (!selectedTeam && !selectedAgent) {
-      alert('Selecione um departamento ou atendente para transferir.');
+      toast.error('Selecione um departamento ou atendente para transferir.');
       return;
     }
     // onTransfer receives (agentId, teamId, note)
@@ -1142,12 +1142,95 @@ export function ForwardModal({ onClose, onForward, styles }) {
           </div>
         </div>
         <style>{`
-          .hover-item:hover { background: rgba(212,175,55,0.08) !important; }
+          .hover-item:hover { background: var(--accent-light) !important; }
         `}</style>
       </div>
     </div>
   );
 }
+
+// Item de lista memoizado: evita recriar/recomparar todas as linhas do inbox
+// quando so o item selecionado muda (troca de ticket) ou o texto do composer
+// atualiza o componente pai. Só a linha afetada volta a renderizar.
+const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, styles }) {
+  const priorityMeta = getPriorityMeta(ticket.priority);
+  const statusMeta = getStatusMeta(ticket.status);
+  const phoneLabel = getContactPhone(ticket.contact, 'Sem telefone');
+  const ownerLabel = ticket.agent?.name || ticket.team?.name || 'Sem responsavel';
+  const tags = getSafeTags(ticket.contact?.tags).slice(0, 2);
+  const contactName = getContactDisplayName(ticket.contact);
+
+  return (
+    <div
+      onClick={() => onSelect(ticket.id)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir conversa com ${contactName}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect(ticket.id);
+        }
+      }}
+      style={{ ...styles.row, ...(isSelected ? styles.rowActive : {}) }}
+    >
+      <Avatar name={contactName} src={ticket.contact?.avatarUrl} size={36} />
+      <div style={styles.rowInfo}>
+        <div style={styles.rowTop}>
+          <span style={styles.rowName}>{contactName}</span>
+          <span style={styles.rowTime}>{formatTicketTimestamp(ticket.updatedAt)}</span>
+        </div>
+
+        <div style={styles.rowPreview}>{phoneLabel}</div>
+
+        <div style={styles.rowSub}>
+          <span
+            style={{
+              ...styles.rowStatusPill,
+              background: statusMeta.background,
+              color: statusMeta.color,
+              border: statusMeta.border,
+            }}
+          >
+            <span style={{ ...styles.dot, background: statusMeta.color, color: statusMeta.color, boxShadow: 'none' }} />
+            {getInstanceLabel(ticket)} - {statusMeta.label}
+          </span>
+          {priorityMeta ? (
+            <span
+              style={{
+                ...styles.priorityPill,
+                background: priorityMeta.background,
+                color: priorityMeta.color,
+                border: priorityMeta.border,
+              }}
+            >
+              {priorityMeta.label}
+            </span>
+          ) : null}
+          {ticket.unreadCount > 0 ? <div style={styles.unreadBadge}>{ticket.unreadCount}</div> : null}
+        </div>
+
+        <div style={styles.rowMetaLine}>
+          <span style={styles.rowOwner}>{ownerLabel}</span>
+          {tags.length > 0 ? (
+            <div style={styles.rowTags}>
+              {tags.map((tag, tagIndex) => {
+                const safeTag = getSafeText(tag, 'Tag');
+                return (
+                  <span key={`${safeTag}-${tagIndex}`} style={styles.rowTag}>
+                    {safeTag}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <span style={styles.rowMetaSpacer} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export const TicketSidebar = React.memo(function TicketSidebar({
   counts,
@@ -1291,90 +1374,45 @@ export const TicketSidebar = React.memo(function TicketSidebar({
       </div>
 
       <div style={styles.list}>
-        {filteredTickets.map((ticket) => {
-          const priorityMeta = getPriorityMeta(ticket.priority);
-          const statusMeta = getStatusMeta(ticket.status);
-          const phoneLabel = getContactPhone(ticket.contact, 'Sem telefone');
-          const ownerLabel = ticket.agent?.name || ticket.team?.name || 'Sem responsavel';
-          const tags = getSafeTags(ticket.contact?.tags).slice(0, 2);
-
-          return (
-          <div
+        {filteredTickets.map((ticket) => (
+          <TicketRow
             key={ticket.id}
-            onClick={() => selectTicket(ticket.id)}
-            role="button"
-            tabIndex={0}
-            aria-label={`Abrir conversa com ${getContactDisplayName(ticket.contact)}`}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                selectTicket(ticket.id);
-              }
-            }}
-            style={{ ...styles.row, ...(selectedId === ticket.id ? styles.rowActive : {}) }}
-          >
-            <Avatar
-              name={getContactDisplayName(ticket.contact)}
-              src={ticket.contact?.avatarUrl}
-              size={36}
-            />
-            <div style={styles.rowInfo}>
-              <div style={styles.rowTop}>
-                <span style={styles.rowName}>{getContactDisplayName(ticket.contact)}</span>
-                <span style={styles.rowTime}>{formatTicketTimestamp(ticket.updatedAt)}</span>
-              </div>
-
-              <div style={styles.rowPreview}>{phoneLabel}</div>
-
-              <div style={styles.rowSub}>
-                <span
-                  style={{
-                    ...styles.rowStatusPill,
-                    background: statusMeta.background,
-                    color: statusMeta.color,
-                    border: statusMeta.border,
-                  }}
-                >
-                  <span style={{ ...styles.dot, background: statusMeta.color, color: statusMeta.color, boxShadow: 'none' }} />
-                  {getInstanceLabel(ticket)} - {statusMeta.label}
-                </span>
-                {priorityMeta ? (
-                  <span
-                    style={{
-                      ...styles.priorityPill,
-                      background: priorityMeta.background,
-                      color: priorityMeta.color,
-                      border: priorityMeta.border,
-                    }}
+            ticket={ticket}
+            isSelected={selectedId === ticket.id}
+            onSelect={selectTicket}
+            styles={styles}
+          />
+        ))}
+        {filteredTickets.length === 0 ? (
+          <Empty>
+            {search.trim() ? (
+              <>
+                Nenhuma conversa encontrada para "{search.trim()}"
+                <div style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>Tente outro nome ou telefone.</div>
+              </>
+            ) : activeFilterCount > 0 ? (
+              <>
+                Nenhuma conversa com os filtros atuais
+                <div style={{ marginTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="inbox-control"
+                    onClick={() => setFilters({ priority: '', agentId: '', teamId: '' })}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', padding: 0 }}
                   >
-                    {priorityMeta.label}
-                  </span>
-                ) : null}
-                {ticket.unreadCount > 0 ? <div style={styles.unreadBadge}>{ticket.unreadCount}</div> : null}
-              </div>
-
-              <div style={styles.rowMetaLine}>
-                <span style={styles.rowOwner}>{ownerLabel}</span>
-                {tags.length > 0 ? (
-                  <div style={styles.rowTags}>
-                    {tags.map((tag, tagIndex) => {
-                      const safeTag = getSafeText(tag, 'Tag');
-                      return (
-                        <span key={`${safeTag}-${tagIndex}`} style={styles.rowTag}>
-                          {safeTag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <span style={styles.rowMetaSpacer} />
-                )}
-              </div>
-            </div>
-          </div>
-        );
-        })}
-        {filteredTickets.length === 0 && <Empty>Nenhuma conversa encontrada</Empty>}
+                    Limpar filtros
+                  </button>
+                </div>
+              </>
+            ) : tab === 'pending' ? (
+              'Nenhuma conversa aguardando na fila'
+            ) : tab === 'mine' ? (
+              'Você ainda não tem conversas atribuídas'
+            ) : (
+              'Nenhuma conversa encontrada'
+            )}
+          </Empty>
+        ) : null}
       </div>
     </aside>
   );
@@ -1796,7 +1834,7 @@ export const MessageList = React.memo(function MessageList({
                       <div style={styles.noteWrap}>
                         <div style={styles.noteCard}>
                           <div style={styles.noteHeader}>
-                            <Lock size={12} style={{ color: '#d4af37', marginRight: 6 }} />
+                            <Lock size={12} style={{ color: 'var(--accent)', marginRight: 6 }} />
                             <span>Nota Interna • {messageUserName}</span>
                           </div>
                           <div style={styles.noteBody}>{noteText}</div>
@@ -1929,7 +1967,18 @@ export const MessageList = React.memo(function MessageList({
               );
             }
           })}
-          {!messageItems.length && <Empty>{trimmedHistorySearch ? 'Nenhum resultado encontrado nesta conversa' : 'Nenhuma mensagem encontrada'}</Empty>}
+          {!messageItems.length && (
+            <Empty>
+              {trimmedHistorySearch ? (
+                <>
+                  Nenhum resultado para "{trimmedHistorySearch}" nesta conversa
+                  <div style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>Tente buscar por outro termo.</div>
+                </>
+              ) : (
+                'Nenhuma mensagem neste atendimento ainda'
+              )}
+            </Empty>
+          )}
         </>
       )}
 
@@ -2084,9 +2133,9 @@ export const MessageComposer = React.memo(function MessageComposer({
               fontWeight: 800,
               cursor: 'pointer',
               border: '1px solid var(--border-color)',
-              background: isNote ? 'rgba(212, 175, 55, 0.14)' : 'transparent',
-              color: isNote ? '#d4af37' : 'var(--text-muted)',
-              borderColor: isNote ? 'rgba(212, 175, 55, 0.3)' : 'var(--border-color)',
+              background: isNote ? 'var(--accent-light)' : 'transparent',
+              color: isNote ? 'var(--accent)' : 'var(--text-muted)',
+              borderColor: isNote ? 'var(--accent-border)' : 'var(--border-color)',
               transition: 'all 0.15s'
             }}
           >
@@ -2114,28 +2163,30 @@ export const MessageComposer = React.memo(function MessageComposer({
           <div style={{
             display: 'flex',
             flexDirection: 'row',
+            flexWrap: 'wrap',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '1rem',
-            padding: '1.2rem',
+            gap: 'var(--space-4)',
+            padding: 'var(--space-5)',
             background: 'var(--bg-surface)',
             borderTop: '1px solid var(--border-color)',
             color: 'var(--text-muted)'
           }}>
-            <span style={{ fontSize: isMobile ? '0.85rem' : '0.95rem', textAlign: 'center', lineHeight: '1.4' }}>
+            <span style={{ minWidth: 0, flex: '1 1 240px', fontSize: isMobile ? '0.85rem' : '0.95rem', textAlign: 'center', lineHeight: 'var(--leading-normal)' }}>
               Não é possível enviar mensagens pois a conexão dessa conversa foi desconectada. Inicie a conexão novamente para continuar a conversa.
             </span>
-            <button 
+            <button
               onClick={onReconnect}
               style={{
                 background: 'var(--accent)',
                 color: 'var(--text-inverse)',
                 border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
+                padding: 'var(--space-2) var(--space-4)',
+                borderRadius: 'var(--radius-sm)',
                 fontWeight: 600,
                 cursor: 'pointer',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               Reconectar
