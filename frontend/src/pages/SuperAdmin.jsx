@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, Copy, Pencil, Plus, Power, Upload, Users, Wifi } from 'lucide-react';
+import { Activity, Building2, Copy, MessageSquare, Pencil, Plus, Power, Upload, Users, Wifi } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { getTenants, createTenant, updateTenant, uploadFile, getMediaUrl } from '../services/api';
 import PageHeader from '../components/ui/PageHeader';
@@ -135,9 +135,33 @@ export default function SuperAdmin() {
       total: tenants.length,
       active: tenants.filter((tenant) => tenant.active).length,
       totalUsers: tenants.reduce((acc, tenant) => acc + (tenant._count?.users || 0), 0),
+      activeUsers: tenants.reduce((acc, tenant) => acc + (tenant.metrics?.activeUsers || 0), 0),
+      connectedInstances: tenants.reduce((acc, tenant) => acc + (tenant.metrics?.connectedInstances || 0), 0),
+      totalInstances: tenants.reduce((acc, tenant) => acc + (tenant._count?.instances || 0), 0),
+      messages30d: tenants.reduce((acc, tenant) => acc + (tenant.metrics?.messages30d || 0), 0),
+      openTickets: tenants.reduce((acc, tenant) => acc + (tenant.metrics?.openTickets || 0), 0),
     }),
     [tenants]
   );
+
+  // "há 2h", "há 5 dias"... usado tanto na coluna de atividade quanto na
+  // idade da empresa (createdAt), sem depender de nenhuma lib de datas.
+  function timeAgo(dateStr) {
+    if (!dateStr) return 'Sem atividade';
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    if (diffMs < 0) return 'agora';
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return 'agora mesmo';
+    if (minutes < 60) return `há ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `há ${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `há ${days} dia${days > 1 ? 's' : ''}`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `há ${months} ${months > 1 ? 'meses' : 'mês'}`;
+    const years = Math.floor(months / 12);
+    return `há ${years} ano${years > 1 ? 's' : ''}`;
+  }
 
   return (
     <div style={s.container}>
@@ -166,8 +190,23 @@ export default function SuperAdmin() {
         </SurfaceCard>
         <SurfaceCard style={s.statCard}>
           <Users size={18} style={s.statIcon} />
-          <div style={{ ...s.statVal, color: 'var(--accent)' }}>{stats.totalUsers}</div>
-          <div style={s.statLabel}>Usuários totais</div>
+          <div style={{ ...s.statVal, color: 'var(--accent)' }}>{stats.activeUsers} / {stats.totalUsers}</div>
+          <div style={s.statLabel}>Usuários ativos</div>
+        </SurfaceCard>
+        <SurfaceCard style={s.statCard}>
+          <Wifi size={18} style={s.statIcon} />
+          <div style={{ ...s.statVal, color: stats.connectedInstances > 0 ? 'var(--success)' : 'var(--text-main)' }}>{stats.connectedInstances} / {stats.totalInstances}</div>
+          <div style={s.statLabel}>Conexões conectadas</div>
+        </SurfaceCard>
+        <SurfaceCard style={s.statCard}>
+          <MessageSquare size={18} style={s.statIcon} />
+          <div style={s.statVal}>{stats.messages30d.toLocaleString('pt-BR')}</div>
+          <div style={s.statLabel}>Mensagens (30 dias)</div>
+        </SurfaceCard>
+        <SurfaceCard style={s.statCard}>
+          <Activity size={18} style={s.statIcon} />
+          <div style={{ ...s.statVal, color: stats.openTickets > 0 ? 'var(--warning-text)' : 'var(--text-main)' }}>{stats.openTickets}</div>
+          <div style={s.statLabel}>Conversas abertas agora</div>
         </SurfaceCard>
       </div>
 
@@ -188,6 +227,7 @@ export default function SuperAdmin() {
                 <th style={s.th}>Acesso</th>
                 <th style={s.th}>Plano</th>
                 <th style={s.th}>Limites</th>
+                <th style={s.th}>Atividade</th>
                 <th style={s.th}>Status</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Ações</th>
               </tr>
@@ -206,7 +246,7 @@ export default function SuperAdmin() {
                       </div>
                       <div style={s.companyInfo}>
                         <div style={s.companyName} title={tenant.name}>{tenant.name}</div>
-                        <div style={s.companyMeta}>ID: {tenant.id}</div>
+                        <div style={s.companyMeta} title={`ID: ${tenant.id}`}>Criada {timeAgo(tenant.createdAt)}</div>
                       </div>
                     </div>
                   </td>
@@ -237,13 +277,26 @@ export default function SuperAdmin() {
                     </span>
                   </td>
                   <td style={s.td}>
-                    <div style={s.limitRow}>
+                    <div style={s.limitRow} title={`${tenant.metrics?.activeUsers ?? 0} usuário(s) ativo(s) de ${tenant._count?.users || 0} cadastrado(s)`}>
                       <Users size={14} />
                       {tenant._count?.users || 0} / <strong>{tenant.maxUsers}</strong>
                     </div>
-                    <div style={s.limitRow}>
-                      <Wifi size={14} />
+                    <div style={s.limitRow} title={`${tenant.metrics?.connectedInstances ?? 0} conexão(ões) conectada(s) agora`}>
+                      <Wifi size={14} style={{ color: (tenant.metrics?.connectedInstances || 0) > 0 ? 'var(--success)' : undefined }} />
                       {tenant._count?.instances || 0} / <strong>{tenant.maxConnections}</strong>
+                      {(tenant.metrics?.connectedInstances || 0) > 0 && (
+                        <span style={s.connectedTag}>{tenant.metrics.connectedInstances} conectada{tenant.metrics.connectedInstances > 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={s.td}>
+                    <div style={s.limitRow}>
+                      <MessageSquare size={14} />
+                      {(tenant.metrics?.messages30d ?? 0).toLocaleString('pt-BR')} <span style={s.limitHint}>msgs/30d</span>
+                    </div>
+                    <div style={s.limitRow}>
+                      <Activity size={14} />
+                      {tenant.metrics?.openTickets ?? 0} <span style={s.limitHint}>abertas · {timeAgo(tenant.metrics?.lastActivityAt)}</span>
                     </div>
                   </td>
                   <td style={s.td}>
@@ -434,7 +487,9 @@ const s = {
     color: 'var(--text-muted)',
     borderColor: 'var(--border-color)',
   },
-  limitRow: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' },
+  limitRow: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-1)' },
+  limitHint: { color: 'var(--text-dim)', fontSize: 'var(--text-xs)' },
+  connectedTag: { background: 'var(--success-light)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '1px 6px', borderRadius: '999px', marginLeft: 'var(--space-1)' },
   statusCell: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 700 },
   statusDot: { width: '8px', height: '8px', borderRadius: '50%' },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' },
