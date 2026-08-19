@@ -74,6 +74,7 @@ export default function Settings() {
     kpiContractValue: 1200.0,
     kpiServiceValue: 350.0,
     kpiSlaLimitHours: 24,
+    kpiReincidentThreshold: 2,
     billingMessageTemplate: '',
   });
   const [billingLogs, setBillingLogs] = useState([]);
@@ -949,6 +950,19 @@ export default function Settings() {
                   placeholder="24"
                 />
                 <p style={s.hint}>Horas sem atendimento técnico antes do chamado ser classificado em risco de SLA.</p>
+              </div>
+
+              <div style={s.field}>
+                <label style={s.label}>Limite de Reincidência de Equipamento (O.S./mês)</label>
+                <input
+                  style={s.input}
+                  type="number"
+                  min="1"
+                  value={form.kpiReincidentThreshold}
+                  onChange={(e) => setForm({ ...form, kpiReincidentThreshold: e.target.value })}
+                  placeholder="2"
+                />
+                <p style={s.hint}>A partir de quantas O.S. no mês um equipamento é considerado reincidente/com falha recorrente no iLux Sentinela.</p>
               </div>
 
               <button style={s.saveBtn} disabled={saving}>

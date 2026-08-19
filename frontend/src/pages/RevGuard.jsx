@@ -41,8 +41,10 @@ export default function RevGuard() {
   // States para cada aba
   const [crisisData, setCrisisData] = useState(null);
   const [benchmarkData, setBenchmarkData] = useState(null);
+  const [benchmarkPeriod, setBenchmarkPeriod] = useState('90');
   const [detectiveData, setDetectiveData] = useState(null);
   const [auditList, setAuditList] = useState([]);
+  const [auditSummary, setAuditSummary] = useState(null);
   
   // Loading states
   const [loadingCrisis, setLoadingCrisis] = useState(true);
@@ -73,6 +75,10 @@ export default function RevGuard() {
     if (activeTab === 4) loadAuditList();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab === 2) loadBenchmark();
+  }, [benchmarkPeriod]);
+
   async function loadCrisis() {
     setLoadingCrisis(true);
     try {
@@ -90,7 +96,7 @@ export default function RevGuard() {
   async function loadBenchmark() {
     setLoadingBenchmark(true);
     try {
-      const res = await getRevenueBenchmark();
+      const res = await getRevenueBenchmark(benchmarkPeriod);
       setBenchmarkData(res.data);
     } catch (error) {
       console.error('Erro ao carregar benchmark:', error);
@@ -119,10 +125,12 @@ export default function RevGuard() {
     setLoadingAudit(true);
     try {
       const res = await getAuditedTickets();
-      setAuditList(res.data);
+      const list = res.data?.tickets || [];
+      setAuditList(list);
+      setAuditSummary(res.data?.summary || null);
       if (selectedTicket) {
         // Atualiza o ticket selecionado caso ele já estivesse aberto
-        const updated = res.data.find(t => t.id === selectedTicket.id);
+        const updated = list.find(t => t.id === selectedTicket.id);
         if (updated) setSelectedTicket(updated);
       }
     } catch (error) {
@@ -181,6 +189,29 @@ export default function RevGuard() {
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+  };
+
+  // Selo de tendência (hoje vs. última data com snapshot registrado). Para
+  // métricas "quanto menor melhor" (risco, vazamento) increaseIsBad=true;
+  // increaseIsBad=false para o inverso (ex.: taxa de resolução).
+  const renderTrendBadge = (delta, { format = 'currency', increaseIsBad = true, previousDate } = {}) => {
+    if (delta == null || Number.isNaN(delta)) return null;
+    const isFlat = Math.abs(delta) < (format === 'currency' ? 1 : 0.05);
+    const isUp = delta > 0;
+    const isGood = isFlat ? null : (isUp ? !increaseIsBad : increaseIsBad);
+    const color = isFlat ? 'var(--text-dim)' : (isGood ? '#10b981' : '#ef4444');
+    const arrow = isFlat ? '→' : (isUp ? '▲' : '▼');
+    const formatted = format === 'currency'
+      ? formatCurrency(Math.abs(delta))
+      : format === 'hours'
+        ? `${Math.abs(delta).toFixed(1)}h`
+        : Math.abs(delta).toFixed(0);
+    const dateLabel = previousDate ? new Date(previousDate).toLocaleDateString('pt-BR') : null;
+    return (
+      <span style={{ fontSize: '0.72rem', fontWeight: 700, color }} title={dateLabel ? `Comparado com a leitura de ${dateLabel}` : undefined}>
+        {arrow} {formatted} vs. leitura anterior
+      </span>
+    );
   };
 
   // Memoizado: evita refiltrar a lista de atendimentos a cada render
@@ -267,6 +298,7 @@ export default function RevGuard() {
                   <span style={s.riskLabel}>Receita em Risco Hoje</span>
                 </div>
                 <div style={s.riskValue}>{formatCurrency(crisisData.receitaEmRiscoHoje)}</div>
+                {crisisData.trend && renderTrendBadge(crisisData.trend.mrrInRiskDelta, { previousDate: crisisData.trend.previousDate })}
                 <p style={s.riskHint}>
                   Soma do MRR sob quebra de SLA ({crisisData.kpis.kpiSlaLimitHours}h+) e orçamentos avulsos parados.
                 </p>
@@ -280,7 +312,9 @@ export default function RevGuard() {
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
                   <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
-                  <span style={s.kpiHint}>Baseado nos contratos (Firebird)</span>
+                  {crisisData.trend
+                    ? renderTrendBadge(crisisData.trend.mrrInRiskDelta, { previousDate: crisisData.trend.previousDate })
+                    : <span style={s.kpiHint}>Baseado nos contratos (Firebird)</span>}
                 </div>
                 {crisisData.mrrRiskBands && (
                   <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', width: '100%', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -308,7 +342,11 @@ export default function RevGuard() {
                 <div style={s.kpiContent}>
                   <span style={s.kpiLabel}>Orçamentos Avulsos Parados</span>
                   <span style={s.kpiValue}>{crisisData.stalledEstimatesCount ?? 0} O.S.</span>
-                  <span style={s.kpiHint}>Aguardando aprovação do cliente (iLux)</span>
+                  <span style={s.kpiHint}>
+                    {crisisData.stalledEstimatesValue > 0
+                      ? `${formatCurrency(crisisData.stalledEstimatesValue)} aguardando aprovação do cliente`
+                      : 'Aguardando aprovação do cliente (iLux)'}
+                  </span>
                 </div>
               </div>
 
@@ -323,7 +361,9 @@ export default function RevGuard() {
                           : crisisData.averageOpenTimeHours.toFixed(1) + ' horas') 
                       : '0 h'}
                   </span>
-                  <span style={s.kpiHint}>Média geral de tempo para O.S. ativas</span>
+                  {crisisData.trend
+                    ? renderTrendBadge(crisisData.trend.avgOpenHoursDelta, { format: 'hours', previousDate: crisisData.trend.previousDate })
+                    : <span style={s.kpiHint}>Média geral de tempo para O.S. ativas</span>}
                 </div>
               </div>
             </div>
@@ -518,12 +558,19 @@ export default function RevGuard() {
                   </div>
                   <strong style={{ fontSize: '1.2rem', color: '#ef4444' }}>{formatCurrency(crisisData.funnel.vazamentoValor || 0)}</strong>
                 </div>
+                {crisisData.funnel.vazamentoSemValorCount > 0 && (
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                    ⚠️ {crisisData.funnel.vazamentoSemValorCount} de {crisisData.funnel.vazamentoMes} O.S. vazadas não têm valor de peças/serviço informado pelo Firebird — o valor acima é uma estimativa parcial, o vazamento real pode ser maior.
+                  </p>
+                )}
                 <div style={{ ...s.causeRow, background: 'rgba(16,185,129,0.04)', borderColor: 'rgba(16,185,129,0.2)' }}>
                   <div>
-                    <strong style={{ color: '#10b981', fontSize: '0.88rem', display: 'block' }}>Taxa de Resolução</strong>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>O.S. finalizadas nos últimos 30 dias</span>
+                    <strong style={{ color: '#10b981', fontSize: '0.88rem', display: 'block' }}>Taxa de Resolução (30 dias)</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{crisisData.funnel.finalizadosMes} de {crisisData.funnel.osOpenedLast30d ?? '?'} O.S. abertas nos últimos 30 dias já finalizadas</span>
                   </div>
-                  <strong style={{ fontSize: '1.2rem', color: 'var(--text-main)' }}>{crisisData.funnel.finalizadosMes}</strong>
+                  <strong style={{ fontSize: '1.2rem', color: 'var(--text-main)' }}>
+                    {crisisData.funnel.resolutionRatePct != null ? `${crisisData.funnel.resolutionRatePct}%` : '--'}
+                  </strong>
                 </div>
               </div>
             </div>
@@ -538,6 +585,22 @@ export default function RevGuard() {
         ) : !benchmarkData ? (
           <div style={s.errorBox}>Erro ao carregar benchmark.</div>
         ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Período:</span>
+              {[['30', '30 dias'], ['90', '90 dias'], ['all', 'Todo o histórico']].map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setBenchmarkPeriod(val)}
+                  style={{
+                    ...s.periodBtn,
+                    ...(benchmarkPeriod === val ? s.periodBtnActive : {})
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             {/* Clientes */}
             <div style={s.chartSection}>
@@ -577,8 +640,8 @@ export default function RevGuard() {
                           <td style={{ ...s.td, textAlign: 'center', color: slaColor, fontWeight: 'bold' }}>
                             {c.avgSla ? `${c.avgSla}h` : '--'}
                           </td>
-                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: c.avgCsat && c.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
-                            {c.avgCsat ? `★ ${c.avgCsat}` : '--'}
+                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: c.avgCsat && c.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }} title={!c.csatLinked ? 'Este cliente não tem contato de WhatsApp vinculado — CSAT indisponível' : c.avgCsat ? `${c.csatSampleSize} avaliação(ões)` : undefined}>
+                            {c.avgCsat ? `★ ${c.avgCsat} (${c.csatSampleSize})` : c.csatLinked ? '--' : 'sem vínculo'}
                           </td>
                         </tr>
                       );
@@ -633,8 +696,8 @@ export default function RevGuard() {
                           </td>
                           <td style={{ ...s.td, textAlign: 'center', background: bgGradient, fontWeight: 'bold' }}>{a.osCount}</td>
                           <td style={{ ...s.td, textAlign: 'center', color: slaColor, fontWeight: 'bold' }}>{a.avgSla ? `${a.avgSla}h` : '--'}</td>
-                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: a.avgCsat && a.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }}>
-                            {a.avgCsat ? `★ ${a.avgCsat}` : '--'}
+                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 'bold', color: a.avgCsat && a.avgCsat <= 3.0 ? '#ef4444' : '#10b981' }} title={!a.matched ? 'Nome do técnico no Firebird não bateu com nenhum usuário do sistema — CSAT indisponível' : a.avgCsat ? `${a.csatSampleSize} avaliação(ões)` : undefined}>
+                            {a.avgCsat ? `★ ${a.avgCsat} (${a.csatSampleSize})` : a.matched ? '--' : 'sem vínculo'}
                           </td>
                         </tr>
                       );
@@ -648,6 +711,10 @@ export default function RevGuard() {
                 </table>
               </div>
             </div>
+          </div>
+          {benchmarkData.note && (
+            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-dim)', textAlign: 'right' }}>ℹ️ {benchmarkData.note}</p>
+          )}
           </div>
         )
       )}
@@ -674,8 +741,8 @@ export default function RevGuard() {
                   </span>
                 </div>
               </div>
-              <div style={s.detectiveCard}>
-                <h3 style={s.detectiveCardTitle}>Ordens de Serviço</h3>
+              <div style={s.detectiveCard} title="Registros internos do sistema — não é o mesmo total do Firebird usado no Centro de Crise/Benchmark">
+                <h3 style={s.detectiveCardTitle}>O.S. (sistema interno)</h3>
                 <div style={s.detectiveCardValue}>
                   {detectiveData.stats.atual.os}
                   <span style={{ 
@@ -724,6 +791,9 @@ export default function RevGuard() {
                 {renderMarkdown(detectiveData.diagnosis)}
               </div>
             </div>
+            {detectiveData.dataSourceNote && (
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-dim)' }}>ℹ️ {detectiveData.dataSourceNote}</p>
+            )}
           </div>
         )
       )}
@@ -733,6 +803,35 @@ export default function RevGuard() {
         loadingAudit ? (
           <div style={s.loadingBox}><div style={s.spinner} /> Carregando atendimentos para auditoria...</div>
         ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {auditSummary && auditSummary.totalResolvedCount > 0 && (
+              <div style={s.kpiGrid}>
+                <div style={s.kpiCard}>
+                  <div style={{ ...s.kpiIcon, color: 'var(--accent)' }}><Award size={22} /></div>
+                  <div style={s.kpiContent}>
+                    <span style={s.kpiLabel}>Cobertura de Auditoria</span>
+                    <span style={s.kpiValue}>{auditSummary.totalAuditedCount} de {auditSummary.totalResolvedCount}</span>
+                    <span style={s.kpiHint}>Atendimentos resolvidos já auditados pela IA (lista mostra os 50 mais recentes)</span>
+                  </div>
+                </div>
+                <div style={s.kpiCard}>
+                  <div style={{ ...s.kpiIcon, color: auditSummary.avgAuditScore == null ? 'var(--text-dim)' : auditSummary.avgAuditScore >= 80 ? '#10b981' : auditSummary.avgAuditScore >= 50 ? '#f59e0b' : '#ef4444' }}><ShieldAlert size={22} /></div>
+                  <div style={s.kpiContent}>
+                    <span style={s.kpiLabel}>Nota Média de Conformidade</span>
+                    <span style={s.kpiValue}>{auditSummary.avgAuditScore != null ? auditSummary.avgAuditScore : '--'}</span>
+                    <span style={s.kpiHint}>Média entre todos os atendimentos já auditados</span>
+                  </div>
+                </div>
+                <div style={s.kpiCard}>
+                  <div style={{ ...s.kpiIcon, color: '#ef4444' }}><AlertTriangle size={22} /></div>
+                  <div style={s.kpiContent}>
+                    <span style={s.kpiLabel}>Notas Baixas (&lt; 60)</span>
+                    <span style={s.kpiValue}>{auditSummary.scoreDistribution.baixo}</span>
+                    <span style={s.kpiHint}>de {auditSummary.totalAuditedCount} atendimentos auditados</span>
+                  </div>
+                </div>
+              </div>
+            )}
           <div style={s.auditGrid}>
             {/* Lista de Atendimentos */}
             <div style={s.chartSection}>
@@ -893,6 +992,7 @@ export default function RevGuard() {
               )}
             </div>
           </div>
+          </div>
         )
       )}
 
@@ -996,6 +1096,8 @@ const s = {
   tabs: { display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '2rem', overflowX: 'auto', scrollbarWidth: 'none' },
   tab: { padding: '0.8rem 1.1rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '2px solid transparent', transition: 'all 0.2s', fontWeight: 600, whiteSpace: 'nowrap' },
   tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)', fontWeight: 800 },
+  periodBtn: { padding: '0.35rem 0.75rem', borderRadius: 'var(--radius-pill)', border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' },
+  periodBtnActive: { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' },
 
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' },
   riskCard: { background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px', minWidth: 0 },

@@ -41,6 +41,7 @@ model Tenant {
   crmOsTypes        CrmOsType[]
   crmTechnicians    CrmTechnician[]
   billingLogs       BillingLog[]
+  revenueSnapshots  RevenueSnapshot[]
 }
 
 model TenantSettings {
@@ -95,6 +96,7 @@ model TenantSettings {
   kpiContractValue Float? @default(1200.0)
   kpiServiceValue  Float? @default(350.0)
   kpiSlaLimitHours Int?   @default(24)
+  kpiReincidentThreshold Int? @default(2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -460,6 +462,27 @@ model ExternalSyncRecord {
 
   @@unique([tenantId, source, entity, externalId])
   @@index([tenantId, source, entity])
+}
+
+// Foto diária dos KPIs do iLux Sentinela (Centro de Crise / Benchmark), usada
+// para calcular tendência (hoje vs. dia anterior com dado registrado) sem
+// precisar de histórico do Firebird, que só reflete o estado atual.
+model RevenueSnapshot {
+  id             String   @id @default(cuid())
+  tenantId       String
+  snapshotDate   DateTime @db.Date
+  mrrInRisk      Float    @default(0)
+  vazamentoValor Float    @default(0)
+  stalledCount   Int      @default(0)
+  avgOpenHours   Float    @default(0)
+  avgSlaHours    Float?
+  avgCsat        Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, snapshotDate])
+  @@index([tenantId, snapshotDate])
 }
 
 model CrmCustomer {

@@ -41,13 +41,14 @@ async function saveSettings(req, res) {
     firebirdLastSyncAt,
     firebirdLastSyncStatus,
     firebirdLastSyncError,
-    kpiContractValue, kpiServiceValue, kpiSlaLimitHours,
+    kpiContractValue, kpiServiceValue, kpiSlaLimitHours, kpiReincidentThreshold,
     billingMessageTemplate
   } = req.body;
 
   const parsedContractValue = kpiContractValue !== undefined && kpiContractValue !== '' ? parseFloat(kpiContractValue) : null;
   const parsedServiceValue = kpiServiceValue !== undefined && kpiServiceValue !== '' ? parseFloat(kpiServiceValue) : null;
   const parsedSlaLimitHours = kpiSlaLimitHours !== undefined && kpiSlaLimitHours !== '' ? parseInt(kpiSlaLimitHours) : null;
+  const parsedReincidentThreshold = kpiReincidentThreshold !== undefined && kpiReincidentThreshold !== '' ? parseInt(kpiReincidentThreshold) : null;
   const managerCopyEnabled = serviceOrderManagerCopyEnabled === undefined
     ? undefined
     : Boolean(serviceOrderManagerCopyEnabled);
@@ -115,9 +116,10 @@ async function saveSettings(req, res) {
       kpiContractValue: parsedContractValue,
       kpiServiceValue: parsedServiceValue,
       kpiSlaLimitHours: parsedSlaLimitHours,
+      kpiReincidentThreshold: parsedReincidentThreshold,
       billingMessageTemplate
     },
-    create: { 
+    create: {
       tenantId: req.user.tenantId, 
       botEnabled, 
       geminiKey,
@@ -157,6 +159,7 @@ async function saveSettings(req, res) {
       kpiContractValue: parsedContractValue,
       kpiServiceValue: parsedServiceValue,
       kpiSlaLimitHours: parsedSlaLimitHours,
+      kpiReincidentThreshold: parsedReincidentThreshold,
       billingMessageTemplate
     },
   });

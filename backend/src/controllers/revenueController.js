@@ -7,11 +7,12 @@ async function getRevenueDashboard(req, res) {
   try {
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
     const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
+    const reincidentThreshold = settings?.kpiReincidentThreshold ?? 2;
     const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // ───────────────────────────────────────────────────────────────
-    // 1. CARREGAR TODAS AS O.S. REAIS DO iLux (Firebird) 
+    // 1. CARREGAR TODAS AS O.S. REAIS DO iLux (Firebird)
     //    Fonte: ExternalSyncRecord com entity = 'serviceOrders'
     // ───────────────────────────────────────────────────────────────
     const allFirebirdOS = await prisma.externalSyncRecord.findMany({
@@ -138,45 +139,97 @@ async function getRevenueDashboard(req, res) {
         equipmentCounts[o.equipmentId] = (equipmentCounts[o.equipmentId] || 0) + 1;
       }
     }
-    const reincidentEquipmentsCount = Object.values(equipmentCounts).filter(c => c > 2).length;
+    const reincidentEquipmentsCount = Object.values(equipmentCounts).filter(c => c > reincidentThreshold).length;
 
     const badCsatCount = await prisma.ticket.count({
       where: { tenantId, rating: { not: null, lte: 2 }, resolvedAt: { gte: thirtyDaysAgo } }
     });
 
     // ───────────────────────────────────────────────────────────────
-    // RESPOSTA
+    // VALOR ESTIMADO DE UMA O.S. (peças/serviço, quando o Firebird informa)
     // ───────────────────────────────────────────────────────────────
+    function estimateValue(payload) {
+      const raw = payload?.raw || payload || {};
+      const val = parseFloat(raw.vltotal || raw.vlservico || raw.vlpecas || payload?.totalValue);
+      return Number.isFinite(val) ? val : 0;
+    }
+    function hasAnyValueField(payload) {
+      const raw = payload?.raw || payload || {};
+      return raw.vltotal != null || raw.vlservico != null || raw.vlpecas != null || payload?.totalValue != null;
+    }
+
+    // Valor dos orçamentos avulsos parados (aguardando aprovação do cliente)
+    let stalledEstimatesValue = 0;
+    for (const o of aguardando) stalledEstimatesValue += estimateValue(o.payload);
+
     // ───────────────────────────────────────────────────────────────
     // VAZAMENTO DO FUNIL (Perda Estimada)
     // ───────────────────────────────────────────────────────────────
-    const vazamento = classified.filter(o => 
-      (o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO' || o.status === 'AGUARDANDO_RETORNO' || o.status === 'AGUARDANDO_APROVACAO') && 
+    const vazamento = classified.filter(o =>
+      (o.status === 'PENDENTE' || o.status === 'EM_ATENDIMENTO' || o.status === 'AGUARDANDO_RETORNO') &&
       o.openedAt && o.openedAt < thirtyDaysAgo
     );
     const vazamentoMes = vazamento.length;
     let vazamentoValor = 0;
-    
-    // Tenta somar valores dos orçamentos, ou fallback para uma estimativa se não houver
+    let vazamentoSemValorCount = 0;
     for (const o of vazamento) {
-      const raw = o.payload?.raw || o.payload || {};
-      const val = parseFloat(raw.vltotal || raw.vlservico || raw.vlpecas || o.payload?.totalValue) || 0;
-      vazamentoValor += val;
+      if (!hasAnyValueField(o.payload)) { vazamentoSemValorCount++; continue; }
+      vazamentoValor += estimateValue(o.payload);
+    }
+
+    // Taxa de resolução real: das O.S. abertas nos últimos 30 dias, quantas já foram finalizadas
+    const openedLast30d = classified.filter(o => o.openedAt && o.openedAt >= thirtyDaysAgo);
+    const resolutionRatePct = openedLast30d.length > 0
+      ? Math.round((finalizadas30d.length / openedLast30d.length) * 1000) / 10
+      : null;
+
+    // Soma que a "Receita em Risco Hoje" de fato representa: MRR sob quebra de
+    // SLA + valor dos orçamentos avulsos parados aguardando aprovação.
+    const receitaEmRiscoHoje = mrrInRisk + stalledEstimatesValue;
+
+    // ───────────────────────────────────────────────────────────────
+    // TENDÊNCIA — grava a foto do dia e compara com a última anterior
+    // registrada, já que o Firebird só reflete o estado atual (sem histórico).
+    // ───────────────────────────────────────────────────────────────
+    let trend = null;
+    try {
+      const todayDateOnly = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+      await prisma.revenueSnapshot.upsert({
+        where: { tenantId_snapshotDate: { tenantId, snapshotDate: todayDateOnly } },
+        update: { mrrInRisk, vazamentoValor, stalledCount: aguardando.length, avgOpenHours: averageOpenTimeHours },
+        create: { tenantId, snapshotDate: todayDateOnly, mrrInRisk, vazamentoValor, stalledCount: aguardando.length, avgOpenHours: averageOpenTimeHours },
+      });
+      const previousSnapshot = await prisma.revenueSnapshot.findFirst({
+        where: { tenantId, snapshotDate: { lt: todayDateOnly } },
+        orderBy: { snapshotDate: 'desc' },
+      });
+      if (previousSnapshot) {
+        trend = {
+          previousDate: previousSnapshot.snapshotDate,
+          mrrInRiskDelta: mrrInRisk - previousSnapshot.mrrInRisk,
+          vazamentoValorDelta: vazamentoValor - previousSnapshot.vazamentoValor,
+          avgOpenHoursDelta: averageOpenTimeHours - previousSnapshot.avgOpenHours,
+          stalledCountDelta: aguardando.length - previousSnapshot.stalledCount,
+        };
+      }
+    } catch (trendErr) {
+      console.error('[revenueController] Falha ao calcular tendência do Sentinela:', trendErr);
     }
 
     res.json({
-      receitaEmRiscoHoje: mrrInRisk,
+      receitaEmRiscoHoje,
       mrrInRisk,
       mrrRiskBands,
       averageOpenTimeHours,
       rankingClientsAtRisk,
-      stalledEstimates: 0,
       stalledEstimatesCount: aguardando.length,
-      kpis: { kpiSlaLimitHours },
+      stalledEstimatesValue,
+      trend,
+      kpis: { kpiSlaLimitHours, kpiReincidentThreshold: reincidentThreshold },
       causas: [
         { id: '1', descricao: 'Chamados pendentes sem técnico designado', quantidade: noTechnicianCount, prioridade: 'alta' },
         { id: '2', descricao: 'Orçamentos de peças/serviço aguardando aprovação', quantidade: aguardando.length, prioridade: 'media' },
-        { id: '3', descricao: 'Equipamentos reincidentes com falhas recorrentes (> 2 OS/mês)', quantidade: reincidentEquipmentsCount, prioridade: 'alta' },
+        { id: '3', descricao: `Equipamentos reincidentes com falhas recorrentes (> ${reincidentThreshold} OS/mês)`, quantidade: reincidentEquipmentsCount, prioridade: 'alta' },
         { id: '4', descricao: 'Chamados com avaliações ruins dos clientes (CSAT ≤ 2)', quantidade: badCsatCount, prioridade: 'alta' }
       ],
       funnel: {
@@ -184,8 +237,11 @@ async function getRevenueDashboard(req, res) {
         emAtendimento: emAtendimento.length,
         aguardandoCliente: aguardando.length,
         finalizadosMes: finalizadas30d.length,
+        osOpenedLast30d: openedLast30d.length,
+        resolutionRatePct,
         vazamentoMes,
-        vazamentoValor
+        vazamentoValor,
+        vazamentoSemValorCount
       }
     });
   } catch (error) {
@@ -197,12 +253,20 @@ async function getRevenueDashboard(req, res) {
 async function getBenchmark(req, res) {
   const tenantId = req.user.tenantId;
   try {
+    // Janela de período: por padrão últimos 90 dias (evita diluir sinal recente
+    // com histórico antigo/técnicos que já saíram); ?days=all remove o filtro.
+    const daysParam = req.query.days;
+    const periodDays = daysParam === 'all' ? null : (parseInt(daysParam) || 90);
+    const periodStart = periodDays ? new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000) : null;
+
     const rawRecords = await prisma.externalSyncRecord.findMany({
       where: { tenantId, entity: 'serviceOrders' }
     });
 
+    const ticketsWhere = { tenantId, rating: { not: null } };
+    if (periodStart) ticketsWhere.resolvedAt = { gte: periodStart };
     const tickets = await prisma.ticket.findMany({
-      where: { tenantId, rating: { not: null } },
+      where: ticketsWhere,
       select: { id: true, contactId: true, agentId: true, rating: true, contact: { select: { externalId: true } } }
     });
 
@@ -240,7 +304,18 @@ async function getBenchmark(req, res) {
         openedAt,
         closedAt
       };
-    }).filter(o => o.openedAt);
+    }).filter(o => o.openedAt && (!periodStart || o.openedAt >= periodStart));
+
+    // Quais clientExternalId têm de fato um contato de WhatsApp vinculado —
+    // sem isso o CSAT nunca vai casar, mesmo que existam avaliações no sistema.
+    const clientExtIdsInPeriod = [...new Set(classified.map(o => o.clientExternalId).filter(Boolean))];
+    const linkedContacts = clientExtIdsInPeriod.length > 0
+      ? await prisma.contact.findMany({
+          where: { tenantId, externalId: { in: clientExtIdsInPeriod } },
+          select: { externalId: true }
+        })
+      : [];
+    const linkedExternalIds = new Set(linkedContacts.map(c => c.externalId));
 
     // Agrupar por Cliente
     const clientMap = {};
@@ -278,7 +353,9 @@ async function getBenchmark(req, res) {
         nome: c.nome,
         osCount: c.osCount,
         avgSla,
-        avgCsat
+        avgCsat,
+        csatSampleSize: clientTickets.length,
+        csatLinked: linkedExternalIds.has(c.clientExternalId)
       };
     }).sort((a, b) => b.osCount - a.osCount).slice(0, 10);
 
@@ -309,11 +386,15 @@ async function getBenchmark(req, res) {
         avgSla = Math.round((totalSla / a.finalizadas.length) * 10) / 10;
       }
 
-      // Tenta achar o atendente local para pegar o CSAT
+      // Tenta achar o atendente local para pegar o CSAT (o Firebird só tem o
+      // técnico de campo por nome — se não bater exatamente com o usuário do
+      // sistema, o CSAT fica indisponível mesmo que existam avaliações).
       const localUser = users.find(u => u.name.toLowerCase() === a.nome.toLowerCase());
       let avgCsat = null;
+      let csatSampleSize = 0;
       if (localUser) {
         const agentTickets = tickets.filter(t => t.agentId === localUser.id);
+        csatSampleSize = agentTickets.length;
         if (agentTickets.length > 0) {
           const totalCsat = agentTickets.reduce((sum, t) => sum + t.rating, 0);
           avgCsat = Math.round((totalCsat / agentTickets.length) * 10) / 10;
@@ -325,13 +406,21 @@ async function getBenchmark(req, res) {
         nome: a.nome,
         osCount: a.osCount,
         avgSla,
-        avgCsat
+        avgCsat,
+        csatSampleSize,
+        // false = não achamos usuário do sistema com esse nome (o CSAT é
+        // estruturalmente indisponível, não é "sem avaliações")
+        matched: Boolean(localUser)
       };
     }).sort((a, b) => b.osCount - a.osCount);
 
     res.json({
       clientes: clientBenchmark,
-      atendentes: agentBenchmark
+      atendentes: agentBenchmark,
+      periodDays,
+      // CSAT do atendente vem do canal de atendimento (ticket WhatsApp), que
+      // pode ser conduzido por pessoa diferente do técnico que foi a campo.
+      note: 'O CSAT de "Performance de Atendentes" reflete o canal de atendimento (WhatsApp), não necessariamente quem executou a visita técnica.'
     });
   } catch (error) {
     console.error('[revenueController] Erro ao obter benchmark:', error);
@@ -364,14 +453,16 @@ async function getDetective(req, res) {
       where: { tenantId, createdAt: { gte: sevenDaysAgo } }
     });
 
-    // O.S. fora do SLA na semana atual
+    // O.S. fora do SLA na semana atual (aberta nos últimos 7 dias E já além
+    // do limite de SLA). Antes havia duas chaves `createdAt` no mesmo objeto
+    // — a segunda sobrescrevia a primeira em JS e o filtro de 7 dias era
+    // descartado silenciosamente; corrigido combinando gte+lte numa só chave.
     const slaLimitDateCurrent = new Date(now.getTime() - kpiSlaLimitHours * 60 * 60 * 1000);
     const currentOverdueOS = await prisma.serviceOrder.count({
       where: {
         tenantId,
-        createdAt: { gte: sevenDaysAgo },
         status: { in: ['PENDENTE', 'EM_ATENDIMENTO'] },
-        createdAt: { lte: slaLimitDateCurrent }
+        createdAt: { gte: sevenDaysAgo, lte: slaLimitDateCurrent }
       }
     });
 
@@ -395,9 +486,8 @@ async function getDetective(req, res) {
     const prevOverdueOS = await prisma.serviceOrder.count({
       where: {
         tenantId,
-        createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
         status: { in: ['PENDENTE', 'EM_ATENDIMENTO'] },
-        createdAt: { lte: slaLimitDatePrev }
+        createdAt: { gte: fourteenDaysAgo, lte: slaLimitDatePrev }
       }
     });
 
@@ -445,7 +535,14 @@ async function getDetective(req, res) {
       }
     }
 
-    res.json({ stats, diagnosis: aiDiagnosis });
+    res.json({
+      stats,
+      diagnosis: aiDiagnosis,
+      // As O.S. aqui vêm do módulo interno (prisma.serviceOrder), não do
+      // Firebird usado no Centro de Crise/Benchmark — os totais não são
+      // diretamente comparáveis entre as abas.
+      dataSourceNote: 'Os números de "O.S." nesta aba vêm dos registros internos do sistema, e não do ERP Firebird usado no Centro de Crise e no Benchmark — os totais podem não bater entre as abas.'
+    });
   } catch (error) {
     console.error('[revenueController] Erro no Detetive IA:', error);
     res.status(500).json({ error: 'Erro ao processar dados do Detetive IA.' });
@@ -455,6 +552,24 @@ async function getDetective(req, res) {
 async function getAuditedTickets(req, res) {
   const tenantId = req.user.tenantId;
   try {
+    const [totalResolvedCount, auditedTickets] = await Promise.all([
+      prisma.ticket.count({ where: { tenantId, status: 'resolved' } }),
+      prisma.ticket.findMany({
+        where: { tenantId, status: 'resolved', auditScore: { not: null } },
+        select: { auditScore: true }
+      })
+    ]);
+    const totalAuditedCount = auditedTickets.length;
+    const avgAuditScore = totalAuditedCount > 0
+      ? Math.round(auditedTickets.reduce((sum, t) => sum + t.auditScore, 0) / totalAuditedCount)
+      : null;
+    const scoreDistribution = { baixo: 0, medio: 0, alto: 0 }; // <60 / 60-84 / 85+
+    for (const t of auditedTickets) {
+      if (t.auditScore >= 85) scoreDistribution.alto++;
+      else if (t.auditScore >= 60) scoreDistribution.medio++;
+      else scoreDistribution.baixo++;
+    }
+
     const tickets = await prisma.ticket.findMany({
       where: {
         tenantId,
@@ -488,7 +603,15 @@ async function getAuditedTickets(req, res) {
       resolvedAt: t.resolvedAt
     }));
 
-    res.json(formatted);
+    res.json({
+      tickets: formatted,
+      summary: {
+        totalResolvedCount,
+        totalAuditedCount,
+        avgAuditScore,
+        scoreDistribution
+      }
+    });
   } catch (error) {
     console.error('[revenueController] Erro ao buscar atendimentos auditados:', error);
     res.status(500).json({ error: 'Erro ao buscar atendimentos para auditoria.' });
