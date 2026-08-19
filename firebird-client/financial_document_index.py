@@ -119,8 +119,15 @@ def _extract_pdf(path: Path) -> dict[str, Any]:
 
 
 def _digits_with_boundaries(text: str) -> str:
-    """Keep separators as spaces so unrelated numeric fields are not joined."""
-    return re.sub(r"[^0-9]", " ", text)
+    """Keep separators as spaces so unrelated numeric fields are not joined,
+    but first collapse thousand-separator-style dots between digit groups
+    (e.g. a DANFE printing "Nº: 048.134.210") into one contiguous run.
+    Otherwise a document number that is legitimately dot-grouped in the
+    official layout would never match anything: each group would be read as
+    three unrelated numbers instead of one.
+    """
+    collapsed = re.sub(r"(?<=\d)\.(?=\d)", "", text)
+    return re.sub(r"[^0-9]", " ", collapsed)
 
 
 def _sha256(path: Path) -> str:
@@ -327,7 +334,11 @@ class FinancialDocumentIndex:
 
             expected_number = statement_number if document_type == "statement" else invoice_number
             if expected_number:
-                if not re.search(rf"(?<!\d){re.escape(expected_number)}(?!\d)", compact):
+                # O Firebird guarda o numero sem zeros a esquerda, mas o layout
+                # oficial (DANFE/NFS-e) normalmente imprime com padding fixo
+                # (ex.: "048.134.210"). Sem o "0*" aqui, o mesmo numero nunca
+                # bateria so por causa do zero a mais no documento impresso.
+                if not re.search(rf"(?<!\d)0*{re.escape(expected_number)}(?!\d)", compact):
                     continue
                 score += 50
 

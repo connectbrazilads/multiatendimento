@@ -84,6 +84,30 @@ class FinancialDocumentIndexTest(unittest.TestCase):
         wrong = {**self.context, "customer_cnpj": "87.130.589/0001-20"}
         self.assertIsNone(index.find("invoice", wrong))
 
+    def test_matches_a_danfe_with_dot_grouped_zero_padded_number(self):
+        """Regression: a real DANFE (NF-e de venda) prints its number grouped
+        with thousand-separator dots and zero-padded (e.g. "Nº: 048.134.210"),
+        while Firebird stores the same invoice as the plain integer 48134210.
+        Before the fix, the dots split the printed number into three unrelated
+        tokens and the leading zero broke the boundary match, so this exact
+        real-world document was never found."""
+        danfe_root = self.root / "danfe"
+        danfe_root.mkdir()
+        make_pdf(danfe_root / "qualquer-nome.pdf", [
+            "DANFE - DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRONICA",
+            "Nº: 048.134.210",
+            f"CNPJ {CUSTOMER_CNPJ}",
+            "Data de Emissao 28/07/2026",
+            "Data Vcto 10/08/2026",
+            "Valor Total dos Produtos 141,30",
+        ])
+        index = FinancialDocumentIndex([str(danfe_root)], danfe_root / "index.json")
+        index.scan()
+        context = {**self.context, "invoice_number": "48134210"}
+        match = index.find("invoice", context)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.path.name, "qualquer-nome.pdf")
+
 
 class FinancialDocumentIndexProgressTest(unittest.TestCase):
     """Covers the live progress reporting used by the agent GUI so a scan over a
