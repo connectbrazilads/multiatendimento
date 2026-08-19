@@ -12,21 +12,29 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { AlertCircle, ArrowRight, Bot, Clock, Star, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowRight, Bot, Clock, MessageSquare, Star, TrendingUp, UserPlus } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
+
+const PERIOD_OPTIONS = [
+  { value: 7, label: '7 dias' },
+  { value: 30, label: '30 dias' },
+  { value: 90, label: '90 dias' },
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [periodDays, setPeriodDays] = useState(30);
 
   useEffect(() => {
-    load();
-  }, []);
+    load(periodDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodDays]);
 
-  async function load() {
+  async function load(days) {
     setLoading(true);
     try {
-      const { data } = await getDashboardStats();
+      const { data } = await getDashboardStats(days);
       setStats(data);
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error);
@@ -63,12 +71,13 @@ export default function Dashboard() {
         <AlertCircle size={28} color="var(--danger)" />
         <p style={s.errorTitle}>Não foi possível carregar o dashboard</p>
         <p style={s.errorText}>Verifique sua conexão e tente novamente.</p>
-        <button type="button" style={s.retryBtn} onClick={load}>Tentar novamente</button>
+        <button type="button" style={s.retryBtn} onClick={() => load(periodDays)}>Tentar novamente</button>
       </div>
     );
   }
 
-  const { kpis, dailyMessages, agentRanking, ratingsDistribution } = stats;
+  const { kpis, dailyMessages, agentBreakdown, ratingsDistribution } = stats;
+  const iaShare = kpis.totalMessages > 0 ? Math.round((kpis.iaMessages / kpis.totalMessages) * 100) : 0;
 
   return (
     <div style={s.container}>
@@ -80,7 +89,34 @@ export default function Dashboard() {
         compact
       />
 
+      <div style={s.toolbar}>
+        <div style={s.periodGroup}>
+          <span style={s.periodLabel}>Período:</span>
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              style={{ ...s.periodBtn, ...(periodDays === opt.value ? s.periodBtnActive : {}) }}
+              onClick={() => setPeriodDays(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div style={s.allTimeHint}>
+          Desde o início: <strong>{kpis.totalMessagesAllTime.toLocaleString('pt-BR')}</strong> mensagens processadas
+          ({kpis.iaMessagesAllTime.toLocaleString('pt-BR')} pela IA · {kpis.humanMessagesAllTime.toLocaleString('pt-BR')} por humanos)
+        </div>
+      </div>
+
       <div style={s.kpiGrid}>
+        <KpiCard
+          icon={<MessageSquare color="#8b5cf6" />}
+          label="Mensagens no Período"
+          value={kpis.totalMessages.toLocaleString('pt-BR')}
+          hint={`${iaShare}% respondidas pela IA (${kpis.iaMessages} de ${kpis.totalMessages})`}
+          accentColor="#8b5cf6"
+        />
         <KpiCard
           icon={<Bot color="#D4AF37" />}
           label="Tempo Economizado"
@@ -109,12 +145,19 @@ export default function Dashboard() {
           hint={`Baseado em ${kpis.totalRatings} avaliações`}
           accentColor="#f59e0b"
         />
+        <KpiCard
+          icon={<UserPlus color="#ec4899" />}
+          label="Novos Contatos"
+          value={kpis.newContacts.toLocaleString('pt-BR')}
+          hint={`${kpis.totalContacts.toLocaleString('pt-BR')} contatos no total`}
+          accentColor="#ec4899"
+        />
       </div>
 
       <div style={s.mainGrid} className="dashboard-main-grid">
         <div style={s.chartSection}>
           <div style={s.sectionHeader}>
-            <h2 style={s.sectionTitle}>Evolução do Atendimento (7 dias)</h2>
+            <h2 style={s.sectionTitle}>Evolução do Atendimento ({periodDays} dias)</h2>
             <div style={s.legend}>
               <div style={s.legendItem}><span style={{ ...s.legendDot, background: '#D4AF37' }} /> IA</div>
               <div style={s.legendItem}><span style={{ ...s.legendDot, background: 'var(--text-muted)' }} /> Humano</div>
@@ -165,21 +208,61 @@ export default function Dashboard() {
           <div style={s.sideCard}>
             <h3 style={s.sideTitle}>Ranking de Agentes</h3>
             <div style={s.ranking}>
-              {agentRanking.map((agent, index) => (
-                <div key={index} style={s.rankItem}>
+              {agentBreakdown.slice(0, 5).map((agent, index) => (
+                <div key={agent.id} style={s.rankItem}>
                   <div style={s.rankNum}>{index + 1}</div>
                   <div style={s.rankInfo}>
                     <div style={s.rankName}>{agent.name}</div>
-                    <div style={s.rankMeta}>{agent.count} tickets resolvidos</div>
+                    <div style={s.rankMeta}>
+                      {agent.resolvedCount} tickets · {agent.messagesCount} msgs
+                      {agent.avgCsat != null && <> · ★ {agent.avgCsat}</>}
+                    </div>
                   </div>
                   <ArrowRight size={14} color="var(--text-dim)" />
                 </div>
               ))}
-              {agentRanking.length === 0 && <p style={s.emptyHint}>Nenhum ticket resolvido ainda.</p>}
+              {agentBreakdown.length === 0 && <p style={s.emptyHint}>Nenhum ticket resolvido no período selecionado.</p>}
             </div>
           </div>
         </div>
       </div>
+
+      <div style={s.chartSection}>
+        <div style={s.sectionHeader}>
+          <h2 style={s.sectionTitle}>Desempenho por Atendente ({periodDays} dias)</h2>
+        </div>
+        {agentBreakdown.length === 0 ? (
+          <p style={s.emptyHint}>Nenhuma atividade de atendente no período selecionado.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={s.agentTable}>
+              <thead>
+                <tr>
+                  <th style={s.agentTh}>Atendente</th>
+                  <th style={{ ...s.agentTh, textAlign: 'center' }}>Tickets Resolvidos</th>
+                  <th style={{ ...s.agentTh, textAlign: 'center' }}>Mensagens Enviadas</th>
+                  <th style={{ ...s.agentTh, textAlign: 'center' }}>TMA Médio</th>
+                  <th style={{ ...s.agentTh, textAlign: 'center' }}>CSAT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agentBreakdown.map((agent) => (
+                  <tr key={agent.id} style={s.agentTr}>
+                    <td style={s.agentTd}><strong>{agent.name}</strong></td>
+                    <td style={{ ...s.agentTd, textAlign: 'center' }}>{agent.resolvedCount}</td>
+                    <td style={{ ...s.agentTd, textAlign: 'center' }}>{agent.messagesCount}</td>
+                    <td style={{ ...s.agentTd, textAlign: 'center' }}>{agent.avgTma > 60 ? `${Math.round(agent.avgTma / 60)}h` : `${agent.avgTma}m`}</td>
+                    <td style={{ ...s.agentTd, textAlign: 'center' }}>
+                      {agent.avgCsat != null ? `★ ${agent.avgCsat} (${agent.csatCount})` : '--'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <style>{`
         @media (max-width: 900px) {
           .dashboard-main-grid { grid-template-columns: 1fr !important; }
@@ -221,6 +304,12 @@ const s = {
   retryBtn: { marginTop: 'var(--space-2)', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-border)', background: 'var(--accent-light)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer', fontSize: 'var(--text-sm)' },
   statusBadge: { background: 'var(--bg-surface)', border: '1px solid var(--border-color)', padding: '0.6rem 1rem', borderRadius: '100px', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px rgba(16,185,129,0.4)' },
+  toolbar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' },
+  periodGroup: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)' },
+  periodLabel: { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginRight: '2px' },
+  periodBtn: { padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-pill)', border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontWeight: 700, cursor: 'pointer' },
+  periodBtnActive: { background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--text-inverse)' },
+  allTimeHint: { fontSize: 'var(--text-xs)', color: 'var(--text-dim)' },
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-10)' },
   kpiCard: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: 'var(--space-6)', display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start' },
   kpiIcon: { background: 'var(--bg-base)', padding: 'var(--space-3)', borderRadius: '12px', border: '1px solid var(--border-color)' },
@@ -228,7 +317,7 @@ const s = {
   kpiLabel: { color: 'var(--text-muted)', fontSize: 'var(--text-xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
   kpiValue: { fontSize: 'var(--text-2xl)', fontWeight: 900, margin: '4px 0', color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' },
   kpiHint: { color: 'var(--text-dim)', fontSize: 'var(--text-xs)' },
-  mainGrid: { display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 'var(--space-6)' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 'var(--space-6)', marginBottom: 'var(--space-6)' },
   chartSection: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: 'var(--space-8)', minWidth: 0 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)', flexWrap: 'wrap', gap: 'var(--space-3)' },
   sectionTitle: { fontSize: 'var(--text-lg)', fontWeight: 800, margin: 0, fontFamily: 'var(--font-display)' },
@@ -252,4 +341,8 @@ const s = {
   rankName: { fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rankMeta: { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' },
   emptyHint: { color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 },
+  agentTable: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: 'var(--space-4)' },
+  agentTh: { padding: 'var(--space-3) var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border-color)' },
+  agentTr: { borderBottom: '1px solid var(--border-color)' },
+  agentTd: { padding: 'var(--space-3) var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' },
 };

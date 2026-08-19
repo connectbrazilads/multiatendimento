@@ -146,7 +146,7 @@ export const updateTag = (id, data) => api.patch(`/tags/${id}`, data);
 export const deleteTag = (id) => api.delete(`/tags/${id}`);
 
 // Dashboard
-export const getDashboardStats = () => api.get('/dashboard/stats');
+export const getDashboardStats = (days) => api.get('/dashboard/stats', { params: days ? { days } : undefined });
 export const getRevenueStats = () => api.get('/revenue/stats');
 export const getRevenueBenchmark = (days) => api.get('/revenue/benchmark', { params: days ? { days } : undefined });
 export const getRevenueDetective = () => api.get('/revenue/detective');
