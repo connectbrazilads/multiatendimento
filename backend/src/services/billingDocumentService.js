@@ -473,6 +473,7 @@ module.exports = {
   REQUEST_ENTITY,
   setIo,
   listDocumentStates,
+  queueDocumentRequest,
   getOrRequestDocument,
   completeDocumentRequest,
   retryFailedDocumentRequests,
