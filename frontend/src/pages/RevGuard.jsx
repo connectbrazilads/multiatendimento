@@ -276,16 +276,14 @@ export default function RevGuard() {
                 style={{ ...s.kpiCard, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
                 onClick={() => handleOpenDrilldown('mrr_risk', 'MRR Sob Risco (Detalhado)')}
               >
-                <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                  <div style={{ ...s.kpiIcon, color: '#3b82f6' }}><Coins size={22} /></div>
-                  <div style={s.kpiContent}>
-                    <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
-                    <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
-                    <span style={s.kpiHint}>Baseado nos contratos (Firebird)</span>
-                  </div>
+                <div style={{ ...s.kpiIcon, color: '#3b82f6' }}><Coins size={22} /></div>
+                <div style={s.kpiContent}>
+                  <span style={s.kpiLabel}>Locações Sob Risco (MRR)</span>
+                  <span style={s.kpiValue}>{formatCurrency(crisisData.mrrInRisk)}</span>
+                  <span style={s.kpiHint}>Baseado nos contratos (Firebird)</span>
                 </div>
                 {crisisData.mrrRiskBands && (
-                  <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', width: '100%', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', borderTop: '2px solid #10b981', border: '1px solid var(--border-color)' }}>
                       <div style={{ color: 'var(--text-dim)' }}>1-3 dias</div>
                       <div style={{ color: 'var(--text-base)', fontWeight: 'bold' }}>{formatCurrency(crisisData.mrrRiskBands.band1to3)}</div>
@@ -1000,16 +998,16 @@ const s = {
   tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)', fontWeight: 800 },
 
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' },
-  riskCard: { background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 },
-  riskCardHeader: { display: 'flex', alignItems: 'center', gap: '8px' },
+  riskCard: { background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px', minWidth: 0 },
+  riskCardHeader: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
   pulseAlert: { animation: 'pulse-alert 2s infinite' },
   riskLabel: { color: '#ef4444', fontSize: 'var(--text-xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
   riskValue: { fontSize: '2.1rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
   riskHint: { color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0, lineHeight: 1.4 },
 
-  kpiCard: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', minWidth: 0 },
+  kpiCard: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', alignItems: 'center', textAlign: 'center', minWidth: 0 },
   kpiIcon: { background: 'var(--bg-base)', padding: '0.7rem', borderRadius: '14px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  kpiContent: { display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 },
+  kpiContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.25rem', minWidth: 0, width: '100%' },
   kpiLabel: { color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
   kpiValue: { fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' },
   kpiHint: { color: 'var(--text-dim)', fontSize: '0.72rem' },
