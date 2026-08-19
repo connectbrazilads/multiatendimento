@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const prisma = require('../lib/prisma');
 const evolutionService = require('./evolutionService');
+const billingDocuments = require('./billingDocumentService');
 
 async function processScheduledMessages() {
   const now = new Date();
@@ -167,6 +168,17 @@ function start() {
     nightlyCleanup();
   });
   console.log('[cleanup] Cron de limpeza noturna agendado (03:00)');
+
+  // Retry automático de documentos financeiros (NF/Demonstrativo/Boleto) que
+  // falharam no agente iLux - sem isso, um pedido que falhou uma vez ficava
+  // parado para sempre, mesmo que o agente já tivesse indexado o arquivo
+  // horas depois; o usuário tinha que reabrir/clicar de novo manualmente.
+  setInterval(() => {
+    billingDocuments.retryFailedDocumentRequests().catch((err) => {
+      console.error('[billing-documents] erro ao reenfileirar documentos com falha:', err.message);
+    });
+  }, 15 * 60 * 1000);
+  console.log('[billing-documents] retry automático de documentos financeiros com falha iniciado (15 min)');
 }
 
 module.exports = { start };

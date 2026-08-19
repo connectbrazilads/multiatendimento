@@ -255,6 +255,53 @@ async function completeDocumentRequest({ request, success, result, error }) {
   });
 }
 
+// Um pedido de documento que falhou (ex.: agente ainda não tinha indexado o
+// PDF no momento) ficava parado em "failed" para sempre - nada pedia pro
+// agente tentar de novo sem um clique manual do usuário, mesmo que o arquivo
+// já estivesse disponível há horas. Reenfileira automaticamente pedidos
+// falhos "maduros" (tempo suficiente para o agente já ter reindexado as
+// pastas) até um limite de tentativas, sem exigir nenhuma ação do usuário.
+const AUTO_RETRY_COOLDOWN_MS = 15 * 60 * 1000; // dá tempo de sobra pro ciclo de indexação (padrão 300s) já ter rodado
+const AUTO_RETRY_MAX_ATTEMPTS = 12; // ~3h tentando sozinho antes de exigir ação manual
+
+async function retryFailedDocumentRequests() {
+  const cutoff = new Date(Date.now() - AUTO_RETRY_COOLDOWN_MS).toISOString();
+  const candidates = await prisma.externalSyncRecord.findMany({
+    where: {
+      source: 'crm',
+      entity: REQUEST_ENTITY,
+      payload: { path: ['status'], equals: 'failed' },
+    },
+    select: { id: true, payload: true },
+  });
+
+  let requeued = 0;
+  for (const record of candidates) {
+    const payload = record.payload || {};
+    if (!payload.completedAt || payload.completedAt > cutoff) continue; // ainda dentro do periodo de espera
+    const attempts = payload.autoRetryCount || 0;
+    if (attempts >= AUTO_RETRY_MAX_ATTEMPTS) continue; // desistiu sozinho; precisa de retentativa manual do usuario
+
+    await prisma.externalSyncRecord.update({
+      where: { id: record.id },
+      data: {
+        payload: {
+          ...payload,
+          status: 'pending',
+          requestedAt: new Date().toISOString(),
+          autoRetryCount: attempts + 1,
+        },
+      },
+    });
+    requeued++;
+  }
+
+  if (requeued > 0) {
+    console.log(`[billing-documents] ${requeued} documento(s) com falha reenfileirado(s) automaticamente para nova tentativa.`);
+  }
+  return requeued;
+}
+
 function evolutionMessageId(result) {
   return result?.key?.id || result?.message?.key?.id || result?.data?.key?.id || result?.id || null;
 }
@@ -428,6 +475,7 @@ module.exports = {
   listDocumentStates,
   getOrRequestDocument,
   completeDocumentRequest,
+  retryFailedDocumentRequests,
   resolveDelivery,
   sendDocuments,
   _private: {
