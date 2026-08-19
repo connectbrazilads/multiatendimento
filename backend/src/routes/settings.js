@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
 const isAdmin = require('../middlewares/isAdmin');
-const { getSettings, saveSettings, getBusinessHours, saveBusinessHours, uploadLogo } = require('../controllers/settingsController');
+const { getSettings, saveSettings, getSystemPromptPreview, getBusinessHours, saveBusinessHours, uploadLogo } = require('../controllers/settingsController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -32,6 +32,7 @@ const upload = multer({
 router.use(authenticate);
 router.get('/', getSettings);
 router.post('/', isAdmin, saveSettings);
+router.post('/system-prompt-preview', isAdmin, getSystemPromptPreview);
 router.get('/business-hours', getBusinessHours);
 router.post('/business-hours', isAdmin, saveBusinessHours);
 router.post('/logo', isAdmin, upload.single('file'), uploadLogo);

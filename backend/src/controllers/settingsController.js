@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const { normalizePhoneNumber } = require('../services/evolutionService');
+const botPromptService = require('../services/botPromptService');
 
 async function getSettings(req, res) {
   const settings = await prisma.tenantSettings.findUnique({
@@ -167,6 +168,30 @@ async function saveSettings(req, res) {
   res.json(settings);
 }
 
+// Mostra o prompt COMPLETO que a IA de fato recebe - não só o texto que o
+// usuário escreve no painel (que é apenas um trecho do meio). Usa a mesma
+// função (botPromptService.buildFinalPrompt) que o bot usa em produção, para
+// nunca ficar dessincronizado do que realmente é enviado ao Gemini. Aceita
+// um rascunho não salvo (systemPrompt no body) para o usuário poder conferir
+// o efeito de uma edição antes de salvar.
+async function getSystemPromptPreview(req, res) {
+  const settings = await prisma.tenantSettings.findUnique({ where: { tenantId: req.user.tenantId } });
+  const userPrompt = (req.body?.systemPrompt ?? settings?.botSystemPrompt) || 'Você é um Assistente de Atendimento cordial.';
+
+  const prompt = botPromptService.buildFinalPrompt({
+    userPrompt,
+    contactName: 'Maria Exemplo',
+    equipContext: '- Ricoh MP 2555 (Série: 4521, Setor: Financeiro)\n- Xerox 7845 (Série: 8890, Setor: Recepção)',
+    currentNotes: 'Cliente prefere contato por telefone após às 17h. (exemplo ilustrativo)',
+    knowledgeContext: '\n\nUSE O SEGUINTE CONHECIMENTO DA EMPRESA:\nDúvida: Qual o prazo de atendimento técnico?\nResposta: Em até 24h úteis para chamados abertos até as 16h. (exemplo ilustrativo)',
+  });
+
+  res.json({
+    prompt,
+    note: 'Este é um exemplo com dados fictícios de cliente/equipamento/base de conhecimento, só para ilustrar o formato - na conversa real, esses trechos são substituídos pelos dados de cada cliente. O restante do texto (fora da sua área editável) é fixo no código e igual para todas as empresas; não é editável por aqui porque contém a tag de roteamento automático de chamados.',
+  });
+}
+
 async function getBusinessHours(req, res) {
   const hours = await prisma.businessHour.findMany({
     where: { tenantId: req.user.tenantId },
@@ -202,4 +227,4 @@ async function uploadLogo(req, res) {
   res.json({ url });
 }
 
-module.exports = { getSettings, saveSettings, getBusinessHours, saveBusinessHours, uploadLogo };
+module.exports = { getSettings, saveSettings, getSystemPromptPreview, getBusinessHours, saveBusinessHours, uploadLogo };

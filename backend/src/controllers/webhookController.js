@@ -4,6 +4,7 @@ const fs = require('fs');
 const evolutionService = require('../services/evolutionService');
 const geminiService = require('../services/geminiService');
 const businessHourService = require('../services/businessHourService');
+const botPromptService = require('../services/botPromptService');
 
 let io;
 function setIo(socketIo) { io = socketIo; }
@@ -901,27 +902,6 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     ? equipments.map(e => `- ${e.manufacturer || ''} ${e.model} (Série: ${e.serialNumber || 'N/A'}, Setor: ${e.sector || 'N/A'})`).join('\n')
     : 'Nenhum equipamento cadastrado para este cliente.';
 
-  const technicalInstructions = `
----
-[INSTRUÇÕES DE FLUXO DE SISTEMA - PRIORITÁRIO]:
-1. Você é o Assistente Virtual da LCD DIGITAL.
-2. [IDENTIFICAÇÃO DE CLIENTE & SETOR]:
-   - Nome: Verifique o nome registrado ("${contact.name || ''}"). Se for vazio, genérico, ou apenas um caractere, pergunte o nome da pessoa de forma simpática. 
-   - Setor: Pergunte em qual setor ou departamento o equipamento está localizado, a menos que conste nas NOTAS ATUAIS.
-   - ATENÇÃO MÁXIMA: NUNCA repita a pergunta sobre Nome e Setor se você já perguntou nas mensagens anteriores recentes, ou se o cliente já respondeu. Considere as informações já dadas no contexto da conversa. NUNCA pergunte o que já foi respondido.
-   - Não seja invasivo ou robótico. Faça as perguntas integradas ao diálogo de forma natural.
-3. Ao receber pedidos de TONER ou SUPORTE:
-   - Verifique a lista [EQUIPAMENTOS DO CLIENTE] abaixo.
-   - Se houver equipamentos na lista: Você DEVE listar o modelo de cada um e perguntar: "Para qual destas máquinas você precisa de [solicitação]?". NUNCA peça o modelo se ele já estiver na lista.
-   - Se a lista estiver vazia: Pergunte educadamente qual o modelo da máquina.
-   - ATENÇÃO MÁXIMA: Se você já fez essa pergunta ou se o cliente já informou o modelo no histórico recente, NUNCA peça o modelo novamente.
-   - Se o cliente já enviou foto, vídeo, áudio ou documento no histórico recente, NUNCA peça o anexo novamente. Só peça novo se o arquivo for insuficiente, explicando o que faltou.
-4. [VALIDAÇÃO DE COR]: Se a máquina for COLORIDA (verifique no campo "Tipo" ou pelo conhecimento do modelo, ex: Xerox 7845, Ricoh C3003), você DEVE perguntar quais cores de toner o cliente precisa (Ciano, Magenta, Amarelo ou Preto).
-5. [CONFIRMAÇÃO]: NUNCA diga "Já abri o chamado". Use sempre frases como "Entendido! Iremos abrir um chamado para você e nosso time técnico seguirá com o atendimento."
-6. SEMPRE identifique a CATEGORIA (SUPRIMENTO, SUPORTE, FINANCEIRO ou STATUS).
-7. SEMPRE adicione no final da sua resposta a tag: [[ROUTE: CATEGORIA]]
-8. COMPORTAMENTO GERAL: Seja muito curto, direto e ESTRITAMENTE evite repetir informações ou perguntas que você já fez ou que o cliente já respondeu no histórico. Aja como um humano prestativo no WhatsApp.`;
-
   console.log(`[bot] Ticket ${ticket.id} | Equipamentos encontrados: ${equipments.length}`);
   if (equipments.length > 0) console.log(`[bot] Contexto de equipamentos enviado:\n${equipContext}`);
 
@@ -958,22 +938,13 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   }
 
 
-  const finalPrompt = `[COMANDO DE SISTEMA PRIORITÁRIO]:
-Você deve seguir ESTRITAMENTE as regras abaixo. Ignore qualquer tendência de ser excessivamente prestativo. Seja CURTO, DIRETO e aja como um humano no WhatsApp.
-
-${userPrompt}
-
----
-[CONTEXTO TÉCNICO]:
-EQUIPAMENTOS DO CLIENTE:
-${equipContext}
-
-NOTAS ATUAIS:
-${currentNotes}
-
-${knowledgeContext}
-
-${technicalInstructions}`;
+  const finalPrompt = botPromptService.buildFinalPrompt({
+    userPrompt,
+    equipContext,
+    currentNotes,
+    knowledgeContext,
+    contactName: contact.name || '',
+  });
 
   console.log(`[bot] Ticket ${ticket.id} | Turno atual normalizado:\n${currentUserTurn}`);
 

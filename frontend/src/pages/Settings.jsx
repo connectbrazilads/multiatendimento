@@ -19,9 +19,11 @@ import {
   testFirebirdConnection,
   syncFirebirdContacts,
   getBillingLogs,
+  getSystemPromptPreview,
 } from '../services/api';
 import Users from './Users';
 import Teams from './Teams';
+import ModalShell from '../components/ui/ModalShell';
 
 const TABS = ['Robô IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rápidas', 'Etiquetas', 'iLux Sentinela', 'Minha conta', 'Agente Local'];
 const TAB_GROUPS = [
@@ -51,7 +53,6 @@ export default function Settings() {
     serviceOrderManagerPhone: '',
     serviceOrderManagerInstanceId: '',
     companyName: '',
-    companyFantasyName: '',
     companyCnpj: '',
     companyIE: '',
     companyAddress: '',
@@ -92,6 +93,8 @@ export default function Settings() {
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState({ name: '', color: '#D4AF37' });
   const [addingTag, setAddingTag] = useState(false);
+  const [promptPreview, setPromptPreview] = useState(null);
+  const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
   const [testingIntegration, setTestingIntegration] = useState(false);
   const [syncingIntegration, setSyncingIntegration] = useState(false);
   const [showToken, setShowToken] = useState(false);
@@ -168,6 +171,18 @@ export default function Settings() {
       toast.error(`Erro ao salvar: ${message}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleShowPromptPreview() {
+    setLoadingPromptPreview(true);
+    try {
+      const { data } = await getSystemPromptPreview(form.systemPrompt);
+      setPromptPreview(data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Não foi possível carregar o prompt completo.');
+    } finally {
+      setLoadingPromptPreview(false);
     }
   }
 
@@ -273,15 +288,6 @@ export default function Settings() {
     }
   }
 
-  async function loadBillingLogs() {
-    try {
-      const { data } = await getBillingLogs();
-      setBillingLogs(data);
-    } catch (err) {
-      console.error('Erro ao carregar logs de faturamento:', err);
-    }
-  }
-
   function generateFirebirdClientToken() {
     const bytes = new Uint8Array(32);
     window.crypto.getRandomValues(bytes);
@@ -310,6 +316,14 @@ export default function Settings() {
       }
     });
   }
+
+  // O backend nunca reverte firebirdLastSyncStatus para "offline" sozinho -
+  // ele só grava "online" a cada ping do agente. Sem checar a idade do
+  // último ping, um agente desligado há dias continuava aparecendo
+  // "Conectado" pra sempre (o status ficava congelado no último valor).
+  const AGENT_STALE_AFTER_MS = 10 * 60 * 1000; // 2x o intervalo padrão de sync (5 min)
+  const agentLastSeenMs = form.firebirdLastSyncAt ? Date.now() - new Date(form.firebirdLastSyncAt).getTime() : null;
+  const agentIsOnline = form.firebirdLastSyncStatus === 'online' && agentLastSeenMs != null && agentLastSeenMs < AGENT_STALE_AFTER_MS;
 
   const firebirdEnvPreview = [
     'FIREBIRD_HOST=127.0.0.1',
@@ -475,7 +489,12 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
                   placeholder="Ex: Você é um atendente cordial da clínica X. Seu objetivo é agendar consultas..."
                 />
-                <p style={s.hint}>Defina personalidade e contexto para o robô.</p>
+                <p style={s.hint}>
+                  Defina personalidade e contexto para o robô. Este texto é só uma parte do que a IA recebe -{' '}
+                  <button type="button" style={s.linkBtn} onClick={handleShowPromptPreview} disabled={loadingPromptPreview}>
+                    {loadingPromptPreview ? 'carregando...' : 'veja o prompt completo'}
+                  </button>.
+                </p>
               </div>
 
               <div style={s.field}>
@@ -1014,14 +1033,14 @@ export default function Settings() {
               <div style={s.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h2 style={s.cardTitle}>Agente Local (Integração Firebird & Boletos)</h2>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: form.firebirdLastSyncStatus === 'online' ? 'var(--success)' : 'var(--danger)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title={form.firebirdLastSyncAt ? `Último sinal do agente: ${new Date(form.firebirdLastSyncAt).toLocaleString('pt-BR')}` : 'O agente nunca se conectou'}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: agentIsOnline ? 'var(--success)' : 'var(--danger)' }} />
                     <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-dim)' }}>
-                      {form.firebirdLastSyncStatus === 'online' ? 'Conectado' : 'Desconectado'}
+                      {agentIsOnline ? 'Conectado' : 'Desconectado'}
                     </span>
                   </div>
                 </div>
-                
+
                 <div style={s.form}>
                   <div style={s.integrationGuide}>
                     <strong style={s.integrationGuideTitle}>Integração com Aplicativo Desktop</strong>
@@ -1129,78 +1148,18 @@ export default function Settings() {
         </div>
       )}
 
-      {tab === 10 && (
-        <div style={s.sections}>
-          <div style={s.card}>
-            <h2 style={s.cardTitle}>Automação de Envio de Cobranças</h2>
-            <div style={s.form}>
-              <div style={s.integrationGuide}>
-                <strong style={s.integrationGuideTitle}>Envio Automático de Faturas</strong>
-                <p style={s.hint}>
-                  O client local monitora e processa os PDFs de boletos/faturas da pasta configurada, enviando-os automaticamente para o WhatsApp do cliente.
-                </p>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.label}>Template da Mensagem de Cobrança</label>
-                <textarea
-                  style={{ ...s.input, minHeight: '100px' }}
-                  value={form.billingMessageTemplate || ''}
-                  onChange={(e) => setForm({ ...form, billingMessageTemplate: e.target.value })}
-                  placeholder="Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição."
-                />
-                <p style={s.hint}>Mensagem enviada junto aos PDFs de cobrança.</p>
-              </div>
-
-              <div style={s.field}>
-                <label style={s.label}>Histórico de Envios de Cobrança (Últimos 100)</label>
-                <div style={s.logsContainer}>
-                  {billingLogs.length === 0 ? (
-                    <p style={s.hint}>Nenhum log de envio registrado.</p>
-                  ) : (
-                    <table style={s.table}>
-                      <thead>
-                        <tr>
-                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Data</th>
-                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Cliente</th>
-                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Arquivos</th>
-                          <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {billingLogs.map((log) => (
-                          <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
-                            <td style={{ padding: '0.5rem' }}>
-                              <div><strong>{log.clientName || 'N/A'}</strong></div>
-                              <small style={{ color: 'var(--text-dim)' }}>{log.cpfCnpj || 'N/A'}</small>
-                            </td>
-                            <td style={{ padding: '0.5rem' }}>{log.fileName}</td>
-                            <td style={{ padding: '0.5rem' }}>
-                              {log.status === 'SUCCESS' ? (
-                                <span style={{ color: '#10b981', fontWeight: 'bold' }}>Sucesso</span>
-                              ) : (
-                                <span style={{ color: '#ef4444', fontWeight: 'bold' }} title={log.errorMessage}>
-                                  Falha: {log.errorMessage}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-
-              <p style={s.hint}>O envio de cobranças agora é automático, a partir da pasta configurada no agente (Documentos financeiros). Este histórico mostra os envios feitos.</p>
-
-              <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar configurações'}
-              </button>
-            </div>
+      {promptPreview && (
+        <ModalShell
+          kicker="Robô IA"
+          title="Prompt completo enviado à IA"
+          onClose={() => setPromptPreview(null)}
+          maxWidth="42rem"
+        >
+          <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <p style={s.hint}>{promptPreview.note}</p>
+            <pre style={s.promptPreviewBox}>{promptPreview.prompt}</pre>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );
@@ -1229,6 +1188,8 @@ const settingsResponsiveCss = `
 
 const s = {
   container: { padding: '2rem', flex: 1, overflowY: 'auto', background: 'var(--bg-base)', color: 'var(--text-main)' },
+  linkBtn: { background: 'none', border: 'none', padding: 0, color: 'var(--accent)', fontSize: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' },
+  promptPreviewBox: { background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: 'var(--space-4)', fontSize: 'var(--text-xs)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '55vh', overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
   header: { marginBottom: '1.5rem' },
   kicker: {
     margin: '0 0 0.45rem',
