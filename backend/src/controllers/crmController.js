@@ -1088,6 +1088,24 @@ async function getReceivableDocuments(req, res) {
         ticketId: req.query.ticketId || null,
       }),
     ]);
+
+    // Pré-aquecimento: assim que o gestor abre o título (antes mesmo de
+    // clicar em "abrir"/"reenviar"), já manda o agente do iLux começar a
+    // gerar a NF/Demonstrativo em segundo plano. Sem isso, o clique era o
+    // próprio gatilho e o cliente esperava o ciclo completo do agente
+    // (fila de long-poll + geração no ERP), o que podia levar quase 1 min.
+    // Não bloqueia a resposta, não re-tenta documentos que já falharam ou
+    // já estão em andamento (só os ainda nunca solicitados).
+    const documentsToPrewarm = documents.filter((doc) => doc.status === 'available' && ['invoice', 'statement'].includes(doc.type));
+    if (documentsToPrewarm.length) {
+      Promise.all(documentsToPrewarm.map((doc) => billingDocuments.queueDocumentRequest({
+        tenantId: context.tenantId,
+        receivable: context.receivable,
+        customerName,
+        documentType: doc.type,
+      }))).catch((err) => console.error('[crm-financial-documents] falha ao pre-aquecer documento:', err.message));
+    }
+
     return res.json({
       receivable: {
         externalId: context.receivable.externalId,
