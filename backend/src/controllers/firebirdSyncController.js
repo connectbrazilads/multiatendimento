@@ -671,13 +671,18 @@ async function getPendingCommands(req, res) {
         attendantName: os.user?.firebirdSupportName || os.user?.name || '',
         // duplicados do cliente
         nmCliente: os.contact.crmCustomer?.name || os.contact.name || '',
-        endereco: os.contact.crmCustomer?.address || os.contact.address || '',
-        num: os.contact.crmCustomer?.raw?.['num'] || os.contact.crmCustomer?.raw?.['NUM'] || '',
-        bairro: os.contact.crmCustomer?.neighborhood || os.contact.neighborhood || '',
-        complemento: os.contact.crmCustomer?.raw?.['complemento'] || os.contact.crmCustomer?.raw?.['COMPLEMENTO'] || '',
-        cidade: os.contact.crmCustomer?.city || os.contact.city || '',
-        uf: os.contact.crmCustomer?.state || os.contact.state || '',
-        cep: os.contact.crmCustomer?.zipCode || os.contact.zipCode || '',
+        // O endereço da visita deve ser o do EQUIPAMENTO, não o do cadastro
+        // principal do cliente - clientes com múltiplas filiais/unidades têm
+        // equipamentos instalados em endereços diferentes do cadastro. Cai
+        // pro endereço do cliente só quando o equipamento não tem um próprio
+        // (a maioria dos casos, cliente com endereço único).
+        endereco: crmEq?.address || os.contact.crmCustomer?.address || os.contact.address || '',
+        num: crmEq?.raw?.['num'] || crmEq?.raw?.['NUM'] || os.contact.crmCustomer?.raw?.['num'] || os.contact.crmCustomer?.raw?.['NUM'] || '',
+        bairro: crmEq?.raw?.['bairro'] || crmEq?.raw?.['BAIRRO'] || os.contact.crmCustomer?.neighborhood || os.contact.neighborhood || '',
+        complemento: crmEq?.raw?.['complemento'] || crmEq?.raw?.['COMPLEMENTO'] || os.contact.crmCustomer?.raw?.['complemento'] || os.contact.crmCustomer?.raw?.['COMPLEMENTO'] || '',
+        cidade: crmEq?.city || os.contact.crmCustomer?.city || os.contact.city || '',
+        uf: crmEq?.state || os.contact.crmCustomer?.state || os.contact.state || '',
+        cep: crmEq?.raw?.['cep'] || crmEq?.raw?.['CEP'] || os.contact.crmCustomer?.zipCode || os.contact.zipCode || '',
         ddd: os.contact.crmCustomer?.raw?.['ddd'] || os.contact.crmCustomer?.raw?.['DDD'] || '',
         fone: os.contact.crmCustomer?.phone || os.contact.phone || '',
         celular: os.contact.crmCustomer?.raw?.['celular'] || os.contact.crmCustomer?.raw?.['CELULAR'] || '',
