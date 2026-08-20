@@ -377,6 +377,23 @@ async function autoSendBilling(req, res) {
     }
     const customerName = crmCustomer.fantasyName || crmCustomer.name;
 
+    // Proteção contra envio duplicado caso o ledger do agente seja apagado (evita spam no mesmo dia)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const alreadySentToday = await prisma.billingLog.findFirst({
+      where: {
+        tenantId: tenant.id,
+        cpfCnpj: crmCustomer.cpfCnpj,
+        status: 'SUCCESS',
+        sentAt: { gte: startOfDay }
+      }
+    });
+
+    if (alreadySentToday) {
+      // Retorna sucesso silenciado para o agente registrar no ledger e não tentar mais, mas não processa envio
+      return res.json({ success: true, message: 'Já enviado hoje com sucesso.' });
+    }
+
     // Guarda cada documento do mesmo jeito que um clique manual no CRM guardaria
     // -- assim, se alguem abrir esse titulo no CRM depois, ja aparece pronto em
     // vez de pedir pro agente de novo. Os campos do "receivable" abaixo sao um
