@@ -226,6 +226,22 @@ export default function Inbox() {
     if (tId) setSelectedId(tId);
   }, [tab, filters]);
 
+  // A busca so filtrava a lista ja carregada localmente (uma amostra da aba
+  // atual) - clientes fora dela nunca apareciam, mesmo existindo. Sem isso,
+  // eventos em tempo real tambem podiam remover silenciosamente conversas da
+  // lista local enquanto a busca estava ativa, e ao limpar a busca elas nao
+  // voltavam sozinhas (so trocando de aba, que forcava um recarregamento).
+  useEffect(() => {
+    if (!search) {
+      loadTickets();
+      return;
+    }
+    const timer = setTimeout(() => {
+      loadTickets();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     if (selectedId) loadMessages();
   }, [selectedId, historySearch]);

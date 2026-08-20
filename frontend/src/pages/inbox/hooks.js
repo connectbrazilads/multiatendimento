@@ -149,9 +149,11 @@ export function useInboxTickets({ me }) {
     if (currentSearch) {
       const name = (ticket.contact?.name || '').toLowerCase();
       const fantasyName = (ticket.contact?.fantasyName || '').toLowerCase();
+      const cpfCnpj = (ticket.contact?.cpfCnpj || '').toLowerCase();
       const phone = (ticket.contact?.phone || '').toLowerCase();
+      const whatsapp = (ticket.contact?.whatsapp || '').toLowerCase();
 
-      if (!name.includes(currentSearch) && !fantasyName.includes(currentSearch) && !phone.includes(currentSearch)) {
+      if (!name.includes(currentSearch) && !fantasyName.includes(currentSearch) && !cpfCnpj.includes(currentSearch) && !phone.includes(currentSearch) && !whatsapp.includes(currentSearch)) {
         return false;
       }
     }

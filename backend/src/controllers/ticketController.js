@@ -349,11 +349,17 @@ async function list(req, res) {
   }
 
   if (search) {
+    // Precisa cobrir os mesmos campos que a busca de Contatos usa (nome
+    // fantasia, CPF/CNPJ, telefone E whatsapp) - senao um cliente que so
+    // aparece pelo CNPJ ou pelo campo "whatsapp" (diferente de "phone")
+    // e encontrado la, mas nao aqui no Inbox.
     conditions.push({
       OR: [
         { contact: { name: { contains: search, mode: 'insensitive' } } },
         { contact: { fantasyName: { contains: search, mode: 'insensitive' } } },
-        { contact: { phone: { contains: search } } }
+        { contact: { cpfCnpj: { contains: search, mode: 'insensitive' } } },
+        { contact: { phone: { contains: search } } },
+        { contact: { whatsapp: { contains: search } } }
       ]
     });
   }

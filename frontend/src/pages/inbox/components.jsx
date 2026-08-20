@@ -1252,10 +1252,16 @@ export const TicketSidebar = React.memo(function TicketSidebar({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filteredTickets = tickets.filter((ticket) => {
     const query = getSafeLowerText(search);
+    if (!query) return true;
+    // Mesmos campos usados na busca do backend (nome, fantasia, CPF/CNPJ,
+    // telefone e whatsapp) - a lista carregada aqui ja vem filtrada de la,
+    // isto e so o filtro instantaneo enquanto a nova busca ainda nao voltou.
     const name = getSafeLowerText(ticket.contact?.name);
     const fantasyName = getSafeLowerText(ticket.contact?.fantasyName);
+    const cpfCnpj = getSafeLowerText(ticket.contact?.cpfCnpj);
     const phone = getSafeLowerText(ticket.contact?.phone);
-    return name.includes(query) || fantasyName.includes(query) || phone.includes(query);
+    const whatsapp = getSafeLowerText(ticket.contact?.whatsapp);
+    return name.includes(query) || fantasyName.includes(query) || cpfCnpj.includes(query) || phone.includes(query) || whatsapp.includes(query);
   });
 
   const activeTabLabel = {
