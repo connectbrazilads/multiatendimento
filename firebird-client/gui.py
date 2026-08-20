@@ -258,6 +258,28 @@ class AgentGUI(ctk.CTk):
             font=ctk.CTkFont(size=11),
         ).grid(row=12, column=0, sticky="w", padx=10, pady=(2, 8))
 
+        since_row = ctk.CTkFrame(frame, fg_color="transparent")
+        since_row.grid(row=13, column=0, padx=10, pady=(0, 4), sticky="ew")
+        ctk.CTkLabel(since_row, text="Só envia documentos gerados/atualizados a partir de (AAAA-MM-DD)").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.auto_send_since_entry = ctk.CTkEntry(since_row, width=110, placeholder_text="AAAA-MM-DD")
+        self.auto_send_since_entry.grid(row=0, column=1, sticky="e", padx=(8, 4))
+        ctk.CTkButton(since_row, text="Hoje", width=60, command=self._set_auto_send_since_today).grid(
+            row=0, column=2, sticky="e"
+        )
+        ctk.CTkLabel(
+            frame,
+            text="Documentos arquivados antes dessa data nunca são enviados automaticamente, mesmo que "
+            "batam com um título em aberto - protege o histórico antigo de ser disparado de uma vez. "
+            "Em branco, o agente grava a data de hoje sozinho na primeira vez que rodar com o envio "
+            "automático ativado, e reusa esse valor daqui pra frente.",
+            text_color="#94a3b8",
+            font=ctk.CTkFont(size=11),
+            justify="left",
+            wraplength=760,
+        ).grid(row=14, column=0, sticky="w", padx=10, pady=(2, 8))
+
         self.document_status = ctk.CTkLabel(
             frame,
             text="Nenhuma indexação realizada nesta sessão.",
@@ -266,7 +288,11 @@ class AgentGUI(ctk.CTk):
             anchor="w",
             wraplength=760,
         )
-        self.document_status.grid(row=13, column=0, padx=10, pady=14, sticky="ew")
+        self.document_status.grid(row=15, column=0, padx=10, pady=14, sticky="ew")
+
+    def _set_auto_send_since_today(self):
+        self.auto_send_since_entry.delete(0, "end")
+        self.auto_send_since_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
     def _create_logs_tab(self):
         tab = self.tabs.tab("Logs")
@@ -306,6 +332,19 @@ class AgentGUI(ctk.CTk):
         self.auto_send_invoice_var.set("invoice" in document_types)
         self.auto_send_statement_var.set("statement" in document_types)
         self.auto_send_boleto_var.set("boleto" in document_types)
+
+        raw_since = os.getenv("BILLING_AUTO_SEND_SINCE", "")
+        if not raw_since:
+            # Sem valor explicito no .env, mostra o que o agente ja gravou
+            # sozinho (billing-auto-send-since.json) para o usuario ver o
+            # corte real que esta valendo sem precisar abrir o arquivo.
+            try:
+                since_file = ROOT / "billing-auto-send-since.json"
+                if since_file.exists():
+                    raw_since = json.loads(since_file.read_text(encoding="utf-8")).get("since", "")
+            except Exception as exc:
+                logging.warning("Nao foi possivel ler a data de corte persistida: %s", exc)
+        self.auto_send_since_entry.insert(0, raw_since)
 
         # The index can be tens of MB after the first large scan (e.g. 15k PDFs), so
         # reading/parsing it happens off the UI thread -- otherwise reopening the
@@ -357,6 +396,7 @@ class AgentGUI(ctk.CTk):
             "BILLING_AUTO_SEND_ENABLED": str(self.auto_send_enabled_var.get()),
             "BILLING_AUTO_SEND_TEST_MODE": str(self.auto_send_test_mode_var.get()),
             "BILLING_AUTO_SEND_DOCUMENT_TYPES": json.dumps(self._auto_send_document_types(), ensure_ascii=False),
+            "BILLING_AUTO_SEND_SINCE": self._auto_send_since(),
             "AGENT_WINDOW_GEOMETRY": self.geometry(),
         }
         for key, value in settings.items():
@@ -381,6 +421,17 @@ class AgentGUI(ctk.CTk):
         if self.auto_send_boleto_var.get():
             types.append("boleto")
         return types
+
+    def _auto_send_since(self):
+        raw = self.auto_send_since_entry.get().strip()
+        if not raw:
+            return ""
+        try:
+            datetime.strptime(raw, "%Y-%m-%d")
+        except ValueError:
+            self.log_message(f"Data de corte do envio automatico invalida ({raw!r}) - use AAAA-MM-DD. Ignorada.")
+            return ""
+        return raw
 
     def add_financial_folder(self):
         selected = filedialog.askdirectory(title="Selecione a pasta de documentos financeiros", mustexist=True)

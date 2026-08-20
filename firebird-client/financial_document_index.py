@@ -123,6 +123,21 @@ def _digits_with_boundaries(text: str) -> str:
     return re.sub(r"[^0-9]", " ", text)
 
 
+_PRINT_TIMESTAMP_RE = re.compile(r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}")
+
+
+def _normalized_for_dedup(text: str) -> str:
+    """Some layouts (ex.: Demonstrativo) imprimem no proprio corpo do
+    documento a data/hora exata em que aquela via foi gerada/impressa (ex.:
+    "31/01/2025 15:41:43") - reexportar o mesmo demonstrativo mais tarde
+    produz um texto diferente so por causa desse timestamp, mesmo sendo a
+    mesma cobranca. As datas de negocio que importam (emissao, vencimento)
+    sao sempre impressas so como data, sem hora junto - entao remover
+    especificamente "data + hora" nao arrisca apagar nada relevante pro
+    match em si, so o ruido de quando a via foi tirada."""
+    return _PRINT_TIMESTAMP_RE.sub("", text)
+
+
 def _padded_grouped_variants(digits: str) -> list[str]:
     """Brazilian NF-e/NFS-e numbers are conventionally zero-padded to a fixed
     length and printed grouped every 3 digits from the left (ex.: numero
@@ -354,7 +369,18 @@ class FinancialDocumentIndex:
         self._customer_type_index = (by_customer, by_type_only)
         return self._customer_type_index
 
-    def find(self, document_type: str, context: dict[str, Any]) -> MatchResult | None:
+    def find(
+        self,
+        document_type: str,
+        context: dict[str, Any],
+        min_mtime_ns: int | None = None,
+    ) -> MatchResult | None:
+        """min_mtime_ns: quando informado, ignora arquivos modificados antes
+        dessa data - usado exclusivamente pelo envio automatico, pra nao
+        disparar documentos antigos que ja estavam arquivados quando esse
+        recurso foi ligado. As buscas manuais (abrir/baixar/reenviar pela
+        tela do CRM) nunca passam isso, e continuam achando documentos de
+        qualquer data."""
         customer_document = _digits(context.get("customer_cnpj") or context.get("customer_cpf"))
         invoice_number = _digits(context.get("invoice_number"))
         statement_number = _digits(context.get("seqdemonstrativo"))
@@ -377,6 +403,8 @@ class FinancialDocumentIndex:
 
         for item in candidates:
             if item.get("documentType") != document_type:
+                continue
+            if min_mtime_ns is not None and (item.get("mtimeNs") or 0) < min_mtime_ns:
                 continue
             path = Path(item.get("path") or "")
             if not path.exists():
@@ -433,7 +461,7 @@ class FinancialDocumentIndex:
         # sempre, mesmo sendo a mesma nota.
         by_text: dict[str, list[Path]] = {}
         for path, text in best_candidates:
-            by_text.setdefault(text, []).append(path)
+            by_text.setdefault(_normalized_for_dedup(text), []).append(path)
 
         if len(by_text) > 1:
             raise ValueError(

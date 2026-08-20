@@ -195,6 +195,14 @@ class AppConfig:
     billing_auto_send_test_mode: bool = True
     billing_auto_send_document_types: list[str] = field(default_factory=lambda: ["invoice", "statement", "boleto"])
     billing_auto_send_ledger_file: Path = field(default_factory=lambda: ROOT / "billing-auto-send-ledger.json")
+    billing_auto_send_since_file: Path = field(default_factory=lambda: ROOT / "billing-auto-send-since.json")
+    # Data (YYYY-MM-DD) a partir da qual um PDF passa a valer pro envio
+    # automatico, pela data de modificacao do ARQUIVO (nao pela data de
+    # emissao da cobranca) - documentos antigos ja arquivados nao devem ser
+    # disparados so porque passaram a bater no indice. Se vazio, o proprio
+    # agente define e grava a data de hoje (uma unica vez, em state.json) na
+    # primeira execucao apos essa funcionalidade ser ativada.
+    billing_auto_send_since: str | None = None
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -274,6 +282,7 @@ class AppConfig:
                 os.getenv("BILLING_AUTO_SEND_LEDGER_FILE", "billing-auto-send-ledger.json"),
                 ROOT / "billing-auto-send-ledger.json",
             ),
+            billing_auto_send_since=os.getenv("BILLING_AUTO_SEND_SINCE") or None,
         )
 
 
@@ -608,11 +617,16 @@ class FirebirdRepository:
         self,
         document_types: list[str],
         ledger: "BillingSendLedger",
+        min_mtime_ns: int | None = None,
     ) -> list[dict[str, Any]]:
         """Open receivables whose configured document types (e.g. boleto + nota
         fiscal + demonstrativo) all match, unambiguously, a PDF already in the
         financial document index -- and that were not sent before for this
         exact combination of file contents.
+
+        min_mtime_ns: ignora documentos modificados antes dessa data - impede
+        que o backlog historico da pasta seja disparado so porque passou a
+        bater no indice (ver AppConfig.billing_auto_send_since).
 
         Pure detection: never touches the network, never moves a file. Sending
         is the caller's job (see run_billing_automation).
@@ -650,7 +664,7 @@ class FirebirdRepository:
             matches: dict[str, Any] = {}
             for document_type in document_types:
                 try:
-                    match = index.find(document_type, context)
+                    match = index.find(document_type, context, min_mtime_ns=min_mtime_ns)
                 except ValueError as exc:
                     # Ambiguous match: exactly the case find() protects the manual
                     # "Visualizar/Baixar" flow from too. An automatic send must be
@@ -2469,6 +2483,36 @@ def run_command_listener(config: AppConfig, stop_event: threading.Event | None =
             time.sleep(2)
 
 
+def _resolve_billing_auto_send_since(config: AppConfig) -> str:
+    """Data (YYYY-MM-DD) a partir da qual um documento pode ser enviado
+    automaticamente, pela data de modificacao do arquivo. Configuravel via
+    BILLING_AUTO_SEND_SINCE; se nao configurado, grava a data de hoje na
+    primeira vez que roda e reusa esse valor para sempre depois - assim o
+    corte fica fixo no dia em que o recurso foi ligado, em vez de "hoje"
+    mudar a cada reinicio (o que faria o agente nunca enviar nada, sempre
+    esperando um "hoje" que nunca chega)."""
+    if config.billing_auto_send_since:
+        return config.billing_auto_send_since
+    since_file = config.billing_auto_send_since_file
+    if since_file.exists():
+        try:
+            data = json.loads(since_file.read_text(encoding="utf-8"))
+            if data.get("since"):
+                return data["since"]
+        except Exception as exc:
+            logging.warning("Falha ao ler data de corte do envio automatico, recriando: %s", exc)
+    today = datetime.now().strftime("%Y-%m-%d")
+    since_file.parent.mkdir(parents=True, exist_ok=True)
+    since_file.write_text(json.dumps({"since": today}), encoding="utf-8")
+    logging.info(
+        "Envio automatico: definindo o corte de data em %s (primeira vez) - "
+        "documentos arquivados antes disso nunca serao enviados automaticamente, "
+        "so os que forem gerados/atualizados a partir de agora.",
+        today,
+    )
+    return today
+
+
 def run_billing_automation(
     repo: FirebirdRepository,
     crm: CRMClient,
@@ -2486,7 +2530,11 @@ def run_billing_automation(
     if not config.billing_auto_send_enabled:
         return {"ready": 0, "sent": 0, "failed": 0}
 
-    packages = repo.find_ready_billing_packages(config.billing_auto_send_document_types, ledger)
+    since_date = _resolve_billing_auto_send_since(config)
+    min_mtime_ns = int(datetime.strptime(since_date, "%Y-%m-%d").timestamp() * 1_000_000_000)
+    packages = repo.find_ready_billing_packages(
+        config.billing_auto_send_document_types, ledger, min_mtime_ns=min_mtime_ns,
+    )
     sent = failed = 0
     for package in packages:
         labels = ", ".join(

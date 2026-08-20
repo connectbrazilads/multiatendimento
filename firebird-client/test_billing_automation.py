@@ -1,10 +1,12 @@
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from reportlab.pdfgen import canvas
 
+import main as agent_main
 from main import AppConfig, BillingSendLedger, CRMClient, FirebirdRepository, run_billing_automation
 
 
@@ -109,6 +111,22 @@ class FindReadyBillingPackagesTest(unittest.TestCase):
             packages = self.repo.find_ready_billing_packages(["invoice", "statement", "estatement-x"], ledger)
         self.assertEqual(packages, [])
 
+    def test_ignores_documents_older_than_min_mtime_ns(self):
+        """Regression: the backlog folder can have a year+ of already-filed
+        documents. Turning on automatic sending must never blast that whole
+        history at once - only documents modified from a configured cutoff
+        onward are eligible (see AppConfig.billing_auto_send_since)."""
+        ledger = BillingSendLedger(self.root / "ledger.json")
+        future_cutoff_ns = int((time.time() + 3600) * 1_000_000_000)
+        with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]):
+            # Every file on disk was modified before "now + 1h", so with that
+            # as the cutoff, nothing qualifies - exactly what must happen the
+            # first time this feature is enabled against an old backlog.
+            packages = self.repo.find_ready_billing_packages(
+                ["invoice", "statement", "boleto"], ledger, min_mtime_ns=future_cutoff_ns,
+            )
+        self.assertEqual(packages, [])
+
 
 class RunBillingAutomationTest(unittest.TestCase):
     def setUp(self):
@@ -127,6 +145,9 @@ class RunBillingAutomationTest(unittest.TestCase):
             financial_document_index_file=self.root / "index.json",
             billing_auto_send_enabled=True,
             billing_auto_send_document_types=["invoice"],
+            # Isolado do diretorio real do agente - sem isso, cada rodada de
+            # teste leria/gravaria o arquivo de corte de data de verdade.
+            billing_auto_send_since_file=self.root / "since.json",
         )
         self.repo = FirebirdRepository(self.config)
         self.repo.scan_financial_documents()
@@ -199,6 +220,40 @@ class RunBillingAutomationTest(unittest.TestCase):
             stats_retry = run_billing_automation(self.repo, crm, self.config, ledger)
         send.assert_called_once()
         self.assertEqual(stats_retry["sent"], 1)
+
+
+class ResolveBillingAutoSendSinceTest(unittest.TestCase):
+    """The safety cutoff that stops automatic sending from blasting a
+    backlog of already-filed documents the moment ambiguity/matching is
+    fixed - each tenant enables this at a different time, so it must be
+    self-configuring per install, not a hardcoded date."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.since_file = Path(self.temporary.name) / "since.json"
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_first_call_persists_todays_date(self):
+        config = AppConfig(billing_auto_send_since_file=self.since_file)
+        today = time.strftime("%Y-%m-%d")
+        result = agent_main._resolve_billing_auto_send_since(config)
+        self.assertEqual(result, today)
+        self.assertTrue(self.since_file.exists())
+
+    def test_second_call_reuses_the_persisted_date_instead_of_recomputing_today(self):
+        config = AppConfig(billing_auto_send_since_file=self.since_file)
+        self.since_file.write_text('{"since": "2026-01-15"}', encoding="utf-8")
+        # Mesmo rodando "hoje" (uma data bem posterior), o corte fica fixo no
+        # dia em que o recurso foi ligado pela primeira vez - senao "hoje"
+        # mudaria a cada reinicio do agente e nada seria enviado nunca.
+        self.assertEqual(agent_main._resolve_billing_auto_send_since(config), "2026-01-15")
+
+    def test_explicit_config_value_always_wins_and_is_never_persisted(self):
+        config = AppConfig(billing_auto_send_since_file=self.since_file, billing_auto_send_since="2025-06-01")
+        self.assertEqual(agent_main._resolve_billing_auto_send_since(config), "2025-06-01")
+        self.assertFalse(self.since_file.exists())
 
 
 if __name__ == "__main__":

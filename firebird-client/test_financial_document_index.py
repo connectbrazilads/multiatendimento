@@ -181,6 +181,37 @@ class FinancialDocumentIndexTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             index.find("invoice", {**self.context, "invoice_number": "14328"})
 
+    def test_ignores_an_embedded_print_timestamp_when_comparing_reexported_copies(self):
+        """Regression: a real Demonstrativo layout prints the exact date+time
+        the PDF was generated inside the document body itself (ex.: "31/01/2025
+        15:41:43"). The same statement filed into two folders and reexported
+        at different moments therefore has text that differs ONLY by that
+        timestamp - plain text equality (the first version of this fix) failed
+        to recognize these as the same document and kept reporting it
+        ambiguous forever."""
+        root = self.root / "timestamp-impresso"
+        (root / "02").mkdir(parents=True)
+        (root / "CONTADORES").mkdir(parents=True)
+        make_pdf(root / "02" / "demonstrativo.pdf", [
+            "DEMONSTRATIVO DO FATURAMENTO",
+            f"CNPJ/CPF: {CUSTOMER_CNPJ}",
+            "Demost.:7042",
+            "Valor Total 350,00",
+            "31/01/2025 15:41:43 PAG.: 1/1",
+        ])
+        make_pdf(root / "CONTADORES" / "demonstrativo.pdf", [
+            "DEMONSTRATIVO DO FATURAMENTO",
+            f"CNPJ/CPF: {CUSTOMER_CNPJ}",
+            "Demost.:7042",
+            "Valor Total 350,00",
+            "30/01/2025 15:34:10 PAG.: 1/1",
+        ])
+        index = FinancialDocumentIndex([str(root)], root / "index.json")
+        index.scan()
+        context = {**self.context, "seqdemonstrativo": "7042"}
+        match = index.find("statement", context)
+        self.assertIsNotNone(match)
+
 
 class FinancialDocumentIndexProgressTest(unittest.TestCase):
     """Covers the live progress reporting used by the agent GUI so a scan over a
