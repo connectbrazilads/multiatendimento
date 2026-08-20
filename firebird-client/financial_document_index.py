@@ -119,15 +119,31 @@ def _extract_pdf(path: Path) -> dict[str, Any]:
 
 
 def _digits_with_boundaries(text: str) -> str:
-    """Keep separators as spaces so unrelated numeric fields are not joined,
-    but first collapse thousand-separator-style dots between digit groups
-    (e.g. a DANFE printing "Nº: 048.134.210") into one contiguous run.
-    Otherwise a document number that is legitimately dot-grouped in the
-    official layout would never match anything: each group would be read as
-    three unrelated numbers instead of one.
+    """Keep separators as spaces so unrelated numeric fields are not joined."""
+    return re.sub(r"[^0-9]", " ", text)
+
+
+def _padded_grouped_variants(digits: str) -> list[str]:
+    """Brazilian NF-e/NFS-e numbers are conventionally zero-padded to a fixed
+    length and printed grouped every 3 digits from the left (ex.: numero
+    48134210 vira "048.134.210" no DANFE). O Firebird guarda so o numero puro,
+    entao sem isso "048.134.210" nunca bateria com "48134210" - cada grupo
+    seria lido como tres numeros sem relacao.
+
+    Deliberadamente restrito a comprimentos plausiveis de numeracao oficial
+    (6/9/12 digitos) em vez de colapsar qualquer ponto de milhar do
+    documento inteiro: a primeira versao disso tambem juntava valores
+    monetarios (ex.: "R$ 1.234,56") e datas, criando coincidencias com
+    outros numeros e gerando falsos "documento ambiguo" aos montes.
     """
-    collapsed = re.sub(r"(?<=\d)\.(?=\d)", "", text)
-    return re.sub(r"[^0-9]", " ", collapsed)
+    variants = []
+    for total_len in (6, 9, 12):
+        if total_len < len(digits):
+            continue
+        padded = digits.zfill(total_len)
+        groups = [padded[i:i + 3] for i in range(0, len(padded), 3)]
+        variants.append('.'.join(groups))
+    return variants
 
 
 def _sha256(path: Path) -> str:
@@ -335,10 +351,18 @@ class FinancialDocumentIndex:
             expected_number = statement_number if document_type == "statement" else invoice_number
             if expected_number:
                 # O Firebird guarda o numero sem zeros a esquerda, mas o layout
-                # oficial (DANFE/NFS-e) normalmente imprime com padding fixo
-                # (ex.: "048.134.210"). Sem o "0*" aqui, o mesmo numero nunca
-                # bateria so por causa do zero a mais no documento impresso.
-                if not re.search(rf"(?<!\d)0*{re.escape(expected_number)}(?!\d)", compact):
+                # oficial (DANFE/NFS-e) as vezes imprime com padding fixo e
+                # agrupado por ponto de milhar (ex.: "048.134.210"). Tenta o
+                # numero puro (com zeros a mais tolerados) e, so se isso falhar,
+                # as variantes agrupadas plausiveis - nunca colapsa pontos do
+                # documento inteiro (isso juntava valores monetarios e datas
+                # tambem, gerando falsos positivos com outros numeros).
+                plain_hit = re.search(rf"(?<!\d)0*{re.escape(expected_number)}(?!\d)", compact)
+                grouped_hit = plain_hit or any(
+                    re.search(rf"(?<![\d.]){re.escape(variant)}(?![\d.])", text)
+                    for variant in _padded_grouped_variants(expected_number)
+                )
+                if not grouped_hit:
                     continue
                 score += 50
 

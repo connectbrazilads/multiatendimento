@@ -108,6 +108,28 @@ class FinancialDocumentIndexTest(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(match.path.name, "qualquer-nome.pdf")
 
+    def test_does_not_confuse_a_thousand_separated_money_value_with_the_document_number(self):
+        """Regression: a first version of the DANFE fix above collapsed ANY
+        dot between digits anywhere in the document, not just a grouped
+        document number - so a plain money amount like "R$ 20.786,00"
+        (thousand-separator dot) turned into the token "20786" and could
+        coincidentally match an unrelated invoice/statement number, flooding
+        the automatic billing send with "documento ambiguo" false alarms."""
+        root = self.root / "money"
+        root.mkdir()
+        make_pdf(root / "outra-nota.pdf", [
+            "Fatura de Locacao de Bens Moveis",
+            f"Cliente OUTRO CLIENTE - CNPJ {CUSTOMER_CNPJ}",
+            "Fatura 999",
+            "Valor Total dos Produtos R$ 20.786,00",
+        ])
+        index = FinancialDocumentIndex([str(root)], root / "index.json")
+        index.scan()
+        # Numero de titulo coincide com os digitos do valor monetario acima,
+        # mas nao e o numero real da fatura (999) - nao deve casar com nada.
+        context = {**self.context, "invoice_number": "20786"}
+        self.assertIsNone(index.find("invoice", context))
+
 
 class FinancialDocumentIndexProgressTest(unittest.TestCase):
     """Covers the live progress reporting used by the agent GUI so a scan over a
