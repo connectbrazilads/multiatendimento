@@ -169,6 +169,14 @@ class FinancialDocumentIndex:
         self.own_cnpj = _digits(own_cnpj)
         self.entries: dict[str, dict[str, Any]] = {}
         self.last_scan: str | None = None
+        # (documentType, cnpj) -> chaves de entries com esse CNPJ extraido, e
+        # documentType -> chaves sem CNPJ extraivel (CPF, formato atipico) -
+        # essas poucas ainda passam pelo fallback lento de procurar os digitos
+        # no texto inteiro. Sem isso, find() varria TODAS as ~20 mil entradas
+        # do indice a cada chamada (uma por titulo por tipo de documento), o
+        # que travava o envio automatico por vários minutos a cada ciclo com
+        # uma pasta grande. Invalidado (None) sempre que entries muda.
+        self._customer_type_index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]] | None = None
         self._load()
 
     def _load(self) -> None:
@@ -178,6 +186,7 @@ class FinancialDocumentIndex:
             data = json.loads(self.cache_path.read_text(encoding="utf-8"))
             self.entries = data.get("entries", {}) if isinstance(data, dict) else {}
             self.last_scan = data.get("lastScan") if isinstance(data, dict) else None
+            self._customer_type_index = None
         except Exception as exc:
             logging.warning("Indice financeiro ignorado por estar invalido: %s", exc)
 
@@ -319,10 +328,31 @@ class FinancialDocumentIndex:
             if any(key.startswith(root) for root in configured_roots) and key not in seen:
                 del self.entries[key]
 
+        self._customer_type_index = None
         self.last_scan = datetime.now().isoformat(timespec="seconds")
         self._save()
         report("Indexacao concluida.")
         return {"total": len(self.entries), "added": added, "updated": updated, "errors": errors}
+
+    def _ensure_customer_type_index(self) -> tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]:
+        if self._customer_type_index is not None:
+            return self._customer_type_index
+        by_customer: dict[tuple[str, str], list[str]] = {}
+        by_type_only: dict[str, list[str]] = {}
+        for key, item in self.entries.items():
+            doc_type = item.get("documentType")
+            if not doc_type:
+                continue
+            cnpjs = item.get("cnpjs") or []
+            if cnpjs:
+                for cnpj in cnpjs:
+                    by_customer.setdefault((doc_type, cnpj), []).append(key)
+            else:
+                # Sem CNPJ extraivel (CPF, formato atipico) - fica na lista
+                # menor que ainda precisa do fallback lento por tipo.
+                by_type_only.setdefault(doc_type, []).append(key)
+        self._customer_type_index = (by_customer, by_type_only)
+        return self._customer_type_index
 
     def find(self, document_type: str, context: dict[str, Any]) -> MatchResult | None:
         customer_document = _digits(context.get("customer_cnpj") or context.get("customer_cpf"))
@@ -333,7 +363,19 @@ class FinancialDocumentIndex:
         amount_variants = _money_variants(context.get("valreceita"))
         matches: list[tuple[int, Path]] = []
 
-        for item in self.entries.values():
+        # Sem isso, cada chamada varria TODAS as entradas do indice (milhares
+        # de PDFs de anos de historico) mesmo sabendo o cliente exato - com um
+        # titulo por chamada e centenas de titulos abertos, isso e o que
+        # travava o envio automatico por varios minutos a cada ciclo.
+        if customer_document:
+            by_customer, by_type_only = self._ensure_customer_type_index()
+            candidate_keys = list(by_customer.get((document_type, customer_document), []))
+            candidate_keys += by_type_only.get(document_type, [])
+            candidates = (self.entries[key] for key in candidate_keys if key in self.entries)
+        else:
+            candidates = self.entries.values()
+
+        for item in candidates:
             if item.get("documentType") != document_type:
                 continue
             path = Path(item.get("path") or "")
