@@ -829,13 +829,39 @@ async function commandCallback(req, res) {
         return res.json({ ok: true, note: 'Registro da O.S. nao existe mais no CRM; nada a atualizar.' });
       }
 
-      const serviceOrder = await prisma.serviceOrder.update({
-        where: { id, tenantId: tenant.id },
-        data: {
-          externalId: String(result.seqOs),
-          status: 'PENDENTE',
-        },
-      });
+      let serviceOrder;
+      try {
+        serviceOrder = await prisma.serviceOrder.update({
+          where: { id, tenantId: tenant.id },
+          data: {
+            externalId: String(result.seqOs),
+            status: 'PENDENTE',
+          },
+        });
+      } catch (updateError) {
+        // Duas O.S. no CRM (normalmente uma vinda de uma conversa e outra
+        // criada direto pela tela, ambas pro mesmo cliente/equipamento)
+        // podem acabar resultando no mesmo SEQOS no Firebird - a constraint
+        // unica (tenantId, externalSource, externalId) barra a segunda. Sem
+        // tratar isso, o agente ficava reenviando esse callback para sempre
+        // e o usuario so via um 500 generico, sem nenhuma pista do motivo.
+        if (updateError?.code === 'P2002') {
+          const holder = await prisma.serviceOrder.findFirst({
+            where: { tenantId: tenant.id, externalSource: 'firebird', externalId: String(result.seqOs) },
+            select: { id: true },
+          });
+          await prisma.serviceOrder.updateMany({
+            where: { id, tenantId: tenant.id },
+            data: {
+              status: 'ERRO_INTEGRACAO',
+              technicalNotes: `SEQOS ${result.seqOs} ja foi criado no Firebird, mas ja pertence a outra O.S. no CRM (id ${holder?.id || 'desconhecido'}) - provavelmente duas solicitacoes para o mesmo cliente/equipamento. Verifique manualmente no iLux.`,
+            },
+          });
+          console.warn(`[pending-commands] O.S. ${id}: SEQOS ${result.seqOs} ja pertence a outra O.S. do CRM (${holder?.id}). Marcada como ERRO_INTEGRACAO para revisao manual em vez de reenfileirar para sempre.`);
+          return res.json({ ok: true, note: 'SEQOS ja associado a outra O.S. no CRM; marcada para revisao manual.' });
+        }
+        throw updateError;
+      }
       if (result.printData && typeof result.printData === 'object') {
         try {
           await upsertRawRecord(
