@@ -833,6 +833,26 @@ class FirebirdRepository:
         """
         yield from self._rows(sql, (cursor,))
 
+    def fetch_recently_updated_equipments(self, limit: int = 1000) -> Iterator[dict[str, Any]]:
+        """Reenvia equipamentos editados no iLux (ex.: endereco de instalacao
+        trocado), independente de quando foram cadastrados. O cursor normal de
+        `fetch_equipments` so avanca (CDEQUIPAMENTO > cursor) e nunca revisita
+        um equipamento ja sincronizado, entao uma edicao feita anos depois do
+        cadastro original nunca seria enviada de novo sem isso."""
+        sql = f"""
+            select first {max(1, int(limit))}
+                eq.CDEQUIPAMENTO, eq.CDCLIENTE, eq.CDPRODUTO, eq.SERIE, eq.MODELO, eq.FABRICANTE,
+                eq.SEQCONTRATO, eq.PATRIMONIO, eq.TFINATIVO,
+                eq.ENDERECO, eq.NUM, eq.BAIRRO, eq.COMPLEMENTO, eq.LOCALINSTAL, eq.DEPARTAMENTO, eq.CONTATO, eq.FONE, eq.DDD, eq.CIDADE, eq.UF,
+                eq.INCLUSAO, eq.ATUALIZADO,
+                p.NMPRODUTO as PRODUCT_NAME
+            from IXLEQUIPAMENTO eq
+            left join IPRODUTO p on p.CDPRODUTO = eq.CDPRODUTO
+            where eq.ATUALIZADO is not null
+            order by eq.ATUALIZADO desc
+        """
+        yield from self._rows(sql, ())
+
     def fetch_contracts(self, cursor: int) -> Iterator[dict[str, Any]]:
         sql = """
             select
@@ -2189,11 +2209,15 @@ def sync_crm360_details(
         recent_meters, _ = push_normalized_batches(
             crm, "equipmentMeters", repo.fetch_recent_equipment_meters(1000), normalize_equipment_meter, batch_size
         )
+        recent_equipments, _ = push_normalized_batches(
+            crm, "equipments", repo.fetch_recently_updated_equipments(1000), normalize_equipment, batch_size
+        )
         state.data["crm360_recent_refresh_at"] = datetime.now().isoformat(timespec="seconds")
         logging.info(
-            "CRM 360: atualizados %s titulo(s) e %s medidor(es) recentes",
+            "CRM 360: atualizados %s titulo(s), %s medidor(es) e %s equipamento(s) recentes",
             recent_receivables + open_receivables,
             recent_meters,
+            recent_equipments,
         )
     elif meter_total:
         logging.info("CRM 360: %s novo(s) medidor(es) sincronizado(s)", meter_total)
