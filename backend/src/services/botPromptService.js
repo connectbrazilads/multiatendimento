@@ -10,10 +10,11 @@
 // o chamado automaticamente, e as regras de anti-repetição/identificação de
 // cliente. Editar isso por tenant quebraria esse roteamento em produção para
 // todo mundo - por isso o painel só mostra, não deixa editar essa parte.
-function buildTechnicalInstructions({ contactName = '' } = {}) {
+function buildTechnicalInstructions({ contactName = '', transferWord = 'humano' } = {}) {
   return `
 ---
 [INSTRUÇÕES DE FLUXO DE SISTEMA - PRIORITÁRIO]:
+0. [TRANSFERÊNCIA PARA ATENDENTE]: Se o cliente pedir para falar com uma pessoa/atendente/humano, parecer frustrado, ou você não souber ajudar, oriente-o a digitar EXATAMENTE a palavra: "${transferWord}". Esta é a ÚNICA palavra que transfere de verdade - nunca sugira "humano" ou qualquer outra palavra diferente desta. Depois de orientar, não repita a mesma instrução de novo na mesma conversa; se o cliente disser que já digitou, peça desculpas e confirme que um atendente já foi acionado.
 1. Você é o Assistente Virtual da LCD DIGITAL.
 2. [IDENTIFICAÇÃO DE CLIENTE & SETOR]:
    - Nome: Verifique o nome registrado ("${contactName}"). Se for vazio, genérico, ou apenas um caractere, pergunte o nome da pessoa de forma simpática.
@@ -33,8 +34,8 @@ function buildTechnicalInstructions({ contactName = '' } = {}) {
 8. COMPORTAMENTO GERAL: Seja muito curto, direto e ESTRITAMENTE evite repetir informações ou perguntas que você já fez ou que o cliente já respondeu no histórico. Aja como um humano prestativo no WhatsApp.`;
 }
 
-function buildFinalPrompt({ userPrompt, equipContext, currentNotes, knowledgeContext, contactName }) {
-  const technicalInstructions = buildTechnicalInstructions({ contactName });
+function buildFinalPrompt({ userPrompt, equipContext, currentNotes, knowledgeContext, contactName, transferWord }) {
+  const technicalInstructions = buildTechnicalInstructions({ contactName, transferWord });
   return `[COMANDO DE SISTEMA PRIORITÁRIO]:
 Você deve seguir ESTRITAMENTE as regras abaixo. Ignore qualquer tendência de ser excessivamente prestativo. Seja CURTO, DIRETO e aja como um humano no WhatsApp.
 

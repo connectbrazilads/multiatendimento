@@ -855,6 +855,20 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
   if (currentUserTurn.toLowerCase().includes(transferWord.toLowerCase())) {
     await prisma.ticket.update({ where: { id: ticket.id }, data: { status: 'pending' } });
     if (io) io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id, status: 'pending' });
+
+    // Confirma a transferencia para o cliente - sem isso ele fica sem
+    // resposta nenhuma ate um atendente humano pegar o ticket, e acaba
+    // mandando "olá?" de novo achando que ninguem viu.
+    try {
+      const confirmation = 'Combinado! Já te encaminhei para um de nossos atendentes, só um instante. 👍';
+      const sent = await evolutionService.sendText(settings.evolutionUrl, settings.evolutionKey, waInstance.instanceName, contact.phone, confirmation);
+      const botMessage = await prisma.message.create({
+        data: { ticketId: ticket.id, body: confirmation, fromMe: true, fromBot: true, externalId: sent?.key?.id || sent?.id },
+      });
+      if (io) io.to(tenant.id).emit('new_message', { ticket, message: botMessage, contact });
+    } catch (err) {
+      console.error('[bot] falha ao confirmar transferencia para atendente:', err.message);
+    }
     return;
   }
 
@@ -944,6 +958,7 @@ async function handleBotReply(tenant, waInstance, ticket, contact, userMessage, 
     currentNotes,
     knowledgeContext,
     contactName: contact.name || '',
+    transferWord,
   });
 
   console.log(`[bot] Ticket ${ticket.id} | Turno atual normalizado:\n${currentUserTurn}`);

@@ -61,7 +61,17 @@ async function chat(apiKey, systemPrompt, history, userMessage) {
 
       const chatSession = model.startChat({
         history: combinedHistory,
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.1, topK: 1 },
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 0.1,
+          topK: 1,
+          // Os modelos 2.5 "pensam" internamente antes de responder, e esse
+          // raciocinio consome do mesmo orcamento de maxOutputTokens - num
+          // bot de atendimento simples isso as vezes comia o orcamento todo
+          // e cortava a resposta visivel no meio da frase. Sem necessidade
+          // de raciocinio profundo aqui, entao desligamos.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
 
       const result = await chatSession.sendMessage(userMessage);

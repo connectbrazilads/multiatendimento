@@ -184,6 +184,7 @@ async function getSystemPromptPreview(req, res) {
     equipContext: '- Ricoh MP 2555 (Série: 4521, Setor: Financeiro)\n- Xerox 7845 (Série: 8890, Setor: Recepção)',
     currentNotes: 'Cliente prefere contato por telefone após às 17h. (exemplo ilustrativo)',
     knowledgeContext: '\n\nUSE O SEGUINTE CONHECIMENTO DA EMPRESA:\nDúvida: Qual o prazo de atendimento técnico?\nResposta: Em até 24h úteis para chamados abertos até as 16h. (exemplo ilustrativo)',
+    transferWord: settings?.botTransferWord || 'humano',
   });
 
   res.json({
