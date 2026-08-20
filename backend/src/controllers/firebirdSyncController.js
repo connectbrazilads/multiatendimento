@@ -814,6 +814,21 @@ async function commandCallback(req, res) {
     }
 
     if (success && result?.seqOs) {
+      // O agente guarda o SEQOS localmente e reenvia esse callback em todo
+      // ciclo ate confirmar - se o registro da O.S. sumiu do nosso banco
+      // nesse meio tempo (ex.: contato/equipamento foi apagado ou mesclado,
+      // que apaga a O.S. em cascata), `update` lanca "record not found" e
+      // isso virava um 500 opaco que o agente reenviava para sempre, sem
+      // nunca conseguir se resolver sozinho.
+      const existingServiceOrder = await prisma.serviceOrder.findFirst({
+        where: { id, tenantId: tenant.id },
+        select: { id: true },
+      });
+      if (!existingServiceOrder) {
+        console.warn(`[pending-commands] O.S. ${id} (SEQOS ${result.seqOs} ja criado no Firebird) nao existe mais no CRM - provavelmente o contato ou equipamento foi removido/mesclado. Confirmando o callback para o agente parar de reenviar.`);
+        return res.json({ ok: true, note: 'Registro da O.S. nao existe mais no CRM; nada a atualizar.' });
+      }
+
       const serviceOrder = await prisma.serviceOrder.update({
         where: { id, tenantId: tenant.id },
         data: {
@@ -880,7 +895,10 @@ async function commandCallback(req, res) {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('[pending-commands-callback] erro:', err.message);
+    // err.message sozinho as vezes nao diz muito (ex.: erros do Prisma);
+    // o stack completo é o que realmente ajuda a diagnosticar um 500 aqui
+    // depois, sem precisar reproduzir o cenario as cegas.
+    console.error('[pending-commands-callback] erro:', err.stack || err.message);
     res.status(500).json({ error: err.message });
   }
 }
