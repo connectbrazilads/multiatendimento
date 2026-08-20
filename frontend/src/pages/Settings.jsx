@@ -1121,24 +1121,38 @@ export default function Settings() {
                       </tr>
                     </thead>
                     <tbody>
-                      {billingLogs.map((log) => (
-                        <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '0.5rem' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
-                          <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
-                          <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-dim)' }}>{log.fileName}</td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <span style={{
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: 'var(--text-xs)',
-                              backgroundColor: log.status === 'SUCCESS' ? 'var(--success-light)' : log.status === 'TEST' ? 'var(--warning-light)' : 'var(--danger-light)',
-                              color: log.status === 'SUCCESS' ? 'var(--success-text)' : log.status === 'TEST' ? 'var(--warning-text)' : 'var(--danger-text)'
-                            }}>
-                              {log.status === 'SUCCESS' ? 'Enviado' : log.status === 'TEST' ? 'Teste (simulado)' : 'Erro'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {billingLogs.map((log) => {
+                        let badgeBg, badgeColor, badgeLabel;
+                        if (log.status === 'SUCCESS') {
+                          badgeBg = 'var(--success-light)'; badgeColor = 'var(--success-text)'; badgeLabel = 'Enviado';
+                        } else if (log.status === 'TEST') {
+                          badgeBg = 'var(--warning-light)'; badgeColor = 'var(--warning-text)'; badgeLabel = 'Teste';
+                        } else if (log.status === 'SKIPPED') {
+                          badgeBg = 'rgba(245, 158, 11, 0.12)'; badgeColor = '#d97706'; badgeLabel = 'Ignorado';
+                        } else {
+                          badgeBg = 'var(--danger-light)'; badgeColor = 'var(--danger-text)'; badgeLabel = 'Erro';
+                        }
+                        return (
+                          <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>{new Date(log.sentAt).toLocaleString('pt-BR')}</td>
+                            <td style={{ padding: '0.5rem' }}>{log.clientName || 'Desconhecido'} ({log.cpfCnpj})</td>
+                            <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-dim)' }}>{log.fileName}</td>
+                            <td style={{ padding: '0.5rem' }}>
+                              <span
+                                title={log.errorMessage || ''}
+                                style={{ padding: '2px 8px', borderRadius: '4px', fontSize: 'var(--text-xs)', cursor: log.errorMessage ? 'help' : 'default', backgroundColor: badgeBg, color: badgeColor }}
+                              >
+                                {badgeLabel}
+                              </span>
+                              {log.status === 'FAILED' && log.errorMessage && (
+                                <div style={{ fontSize: '0.68rem', color: 'var(--danger-text)', marginTop: '2px', maxWidth: '200px' }}>
+                                  {log.errorMessage}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

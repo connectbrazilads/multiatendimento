@@ -390,13 +390,13 @@ async function autoSendBilling(req, res) {
 
     if (!contact) {
       await prisma.billingLog.create({
-        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'FAILED', errorMessage: 'Contato de WhatsApp não encontrado para envio automático.' },
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Nenhum contato de WhatsApp cadastrado para este cliente.' },
       });
       return res.json({ success: true, message: 'Documentos preparados, mas não há contato de WhatsApp para enviar automaticamente.' });
     }
     if (!isSendToAll && !contact.enableWhatsAppBilling) {
       await prisma.billingLog.create({
-        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'FAILED', errorMessage: 'Envio automático via WhatsApp não habilitado para este contato (opt-in desativado).' },
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Opt-in de cobrança desativado para este contato.' },
       });
       return res.json({ success: true, message: 'Envio automático não habilitado para este contato.' });
     }
