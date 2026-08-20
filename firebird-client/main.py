@@ -596,6 +596,28 @@ class CRMClient:
         response.raise_for_status()
         return response.json()
 
+    def log_test_billing(self, package: dict[str, Any]) -> None:
+        """Registra na tela de Logs do CRM que este pacote seria enviado, sem
+        enviar nada de verdade - permite acompanhar o modo teste direto do
+        CRM em vez de depender do log local do agente."""
+        url = f"{self.config.crm_base_url}/api/integrations/firebird/log-test-billing"
+        try:
+            response = self.session.post(
+                url,
+                json={
+                    "tenantSlug": self.config.crm_tenant_slug,
+                    "cpfCnpj": package.get("customerCnpj") or package.get("customerCpf"),
+                    "customerName": package.get("customerName"),
+                    "fileNames": [document["fileName"] for document in package["documents"]],
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+        except Exception as exc:
+            # Nao interrompe o ciclo de teste por causa disso - e so um espelho
+            # de conveniencia na tela do CRM, o log local continua valendo.
+            logging.warning("Falha ao espelhar log de teste no CRM: %s", exc)
+
 class FirebirdRepository:
     def __init__(self, config: AppConfig):
         self.config = config
@@ -2554,6 +2576,7 @@ def run_billing_automation(
                 "Nada foi enviado -- desligue o modo teste na aba Documentos financeiros quando validar.",
                 description,
             )
+            crm.log_test_billing(package)
             ledger.record(package["receivableExternalId"], package["combinedHash"], ledger_info)
             sent += 1
             continue

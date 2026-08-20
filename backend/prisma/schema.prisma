@@ -607,7 +607,7 @@ model BillingLog {
   cpfCnpj      String?
   clientName   String?
   fileName     String
-  status       String // "SUCCESS" ou "FAILED"
+  status       String // "SUCCESS", "FAILED" ou "TEST" (envio simulado, modo teste)
   errorMessage String?  @db.Text
   sentAt       DateTime @default(now())
 

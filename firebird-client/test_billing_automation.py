@@ -181,19 +181,25 @@ class RunBillingAutomationTest(unittest.TestCase):
         ledger = BillingSendLedger(self.root / "ledger.json")
         crm = CRMClient(self.config)
         with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]), \
-             patch.object(crm, "send_billing_package") as send:
+             patch.object(crm, "send_billing_package") as send, \
+             patch.object(crm, "log_test_billing") as log_test:
             stats = run_billing_automation(self.repo, crm, self.config, ledger)
         send.assert_not_called()
+        # O CRM ainda precisa saber que um envio de teste "aconteceu", para
+        # aparecer na tela de Logs mesmo sem nada ser enviado de verdade.
+        log_test.assert_called_once()
         self.assertEqual(stats["sent"], 1)
         self.assertEqual(stats["failed"], 0)
 
         # Recorded once -- a second pass finds nothing new ready, so the same
         # package is not logged again every cycle.
         with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]), \
-             patch.object(crm, "send_billing_package") as send_again:
+             patch.object(crm, "send_billing_package") as send_again, \
+             patch.object(crm, "log_test_billing") as log_test_again:
             stats_again = run_billing_automation(self.repo, crm, self.config, ledger)
         self.assertEqual(stats_again["ready"], 0)
         send_again.assert_not_called()
+        log_test_again.assert_not_called()
 
     def test_real_mode_sends_and_records_only_on_success(self):
         self.config.billing_auto_send_test_mode = False

@@ -499,6 +499,35 @@ async function autoSendBilling(req, res) {
   }
 }
 
+async function logTestBilling(req, res) {
+  // Chamado pelo agente quando o envio automatico esta em modo teste: nada e
+  // enviado pelo WhatsApp, so espelhamos a simulacao na tela de Logs do CRM
+  // (status "TEST") para o gestor acompanhar sem precisar acessar o log
+  // local do agente.
+  const { tenantSlug, cpfCnpj, customerName, fileNames } = req.body || {};
+
+  try {
+    if (!tenantSlug) return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
+    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+    if (!tenant) return res.status(404).json({ error: 'Tenant não encontrado.' });
+    assertToken(req, tenant);
+
+    await prisma.billingLog.create({
+      data: {
+        tenantId: tenant.id,
+        cpfCnpj: cpfCnpj || '',
+        clientName: customerName || null,
+        fileName: Array.isArray(fileNames) ? fileNames.join(', ') : String(fileNames || ''),
+        status: 'TEST',
+      },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[logTestBilling] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 async function triggerBillingProcess(req, res) {
   const { tenantId } = req.user;
 
@@ -559,6 +588,7 @@ module.exports = {
   setIo,
   sendBilling,
   autoSendBilling,
+  logTestBilling,
   triggerBillingProcess,
   getBillingLogs,
   saveBillingSettings

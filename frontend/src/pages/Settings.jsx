@@ -1131,10 +1131,10 @@ export default function Settings() {
                               padding: '2px 6px',
                               borderRadius: '4px',
                               fontSize: 'var(--text-xs)',
-                              backgroundColor: log.status === 'SUCCESS' ? 'var(--success-light)' : 'var(--danger-light)',
-                              color: log.status === 'SUCCESS' ? 'var(--success-text)' : 'var(--danger-text)'
+                              backgroundColor: log.status === 'SUCCESS' ? 'var(--success-light)' : log.status === 'TEST' ? 'var(--warning-light)' : 'var(--danger-light)',
+                              color: log.status === 'SUCCESS' ? 'var(--success-text)' : log.status === 'TEST' ? 'var(--warning-text)' : 'var(--danger-text)'
                             }}>
-                              {log.status === 'SUCCESS' ? 'Enviado' : 'Erro'}
+                              {log.status === 'SUCCESS' ? 'Enviado' : log.status === 'TEST' ? 'Teste (simulado)' : 'Erro'}
                             </span>
                           </td>
                         </tr>
