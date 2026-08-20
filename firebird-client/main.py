@@ -622,7 +622,17 @@ class FirebirdRepository:
             return []
 
         packages: list[dict[str, Any]] = []
+        checked = 0
+        already_sent = 0
+        # Por tipo de documento: quantos titulos pararam ali por falta de match
+        # (nao ambiguo - simplesmente nenhum PDF indexado bateu). O aviso de
+        # "ambiguo" ja e logado individualmente; sem isso aqui, um "0 prontos"
+        # ficava mudo sobre qual dos 3 tipos (nota/demonstrativo/boleto) e o
+        # gargalo real, e reproduzir localmente nao ajuda - o indice depende
+        # das pastas de rede da maquina do agente.
+        missing_by_type = {t: 0 for t in document_types}
         for row in self.fetch_open_receivables_for_billing():
+            checked += 1
             receivable_id = row.get("seqreceita")
             context = {
                 "customer_cnpj": row.get("customer_cnpj"),
@@ -654,6 +664,7 @@ class FirebirdRepository:
                     matches = {}
                     break
                 if match is None:
+                    missing_by_type[document_type] += 1
                     matches = {}
                     break
                 matches[document_type] = match
@@ -663,6 +674,7 @@ class FirebirdRepository:
 
             combined_hash = ":".join(sorted(match.sha256 for match in matches.values()))
             if ledger.already_sent(receivable_id, combined_hash):
+                already_sent += 1
                 continue
 
             packages.append({
@@ -681,6 +693,11 @@ class FirebirdRepository:
                     for document_type, match in matches.items()
                 ],
             })
+        logging.info(
+            "Envio automatico: %s titulo(s) em aberto verificado(s), %s pronto(s), %s ja enviado(s) antes. "
+            "Sem match (nao ambiguo) por tipo: %s",
+            checked, len(packages), already_sent, missing_by_type,
+        )
         return packages
 
     def connect(self):
