@@ -618,6 +618,50 @@ async function getBillingLogs(req, res) {
   }
 }
 
+async function getBillingDashboardStats(req, res) {
+  const { tenantId } = req.user;
+  const { period = 30 } = req.query;
+
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(period, 10));
+    startDate.setHours(0, 0, 0, 0);
+
+    const logs = await prisma.billingLog.findMany({
+      where: { 
+        tenantId,
+        sentAt: { gte: startDate }
+      },
+      orderBy: { sentAt: 'desc' }
+    });
+
+    const stats = {
+      total: logs.length,
+      success: 0,
+      skippedOptIn: 0,
+      skippedNoContact: 0,
+      failed: 0,
+    };
+
+    logs.forEach(log => {
+      if (log.status === 'SUCCESS') stats.success++;
+      else if (log.status === 'FAILED') stats.failed++;
+      else if (log.status === 'SKIPPED') {
+        if (log.errorMessage && log.errorMessage.includes('Opt-in')) {
+          stats.skippedOptIn++;
+        } else {
+          stats.skippedNoContact++;
+        }
+      }
+    });
+
+    res.json({ stats, logs });
+  } catch (err) {
+    console.error('[getBillingDashboardStats] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 async function saveBillingSettings(req, res) {
   const { tenantId } = req.user;
   const { billingMessageTemplate } = req.body;
@@ -641,5 +685,6 @@ module.exports = {
   logTestBilling,
   triggerBillingProcess,
   getBillingLogs,
-  saveBillingSettings
+  saveBillingSettings,
+  getBillingDashboardStats
 };

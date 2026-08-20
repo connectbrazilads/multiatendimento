@@ -22,7 +22,7 @@ const QuickResponses = lazy(() => import('./pages/QuickResponses'));
 const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
 const LeadScraper = lazy(() => import('./pages/LeadScraper'));
 const RevGuard = lazy(() => import('./pages/RevGuard'));
-
+const BillingReports = lazy(() => import('./pages/BillingReports'));
 // Interceptor global para tratar erros de autenticacao (401)
 api.interceptors.response.use(
   (response) => response,
@@ -171,6 +171,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/superadmin" element={<SuperAdmin />} />
             <Route path="/leads" element={<LeadScraper />} />
             <Route path="/revenue" element={<RevGuard />} />
+            <Route path="/billing-reports" element={<BillingReports />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

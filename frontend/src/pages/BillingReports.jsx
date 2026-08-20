@@ -1,0 +1,438 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { getBillingReports } from '../services/api';
+import PageHeader from '../components/ui/PageHeader';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
+import {
+  BarChart2,
+  CheckCircle2,
+  PhoneOff,
+  UserX,
+  Clock,
+  Filter
+} from 'lucide-react';
+
+const PERIOD_OPTIONS = [
+  { value: 1, label: 'Hoje' },
+  { value: 7, label: '7 dias' },
+  { value: 30, label: '30 dias' },
+];
+
+const STATUS_COLORS = {
+  SUCCESS: 'var(--success, #10b981)',
+  SKIPPED_OPTIN: 'var(--warning, #f59e0b)',
+  SKIPPED_NOCONTACT: 'var(--danger, #ef4444)',
+  FAILED: 'var(--text-muted, #94a3b8)',
+};
+
+export default function BillingReports() {
+  const [period, setPeriod] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({ stats: null, logs: [] });
+  const [filterType, setFilterType] = useState('ALL');
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const res = await getBillingReports(period);
+      setData(res.data);
+    } catch (err) {
+      console.error('Erro ao buscar relatórios de cobrança:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const chartData = useMemo(() => {
+    if (!data.stats) return [];
+    return [
+      { name: 'Enviados com Sucesso', value: data.stats.success, color: STATUS_COLORS.SUCCESS },
+      { name: 'Sem Opt-in (Caixinha)', value: data.stats.skippedOptIn, color: STATUS_COLORS.SKIPPED_OPTIN },
+      { name: 'Sem Telefone', value: data.stats.skippedNoContact, color: STATUS_COLORS.SKIPPED_NOCONTACT },
+      { name: 'Erro Técnico', value: data.stats.failed, color: STATUS_COLORS.FAILED },
+    ].filter(d => d.value > 0);
+  }, [data.stats]);
+
+  const filteredLogs = useMemo(() => {
+    if (filterType === 'ALL') return data.logs;
+    if (filterType === 'SUCCESS') return data.logs.filter(l => l.status === 'SUCCESS');
+    if (filterType === 'FAILED') return data.logs.filter(l => l.status === 'FAILED');
+    if (filterType === 'SKIPPED_OPTIN') return data.logs.filter(l => l.status === 'SKIPPED' && l.errorMessage?.includes('Opt-in'));
+    if (filterType === 'SKIPPED_NOCONTACT') return data.logs.filter(l => l.status === 'SKIPPED' && !l.errorMessage?.includes('Opt-in'));
+    return data.logs;
+  }, [data.logs, filterType]);
+
+  if (loading && !data.stats) {
+    return (
+      <div style={s.container}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '60vh' }}>
+          <div style={{ color: 'var(--text-muted)' }}>Carregando métricas...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const { stats } = data;
+  const deliveryRate = stats?.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
+
+  return (
+    <div style={s.container}>
+      <PageHeader
+        title="Relatórios de Cobrança"
+        subtitle="Analise a efetividade dos envios automáticos de boletos via WhatsApp."
+        actions={
+          <div style={s.periodGroup}>
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                style={{ ...s.periodBtn, ...(period === opt.value ? s.periodBtnActive : {}) }}
+                onClick={() => setPeriod(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      <div style={s.content}>
+        {/* KPIs */}
+        <div style={s.kpiGrid}>
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Total Processado</span>
+              <BarChart2 size={18} color="var(--primary)" />
+            </div>
+            <div style={s.kpiValue}>{stats?.total || 0}</div>
+            <div style={s.kpiSub}>Boletos lidos pelo robô</div>
+          </div>
+
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Taxa de Entrega</span>
+              <CheckCircle2 size={18} color={STATUS_COLORS.SUCCESS} />
+            </div>
+            <div style={{ ...s.kpiValue, color: STATUS_COLORS.SUCCESS }}>{deliveryRate}%</div>
+            <div style={s.kpiSub}>{stats?.success || 0} entregues com sucesso</div>
+          </div>
+
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Sem Permissão (Opt-in)</span>
+              <UserX size={18} color={STATUS_COLORS.SKIPPED_OPTIN} />
+            </div>
+            <div style={{ ...s.kpiValue, color: STATUS_COLORS.SKIPPED_OPTIN }}>{stats?.skippedOptIn || 0}</div>
+            <div style={s.kpiSub}>Caixinha de Envio Desmarcada no CRM</div>
+          </div>
+
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Sem Telefone</span>
+              <PhoneOff size={18} color={STATUS_COLORS.SKIPPED_NOCONTACT} />
+            </div>
+            <div style={{ ...s.kpiValue, color: STATUS_COLORS.SKIPPED_NOCONTACT }}>{stats?.skippedNoContact || 0}</div>
+            <div style={s.kpiSub}>Contato não encontrado ou telefone em branco</div>
+          </div>
+        </div>
+
+        <div style={s.mainSection}>
+          {/* Chart */}
+          <div style={s.chartBox}>
+            <h3 style={s.boxTitle}>Distribuição dos Resultados</h3>
+            {chartData.length > 0 ? (
+              <div style={{ height: '300px', width: '100%' }}>
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(value) => [`${value} boletos`, '']} />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={s.emptyState}>Sem dados no período</div>
+            )}
+          </div>
+
+          {/* Audit Table */}
+          <div style={s.tableBox}>
+            <div style={s.tableHeader}>
+              <h3 style={s.boxTitle}>Auditoria de Disparos</h3>
+              <div style={s.filterGroup}>
+                <Filter size={16} color="var(--text-muted)" />
+                <select
+                  style={s.select}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                >
+                  <option value="ALL">Todos os Resultados</option>
+                  <option value="SUCCESS">Somente Sucesso</option>
+                  <option value="SKIPPED_OPTIN">Sem Opt-in (Caixinha)</option>
+                  <option value="SKIPPED_NOCONTACT">Sem Contato/Telefone</option>
+                  <option value="FAILED">Falha Técnica</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={s.tableWrapper}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Data / Hora</th>
+                    <th style={s.th}>Cliente (CPF/CNPJ)</th>
+                    <th style={s.th}>Status</th>
+                    <th style={s.th}>Detalhe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLogs.map((log) => {
+                    const isSuccess = log.status === 'SUCCESS';
+                    const isSkipped = log.status === 'SKIPPED';
+                    const isFailed = log.status === 'FAILED';
+                    const isOptin = log.errorMessage?.includes('Opt-in');
+                    const badgeColor = isSuccess ? STATUS_COLORS.SUCCESS : isFailed ? STATUS_COLORS.FAILED : (isOptin ? STATUS_COLORS.SKIPPED_OPTIN : STATUS_COLORS.SKIPPED_NOCONTACT);
+
+                    return (
+                      <tr key={log.id}>
+                        <td style={s.tdTime}>
+                          <Clock size={14} style={{ marginRight: '6px' }} />
+                          {new Date(log.sentAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        </td>
+                        <td style={s.tdClient}>
+                          <strong>{log.clientName || 'N/A'}</strong>
+                          <br />
+                          <span style={s.cnpj}>{log.cpfCnpj}</span>
+                        </td>
+                        <td style={s.td}>
+                          <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
+                            {isSuccess ? 'Enviado' : isSkipped ? (isOptin ? 'Sem Permissão' : 'S/ Telefone') : 'Erro'}
+                          </span>
+                        </td>
+                        <td style={s.tdMessage}>{log.errorMessage || 'Enviado para o WhatsApp com sucesso.'}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        Nenhum registro encontrado para este filtro.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const s = {
+  container: {
+    padding: 'var(--space-6)',
+    background: 'var(--bg-base)',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    overflowY: 'auto'
+  },
+  periodGroup: {
+    display: 'flex',
+    gap: 'var(--space-2)',
+    background: 'var(--bg-panel)',
+    padding: 'var(--space-1)',
+    borderRadius: '12px',
+    border: '1px solid var(--border-color)',
+  },
+  periodBtn: {
+    padding: 'var(--space-2) var(--space-4)',
+    border: 'none',
+    background: 'transparent',
+    borderRadius: '8px',
+    color: 'var(--text-muted)',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  periodBtnActive: {
+    background: 'var(--primary)',
+    color: '#fff',
+  },
+  content: {
+    marginTop: 'var(--space-6)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-6)'
+  },
+  kpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 'var(--space-6)',
+  },
+  kpiCard: {
+    background: 'var(--bg-panel)',
+    padding: 'var(--space-5)',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
+  },
+  kpiHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-3)'
+  },
+  kpiTitle: {
+    fontSize: '0.875rem',
+    color: 'var(--text-muted)',
+    fontWeight: 600
+  },
+  kpiValue: {
+    fontSize: '2rem',
+    fontWeight: 800,
+    color: 'var(--text-color)',
+    lineHeight: 1
+  },
+  kpiSub: {
+    marginTop: 'var(--space-2)',
+    fontSize: '0.75rem',
+    color: 'var(--text-muted)'
+  },
+  mainSection: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 2fr',
+    gap: 'var(--space-6)',
+    alignItems: 'start'
+  },
+  chartBox: {
+    background: 'var(--bg-panel)',
+    padding: 'var(--space-6)',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+  },
+  tableBox: {
+    background: 'var(--bg-panel)',
+    padding: 'var(--space-6)',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
+  },
+  boxTitle: {
+    margin: '0 0 var(--space-4) 0',
+    fontSize: '1rem',
+    fontWeight: 700
+  },
+  tableHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-4)'
+  },
+  filterGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    background: 'var(--bg-base)',
+    padding: 'var(--space-1) var(--space-3)',
+    borderRadius: '8px',
+    border: '1px solid var(--border-color)'
+  },
+  select: {
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-color)',
+    fontSize: '0.875rem',
+    outline: 'none',
+    cursor: 'pointer'
+  },
+  tableWrapper: {
+    overflowX: 'auto',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px'
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    textAlign: 'left',
+    fontSize: '0.875rem'
+  },
+  th: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+    background: 'var(--bg-base)'
+  },
+  td: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+  },
+  tdTime: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+    color: 'var(--text-muted)',
+    display: 'flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap'
+  },
+  tdClient: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+    maxWidth: '200px'
+  },
+  cnpj: {
+    fontSize: '0.75rem',
+    color: 'var(--text-muted)',
+    marginTop: '2px',
+    display: 'block'
+  },
+  tdMessage: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+    color: 'var(--text-muted)',
+    maxWidth: '250px'
+  },
+  badge: {
+    padding: '4px 8px',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap'
+  },
+  emptyState: {
+    height: '200px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--text-muted)'
+  }
+};
