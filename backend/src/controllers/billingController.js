@@ -508,7 +508,7 @@ async function logTestBilling(req, res) {
 
   try {
     if (!tenantSlug) return res.status(400).json({ error: 'tenantSlug é obrigatório.' });
-    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug }, include: { settings: true } });
     if (!tenant) return res.status(404).json({ error: 'Tenant não encontrado.' });
     assertToken(req, tenant);
 
