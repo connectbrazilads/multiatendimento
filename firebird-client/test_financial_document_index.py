@@ -130,6 +130,57 @@ class FinancialDocumentIndexTest(unittest.TestCase):
         context = {**self.context, "invoice_number": "20786"}
         self.assertIsNone(index.find("invoice", context))
 
+    def test_treats_the_same_invoice_filed_in_two_folders_as_one_match(self):
+        """Regression: real production data has the exact same invoice filed
+        into two organizational subfolders (ex.: "01" and "CONTADOR"), each
+        export producing a byte-different PDF (generation metadata/timestamp)
+        with identical visible/extracted text. Before this fix, any invoice
+        filed this way (found to affect thousands of files in production)
+        was permanently "ambiguous" and never sent, even though it is clearly
+        the same document."""
+        root = self.root / "duas-pastas"
+        (root / "01").mkdir(parents=True)
+        (root / "CONTADOR").mkdir(parents=True)
+        lines = [
+            "Fatura de Locacao de Bens Moveis",
+            f"Cliente J. C. MUNIZ - CNPJ {CUSTOMER_CNPJ}",
+            "Fatura 14328",
+            "Data Emissao 28/07/2026",
+        ]
+        make_pdf(root / "01" / "cliente_14328_fatura.pdf", lines)
+        make_pdf(root / "CONTADOR" / "cliente_14328_fatura.pdf", lines)
+        index = FinancialDocumentIndex([str(root)], root / "index.json")
+        index.scan()
+        match = index.find("invoice", {**self.context, "invoice_number": "14328"})
+        self.assertIsNotNone(match)
+        # Escolha deterministica: sempre o mesmo caminho (ordem alfabetica),
+        # nao importa a ordem em que os arquivos foram indexados.
+        self.assertIn("01", str(match.path))
+
+    def test_still_flags_ambiguity_when_the_content_genuinely_differs(self):
+        """Two files that tie on customer+number but have genuinely different
+        extracted text (not just re-exported copies) must still be reported
+        as ambiguous - the text-based dedup above must not become a loophole
+        that silently picks a wrong document."""
+        root = self.root / "genuinamente-diferentes"
+        root.mkdir()
+        make_pdf(root / "a.pdf", [
+            "Fatura de Locacao de Bens Moveis",
+            f"Cliente J. C. MUNIZ - CNPJ {CUSTOMER_CNPJ}",
+            "Fatura 14328",
+            "Valor Total R$ 100,00",
+        ])
+        make_pdf(root / "b.pdf", [
+            "Fatura de Locacao de Bens Moveis",
+            f"Cliente J. C. MUNIZ - CNPJ {CUSTOMER_CNPJ}",
+            "Fatura 14328",
+            "Valor Total R$ 999,00",
+        ])
+        index = FinancialDocumentIndex([str(root)], root / "index.json")
+        index.scan()
+        with self.assertRaises(ValueError):
+            index.find("invoice", {**self.context, "invoice_number": "14328"})
+
 
 class FinancialDocumentIndexProgressTest(unittest.TestCase):
     """Covers the live progress reporting used by the agent GUI so a scan over a

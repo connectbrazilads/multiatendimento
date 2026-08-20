@@ -361,7 +361,7 @@ class FinancialDocumentIndex:
         emission = _date_br(context.get("dtemissaonfs") or context.get("dtemissaorec"))
         due = _date_br(context.get("dtvectorec"))
         amount_variants = _money_variants(context.get("valreceita"))
-        matches: list[tuple[int, Path]] = []
+        matches: list[tuple[int, Path, str]] = []
 
         # Sem isso, cada chamada varria TODAS as entradas do indice (milhares
         # de PDFs de anos de historico) mesmo sabendo o cliente exato - com um
@@ -416,22 +416,38 @@ class FinancialDocumentIndex:
                 score += 10
 
             if score >= 100:
-                matches.append((score, path))
+                matches.append((score, path, text))
 
         if not matches:
             return None
         matches.sort(key=lambda item: (item[0], item[1].stat().st_mtime_ns), reverse=True)
         best_score = matches[0][0]
-        best_paths = [path for score, path in matches if score == best_score]
-        unique: dict[str, Path] = {}
-        for path in best_paths:
-            unique.setdefault(_sha256(path), path)
-        if len(unique) > 1:
+        best_candidates = [(path, text) for score, path, text in matches if score == best_score]
+
+        # A mesma nota/boleto costuma ser arquivada em mais de uma pasta por
+        # organizacao (ex.: "01" e "CONTADOR"), gerando copias com bytes
+        # diferentes (metadados/timestamp de geracao) mas conteudo visivel
+        # identico. Como as duas ja bateram cliente+numero, texto extraido
+        # identico e evidencia forte o suficiente de que e o mesmo documento -
+        # sem isso, qualquer nota arquivada em duas pastas ficava ambigua para
+        # sempre, mesmo sendo a mesma nota.
+        by_text: dict[str, list[Path]] = {}
+        for path, text in best_candidates:
+            by_text.setdefault(text, []).append(path)
+
+        if len(by_text) > 1:
             raise ValueError(
                 f"Mais de um {DOCUMENT_LABELS.get(document_type, 'documento')} oficial corresponde ao titulo. Revise a pasta monitorada."
             )
-        sha, path = next(iter(unique.items()))
-        return MatchResult(path=path, document_type=document_type, score=best_score, sha256=sha)
+
+        # Escolha deterministica entre copias de conteudo identico (mesmo
+        # caminho de string sempre ganha) - garante que reenvios futuros
+        # apontem sempre pro mesmo arquivo/hash, sem risco de a escolha mudar
+        # de execucao para execucao e o ledger de "ja enviado" achar que e um
+        # documento novo.
+        chosen_path = min(next(iter(by_text.values())), key=str)
+        sha = _sha256(chosen_path)
+        return MatchResult(path=chosen_path, document_type=document_type, score=best_score, sha256=sha)
 
 
 def friendly_filename(document_type: str, context: dict[str, Any]) -> str:
