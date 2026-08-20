@@ -35,7 +35,7 @@ from reportlab.platypus import (
 )
 from xml.sax.saxutils import escape
 
-from financial_document_index import DOCUMENT_LABELS, FinancialDocumentIndex, friendly_filename
+from financial_document_index import DOCUMENT_LABELS, FinancialDocumentIndex, friendly_filename, replace_with_retry
 
 
 if getattr(sys, "frozen", False):
@@ -363,7 +363,7 @@ class CommandResultStore:
                 json.dumps(self.data, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-            temporary.replace(self.path)
+            replace_with_retry(temporary, self.path)
 
 
 class BillingSendLedger:
@@ -395,7 +395,7 @@ class BillingSendLedger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         temporary.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
-        temporary.replace(self.path)
+        replace_with_retry(temporary, self.path)
 
     @staticmethod
     def key(receivable_id: Any, combined_hash: str) -> str:

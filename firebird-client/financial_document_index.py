@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import threading
+import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -14,6 +15,29 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from pypdf import PdfReader
+
+
+def replace_with_retry(temporary: Path, final: Path, attempts: int = 5, delay_seconds: float = 0.3) -> None:
+    """Path.replace() com algumas tentativas antes de desistir.
+
+    Um antivirus/backup segurando o arquivo por uma fracao de segundo bem na
+    hora do rename e o suficiente para o Windows recusar com WinError 5
+    (Acesso negado) - visto em producao interrompendo uma rodada inteira do
+    envio automatico depois de dezenas de gravacoes que funcionaram sem
+    problema. Usado por todo arquivo gravado de forma atomica (tmp + replace)
+    neste agente: indice financeiro, ledger de envios, cursores de sync e
+    resultados de comando."""
+    last_error: OSError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            temporary.replace(final)
+            return
+        except OSError as exc:
+            last_error = exc
+            if attempt < attempts:
+                time.sleep(delay_seconds)
+    assert last_error is not None
+    raise last_error
 
 
 # How often (in seconds) to emit a "still working" progress update while
@@ -212,7 +236,7 @@ class FinancialDocumentIndex:
             json.dumps({"lastScan": self.last_scan, "entries": self.entries}, ensure_ascii=False),
             encoding="utf-8",
         )
-        temporary.replace(self.cache_path)
+        replace_with_retry(temporary, self.cache_path)
 
     def _reporter(self, on_progress: Callable[[str], None] | None) -> Callable[[str], None]:
         def report(message: str) -> None:

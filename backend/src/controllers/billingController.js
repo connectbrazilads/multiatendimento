@@ -205,7 +205,25 @@ async function sendBilling(req, res) {
       if (io) io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id, ticket });
     }
 
-    // 1. Envia as mídias (PDFs) sequencialmente
+    // 1. Envia a mensagem de texto com o template primeiro - o cliente le a
+    // explicacao ("Segue anexo...") antes de receber os PDFs, nao depois.
+    const template = tenant.settings?.billingMessageTemplate || 'Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição.';
+
+    console.log(`[billing] Enviando texto de cobrança para ${phone}...`);
+    const textResult = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, template);
+    const textExternalId = textResult?.key?.id || textResult?.message?.key?.id;
+
+    // Salva a mensagem de texto no histórico
+    await prisma.message.create({
+      data: {
+        ticketId: ticket.id,
+        body: template,
+        fromMe: true,
+        externalId: textExternalId
+      }
+    });
+
+    // 2. Envia as mídias (PDFs) sequencialmente
     for (const file of files) {
       const base64 = (await fs.promises.readFile(file.path)).toString('base64');
       const mime = file.mimetype;
@@ -236,23 +254,6 @@ async function sendBilling(req, res) {
         }
       });
     }
-
-    // 2. Envia a mensagem de texto com o template
-    const template = tenant.settings?.billingMessageTemplate || 'Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição.';
-    
-    console.log(`[billing] Enviando texto de cobrança para ${phone}...`);
-    const textResult = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, template);
-    const textExternalId = textResult?.key?.id || textResult?.message?.key?.id;
-
-    // Salva a mensagem de texto no histórico
-    await prisma.message.create({
-      data: {
-        ticketId: ticket.id,
-        body: template,
-        fromMe: true,
-        externalId: textExternalId
-      }
-    });
 
     // Atualiza data do ticket
     await prisma.ticket.update({
@@ -426,6 +427,14 @@ async function autoSendBilling(req, res) {
       if (io) io.to(tenant.id).emit('ticket_updated', { ticketId: ticket.id, ticket });
     }
 
+    // A mensagem de apresentação ("Segue anexo...") precisa chegar ANTES dos
+    // documentos, nao depois - e assim que o cliente le a explicacao antes
+    // de ver os PDFs, nao o contrario.
+    const template = tenant.settings?.billingMessageTemplate || 'Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição.';
+    const textResult = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, template);
+    const textExternalId = textResult?.key?.id || textResult?.message?.key?.id;
+    await prisma.message.create({ data: { ticketId: ticket.id, body: template, fromMe: true, externalId: textExternalId } });
+
     for (const document of cachedDocuments) {
       const filePath = path.join(mediaPath, path.basename(document.mediaUrl));
       const base64 = (await fs.promises.readFile(filePath)).toString('base64');
@@ -442,11 +451,6 @@ async function autoSendBilling(req, res) {
       });
       if (io) io.to(tenant.id).emit('new_message', { ticketId: ticket.id, message, fromMe: true });
     }
-
-    const template = tenant.settings?.billingMessageTemplate || 'Olá! Seguem em anexo sua fatura, boleto e demonstrativo deste mês. Se tiver qualquer dúvida, estamos à disposição.';
-    const textResult = await evolutionService.sendText(evolutionUrl, evolutionKey, instanceName, phone, template);
-    const textExternalId = textResult?.key?.id || textResult?.message?.key?.id;
-    await prisma.message.create({ data: { ticketId: ticket.id, body: template, fromMe: true, externalId: textExternalId } });
 
     const updatedTicket = await prisma.ticket.update({ where: { id: ticket.id }, data: { lastMessageAt: new Date() } });
 

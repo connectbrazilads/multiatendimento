@@ -3,7 +3,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from reportlab.pdfgen import canvas
 
@@ -315,6 +315,30 @@ class FinancialDocumentIndexProgressTest(unittest.TestCase):
         stats = index.scan_if_idle()
         self.assertIsNotNone(stats)
         self.assertEqual(stats["total"], 2)
+
+
+class ReplaceWithRetryTest(unittest.TestCase):
+    """Regression: production hit WinError 5 (Acesso negado) renaming a
+    freshly-written .tmp file into place - almost certainly a brief
+    antivirus/backup lock - and it took down an entire automatic billing
+    pass after dozens of successful writes in a row. Every atomic write in
+    the agent (financial index, billing ledger, command results) goes
+    through this retry instead of a bare Path.replace()."""
+
+    def test_recovers_from_a_transient_lock_and_retries(self):
+        temporary = Mock()
+        temporary.replace.side_effect = [PermissionError("acesso negado"), PermissionError("acesso negado"), None]
+        with patch.object(fdi.time, "sleep", return_value=None):
+            fdi.replace_with_retry(temporary, Path("destino.json"), attempts=5, delay_seconds=0.01)
+        self.assertEqual(temporary.replace.call_count, 3)
+
+    def test_gives_up_and_raises_after_exhausting_attempts(self):
+        temporary = Mock()
+        temporary.replace.side_effect = PermissionError("acesso negado sempre")
+        with patch.object(fdi.time, "sleep", return_value=None):
+            with self.assertRaises(PermissionError):
+                fdi.replace_with_retry(temporary, Path("destino.json"), attempts=3, delay_seconds=0.01)
+        self.assertEqual(temporary.replace.call_count, 3)
 
 
 if __name__ == "__main__":
