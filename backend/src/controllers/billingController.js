@@ -45,14 +45,33 @@ function getCpfCnpjVariations(query) {
   return [...new Set(variations)];
 }
 
-async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
+async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
+  // 1. Tenta usar os contatos já vinculados ao CrmCustomer (passado como argumento)
+  if (crmCustomer && crmCustomer.id) {
+    const crmWithContacts = await prisma.crmCustomer.findUnique({
+      where: { id: crmCustomer.id },
+      include: { whatsappContacts: true }
+    });
+    if (crmWithContacts && crmWithContacts.whatsappContacts.length > 0) {
+      // Prioridade 1: Contato com Opt-in E Telefone preenchido
+      let best = crmWithContacts.whatsappContacts.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
+      // Prioridade 2: Contato real (não firebird) com telefone
+      if (!best) best = crmWithContacts.whatsappContacts.find(c => c.externalSource !== 'firebird' && (c.whatsapp || c.phone));
+      // Prioridade 3: Primeiro contato que tenha telefone
+      if (!best) best = crmWithContacts.whatsappContacts.find(c => (c.whatsapp || c.phone));
+      
+      if (best) return best;
+      return crmWithContacts.whatsappContacts[0];
+    }
+  }
+
   const cleanQuery = String(queryCpfCnpj || '').replace(/\D/g, '');
   if (!cleanQuery) return null;
 
   const variations = getCpfCnpjVariations(queryCpfCnpj);
 
-  // 1. Tenta buscar o CrmCustomer pelo CPF/CNPJ primeiro
-  const crmCustomer = await prisma.crmCustomer.findFirst({
+  // 2. Tenta buscar outro CrmCustomer pelo CPF/CNPJ (caso o vinculado não tenha contatos)
+  const fallbackCrm = await prisma.crmCustomer.findFirst({
     where: {
       tenantId,
       cpfCnpj: { in: variations }
@@ -62,12 +81,13 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
     }
   });
 
-  // Se o CrmCustomer foi encontrado e possui contatos vinculados
-  if (crmCustomer && crmCustomer.whatsappContacts.length > 0) {
-    // Prioriza o contato do WhatsApp real (ex: vinculado manualmente, que não seja externalSource = 'firebird')
-    const realContact = crmCustomer.whatsappContacts.find(c => c.externalSource !== 'firebird');
-    if (realContact) return realContact;
-    return crmCustomer.whatsappContacts[0];
+  if (fallbackCrm && fallbackCrm.whatsappContacts.length > 0) {
+    let best = fallbackCrm.whatsappContacts.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
+    if (!best) best = fallbackCrm.whatsappContacts.find(c => c.externalSource !== 'firebird' && (c.whatsapp || c.phone));
+    if (!best) best = fallbackCrm.whatsappContacts.find(c => (c.whatsapp || c.phone));
+    
+    if (best) return best;
+    return fallbackCrm.whatsappContacts[0];
   }
 
   // Fallback: Busca todos os contatos do tenant
@@ -75,8 +95,8 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
     where: { tenantId }
   });
 
-  // 2. Tenta correspondência exata de CPF/CNPJ no próprio Contact
-  let matched = contacts.find(c => {
+  // 3. Tenta correspondência exata de CPF/CNPJ no próprio Contact
+  let matches = contacts.filter(c => {
     if (c.cpfCnpj) {
       const cleanDb = c.cpfCnpj.replace(/\D/g, '');
       if (cleanDb === cleanQuery) return true;
@@ -84,30 +104,43 @@ async function findContactByCpfCnpj(tenantId, queryCpfCnpj) {
     return false;
   });
 
-  if (matched) return matched;
+  if (matches.length > 0) {
+    // Prioriza o que tem Opt-in e telefone
+    let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
+    if (!best) best = matches.find(c => (c.whatsapp || c.phone));
+    return best || matches[0];
+  }
 
-  // 3. Tenta por raiz do CNPJ (primeiros 8 dígitos) no nome (padrão do Marcos Rossato)
+  // 4. Tenta por raiz do CNPJ (primeiros 8 dígitos) no nome
   if (cleanQuery.length === 14) {
-    const rootCnpj = cleanQuery.slice(0, 8); // ex: '35882354'
-    const rootCnpjFormatted = `${rootCnpj.slice(0, 2)}.${rootCnpj.slice(2, 5)}.${rootCnpj.slice(5, 8)}`; // '35.882.354'
+    const rootCnpj = cleanQuery.slice(0, 8); 
+    const rootCnpjFormatted = `${rootCnpj.slice(0, 2)}.${rootCnpj.slice(2, 5)}.${rootCnpj.slice(5, 8)}`; 
 
-    matched = contacts.find(c => {
+    matches = contacts.filter(c => {
       const nameLower = (c.name || '').toLowerCase();
       return nameLower.includes(rootCnpj) || nameLower.includes(rootCnpjFormatted);
     });
 
-    if (matched) return matched;
+    if (matches.length > 0) {
+      let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
+      if (!best) best = matches.find(c => (c.whatsapp || c.phone));
+      return best || matches[0];
+    }
   }
 
-  // 4. Tenta por CPF completo formatado ou limpo no nome
+  // 5. Tenta por CPF completo formatado ou limpo no nome
   if (cleanQuery.length === 11) {
     const cpfFormatted = `${cleanQuery.slice(0, 3)}.${cleanQuery.slice(3, 6)}.${cleanQuery.slice(6, 9)}-${cleanQuery.slice(9, 11)}`;
-    matched = contacts.find(c => {
+    matches = contacts.filter(c => {
       const nameLower = (c.name || '').toLowerCase();
       return nameLower.includes(cleanQuery) || nameLower.includes(cpfFormatted);
     });
 
-    if (matched) return matched;
+    if (matches.length > 0) {
+      let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
+      if (!best) best = matches.find(c => (c.whatsapp || c.phone));
+      return best || matches[0];
+    }
   }
 
   return null;
@@ -385,7 +418,7 @@ async function autoSendBilling(req, res) {
     }
 
     const fileNames = cachedDocuments.map((document) => document.fileName).join(', ');
-    const contact = await findContactByCpfCnpj(tenant.id, crmCustomer.cpfCnpj);
+    const contact = await findContactForBilling(tenant.id, crmCustomer, crmCustomer.cpfCnpj);
     const isSendToAll = String(sendPolicy).toLowerCase() === 'todos';
 
     if (!contact) {
