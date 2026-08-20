@@ -176,7 +176,10 @@ async function generateTransferSummary(apiKey, history) {
 
 async function getEmbedding(apiKey, text) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const embedModels = ['text-embedding-004', 'embedding-001'];
+  // text-embedding-004/embedding-001 foram descontinuados pelo Google - a base
+  // de conhecimento inteira ficava sem embedding (silenciosamente, sem erro
+  // visivel na tela) e a IA nunca usava o treinamento cadastrado.
+  const embedModels = getModels('GEMINI_EMBED_MODELS', ['gemini-embedding-001']);
 
   for (const modelName of embedModels) {
     try {
