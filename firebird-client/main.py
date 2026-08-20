@@ -2596,15 +2596,18 @@ def run_financial_document_monitor(config: AppConfig, stop_event: threading.Even
         return
     repo = FirebirdRepository(config)
     crm = CRMClient(config)
-    # Test-mode sends never touch the real ledger: flipping test mode off later
-    # re-evaluates everything seen during testing and sends it for real, instead
-    # of silently treating "we logged it" as "we sent it".
-    ledger_path = config.billing_auto_send_ledger_file
-    if config.billing_auto_send_test_mode:
-        ledger_path = ledger_path.with_name(f"{ledger_path.stem}-teste{ledger_path.suffix}")
-    ledger = BillingSendLedger(ledger_path)
+    # NOTA: o ledger e recriado a cada ciclo para refletir mudancas no modo
+    # teste sem precisar reiniciar o agente. O arquivo de teste e separado do
+    # de producao, entao desligar o modo teste descarta o ledger de teste e
+    # re-avalia todos os pacotes que foram apenas simulados.
     while stop_event is None or not stop_event.is_set():
         try:
+            # Resolve o ledger correto com base no modo atual (pode mudar em tempo real)
+            ledger_path = config.billing_auto_send_ledger_file
+            if config.billing_auto_send_test_mode:
+                ledger_path = ledger_path.with_name(f"{ledger_path.stem}-teste{ledger_path.suffix}")
+            ledger = BillingSendLedger(ledger_path)
+
             # Reuses the same live progress the manual "Indexar agora" button uses,
             # so a slow/large folder shows heartbeats in Logs instead of going quiet
             # for the whole duration of a periodic background scan.
@@ -2637,6 +2640,7 @@ def run_financial_document_monitor(config: AppConfig, stop_event: threading.Even
                 return
         else:
             time.sleep(wait_seconds)
+
 
 
 def inspect_schema(config: AppConfig) -> Path:
