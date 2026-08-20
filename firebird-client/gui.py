@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -39,8 +40,8 @@ class AgentGUI(ctk.CTk):
         load_dotenv(ENV_FILE)
 
         self.title("LCD Digital - Agente iLux CRM")
-        self.geometry(os.getenv("AGENT_WINDOW_GEOMETRY", "960x700"))
         self.minsize(620, 520)
+        self.geometry(self._validated_geometry(os.getenv("AGENT_WINDOW_GEOMETRY", "960x700")))
 
         self.is_running = False
         self.agent_thread = None
@@ -50,6 +51,30 @@ class AgentGUI(ctk.CTk):
         self.create_widgets()
         self.load_settings()
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
+
+    def _validated_geometry(self, value):
+        match = re.fullmatch(r"(\d+)x(\d+)(?:([+-]\d+)([+-]\d+))?", str(value or "").strip())
+        if not match:
+            return "960x700"
+        width, height = int(match.group(1)), int(match.group(2))
+        if width < 620 or height < 520:
+            return "960x700"
+        if match.group(3) is None:
+            return f"{width}x{height}"
+        x, y = int(match.group(3)), int(match.group(4))
+        screen_width, screen_height = self.winfo_screenwidth(), self.winfo_screenheight()
+        if x > screen_width - 100 or y > screen_height - 100 or x + width < 100 or y + height < 100:
+            return "960x700"
+        return f"{width}x{height}{x:+d}{y:+d}"
+
+    def _geometry_for_save(self):
+        # No startup com --minimized o Tk ainda informa 1x1+0+0. Salvar esse
+        # valor faz a proxima abertura normal parecer invisivel.
+        if not self.winfo_ismapped() or self.state() != "normal":
+            return None
+        if self.winfo_width() < 620 or self.winfo_height() < 520:
+            return None
+        return self.geometry()
 
     def create_widgets(self):
         self.grid_columnconfigure(0, weight=1)
@@ -397,8 +422,10 @@ class AgentGUI(ctk.CTk):
             "BILLING_AUTO_SEND_TEST_MODE": str(self.auto_send_test_mode_var.get()),
             "BILLING_AUTO_SEND_DOCUMENT_TYPES": json.dumps(self._auto_send_document_types(), ensure_ascii=False),
             "BILLING_AUTO_SEND_SINCE": self._auto_send_since(),
-            "AGENT_WINDOW_GEOMETRY": self.geometry(),
         }
+        window_geometry = self._geometry_for_save()
+        if window_geometry:
+            settings["AGENT_WINDOW_GEOMETRY"] = window_geometry
         for key, value in settings.items():
             set_key(str(ENV_FILE), key, value)
         self.set_startup(self.autostart_var.get())
@@ -566,7 +593,13 @@ class AgentGUI(ctk.CTk):
         if icon:
             icon.stop()
         self.tray_icon = None
-        self.after(0, self.deiconify)
+        def restore():
+            self.deiconify()
+            self.state("normal")
+            self.lift()
+            self.focus_force()
+
+        self.after(0, restore)
 
     def quit_window(self, icon=None, item=None):
         if icon:
