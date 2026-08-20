@@ -2198,7 +2198,11 @@ def sync_crm360_details(
         last_refresh = datetime.fromisoformat(last_refresh_text) if last_refresh_text else None
     except ValueError:
         last_refresh = None
-    refresh_due = force_meter_bootstrap or not last_refresh or (datetime.now() - last_refresh).total_seconds() >= 3600
+    # 15 min (era 1h): uma alteracao no iLux - endereco de equipamento, titulo,
+    # medidor - precisa aparecer no CRM rapido o suficiente pro atendente nao
+    # esbarrar em dado desatualizado no meio de um atendimento real.
+    CRM360_REFRESH_INTERVAL_SECONDS = 15 * 60
+    refresh_due = force_meter_bootstrap or not last_refresh or (datetime.now() - last_refresh).total_seconds() >= CRM360_REFRESH_INTERVAL_SECONDS
     if refresh_due:
         recent_receivables, _ = push_normalized_batches(
             crm, "receivables", repo.fetch_recent_receivables(1000), normalize_receivable, batch_size
@@ -2626,6 +2630,13 @@ def main() -> None:
         )
         return
 
+    # Forca uma atualizacao "CRM 360" (titulos/medidores/equipamentos
+    # recentes) logo no primeiro ciclo apos o agente abrir, em vez de confiar
+    # no timestamp da ultima rodada salvo no state.json - que pode ser de
+    # minutos atras (de uma execucao anterior) e faz o agente esperar ate 1h
+    # para revisar algo que acabou de mudar no iLux, mesmo logo apos abrir.
+    state.data["crm360_recent_refresh_at"] = None
+    state.save()
     logging.info("Client iniciado. Intervalo: %ss", config.sync_interval_seconds)
     command_thread = threading.Thread(
         target=run_command_listener,
