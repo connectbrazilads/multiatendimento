@@ -45,6 +45,7 @@ export default function Layout() {
   const location = useLocation();
   const [notification, setNotification] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
@@ -90,7 +91,10 @@ export default function Layout() {
     if (!tenantId) return undefined;
 
     getMe()
-      .then((res) => setTenant(res.data.tenant))
+      .then((res) => {
+        setCurrentUser(res.data);
+        setTenant(res.data.tenant);
+      })
       .catch(() => {});
 
     const token = localStorage.getItem('token');
@@ -237,16 +241,19 @@ export default function Layout() {
       <nav style={{ ...styles.nav, padding: isMobile ? '0 var(--space-4)' : '0 var(--space-6)' }}>
         <div style={styles.brandGroup}>
           {tenant?.logoUrl ? (
-            <img
-              src={getMediaUrl(tenant.logoUrl)}
-              alt={tenant?.name || 'Logo da empresa'}
-              style={{
-                height: isMobile ? '32px' : '40px',
-                width: 'auto',
-                objectFit: 'contain',
-                borderRadius: '10px',
-              }}
-            />
+            <div style={{ ...styles.logoFrame, width: isMobile ? '72px' : '88px', height: isMobile ? '40px' : '50px' }}>
+              <img
+                src={getMediaUrl(tenant.logoUrl)}
+                alt={tenant?.name || 'Logo da empresa'}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: isMobile ? '30px' : '38px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </div>
           ) : (
             <>
               <span style={styles.brandIcon}>MA</span>
@@ -309,6 +316,13 @@ export default function Layout() {
           <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} style={styles.themeBtn} title="Alternar tema" aria-label="Alternar tema">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+
+          {currentUser?.name ? (
+            <div style={{ ...styles.userIdentity, ...(isMobile ? styles.userIdentityMobile : {}) }} title={`Usuário conectado: ${currentUser.name}`}>
+              <span style={styles.userAvatar}>{currentUser.name.trim().charAt(0).toUpperCase()}</span>
+              {!isMobile ? <span style={styles.userName}>{currentUser.name}</span> : null}
+            </div>
+          ) : null}
 
           <button type="button" style={{ ...styles.logout, padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1rem' }} onClick={logout} title="Sair do sistema" aria-label="Sair do sistema">
             {isMobile ? <LogOut size={18} /> : 'Sair'}
@@ -424,6 +438,18 @@ const styles = {
     flexShrink: 0,
   },
   brandGroup: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 },
+  logoFrame: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '5px 9px',
+    borderRadius: '10px',
+    background: '#FFFFFF',
+    border: '1px solid rgba(15, 23, 42, 0.16)',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.12)',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
   brandIcon: {
     width: '34px',
     height: '34px',
@@ -516,6 +542,39 @@ const styles = {
     boxShadow: 'inset 0 0 0 1px var(--accent-border)',
   },
   rightActions: { display: 'flex', alignItems: 'center', gap: '0.8rem', flexShrink: 0 },
+  userIdentity: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    minWidth: 0,
+    maxWidth: '180px',
+    color: 'var(--text-main)',
+    fontSize: '0.82rem',
+    fontWeight: 700,
+  },
+  userIdentityMobile: {
+    maxWidth: '34px',
+  },
+  userAvatar: {
+    width: '30px',
+    height: '30px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    flexShrink: 0,
+    background: 'var(--accent-light)',
+    border: '1px solid var(--accent-border)',
+    color: 'var(--accent)',
+    fontSize: '0.78rem',
+    fontWeight: 900,
+  },
+  userName: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   commandButton: {
     height: '38px',
     minWidth: '150px',
