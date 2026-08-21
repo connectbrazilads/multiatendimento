@@ -231,9 +231,10 @@ class RunBillingAutomationTest(unittest.TestCase):
         self.config.billing_auto_send_test_mode = False
         ledger = BillingSendLedger(self.root / "ledger.json")
         crm = CRMClient(self.config)
+        # Compatibilidade com o backend antigo: antes do campo `skipped`, a
+        # resposta ainda era HTTP 200 e só trazia esta mensagem.
         skipped_response = {
             "success": True,
-            "skipped": True,
             "message": "Envio automatico nao habilitado para este contato.",
         }
         with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]), \

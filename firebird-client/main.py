@@ -2594,16 +2594,29 @@ def run_billing_automation(
             continue
         try:
             result = crm.send_billing_package(package)
-            if result.get("skipped"):
+            result_message = str(result.get("message") or "")
+            legacy_skip_message = result_message.casefold()
+            was_skipped = bool(result.get("skipped")) or any(
+                marker in legacy_skip_message
+                for marker in (
+                    "não habilitado",
+                    "nao habilitado",
+                    "não há contato",
+                    "nao ha contato",
+                    "telefone do contato não é válido",
+                    "telefone do contato nao e valido",
+                )
+            )
+            if was_skipped:
                 logging.warning(
                     "Envio automatico ignorado para %s (titulo #%s): %s. "
                     "Nao foi gravado no ledger e podera ser tentado novamente.",
                     who,
                     package["receivableExternalId"],
-                    result.get("message") or "contato sem permissao ou telefone valido",
+                    result_message or "contato sem permissao ou telefone valido",
                 )
                 continue
-            logging.info("Envio automatico realizado: %s -- %s", description, result.get("message") or "ok")
+            logging.info("Envio automatico realizado: %s -- %s", description, result_message or "ok")
             ledger.record(package["receivableExternalId"], package["combinedHash"], ledger_info)
             sent += 1
         except Exception as exc:
