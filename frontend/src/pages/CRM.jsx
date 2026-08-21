@@ -431,6 +431,7 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
           <div style={s.tabGroup} role="group" aria-label="Operação">
             <span style={s.tabGroupLabel}>Operação</span>
             <Tab active={activeTab === 'overview'} icon={<User size={16} />} label="Resumo" onClick={() => setActiveTab('overview')} />
+            {financialAllowed !== false ? <Tab active={activeTab === 'financial'} disabled={financialAllowed === null} icon={<CreditCard size={16} />} label={financialAllowed === null ? 'Financeiro (…)': 'Financeiro'} onClick={() => setActiveTab('financial')} /> : null}
             <Tab active={activeTab === 'equipments'} icon={<Printer size={16} />} label={`Equipamentos (${equipments.length})`} onClick={() => setActiveTab('equipments')} />
             <Tab active={activeTab === 'os'} icon={<ClipboardList size={16} />} label={`O.S. (${resourceStatus.os === 'loading' ? '…' : serviceOrders.length})`} onClick={() => setActiveTab('os')} />
           </div>
@@ -439,7 +440,6 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
             <Tab active={activeTab === 'contracts'} icon={<FileText size={16} />} label={`Contratos (${resourceStatus.contracts === 'loading' ? '…' : contracts.length})`} onClick={() => setActiveTab('contracts')} />
             <Tab active={activeTab === 'units'} icon={<MapPinned size={16} />} label={`Unidades (${resourceStatus.view360 === 'loading' ? '…' : arrayOf(customer360.units).length})`} onClick={() => setActiveTab('units')} />
             <Tab active={activeTab === 'contacts'} icon={<Phone size={16} />} label={`Contatos (${resourceStatus.view360 === 'loading' ? '…' : arrayOf(customer360.contacts).length})`} onClick={() => setActiveTab('contacts')} />
-            {financialAllowed !== false ? <Tab active={activeTab === 'financial'} disabled={financialAllowed === null} icon={<CreditCard size={16} />} label={financialAllowed === null ? 'Financeiro (…)': 'Financeiro'} onClick={() => setActiveTab('financial')} /> : null}
           </div>
         </nav>
 
