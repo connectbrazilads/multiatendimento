@@ -101,6 +101,7 @@ export default function BillingReports() {
           nav, header, .no-print { display: none !important; }
           .billing-report-container { padding: 0 !important; background: white !important; overflow: visible !important; }
           .print-full { max-height: none !important; overflow: visible !important; border: none !important; }
+          .main-section-print { display: block !important; grid-template-columns: 1fr !important; }
           table { width: 100% !important; border-collapse: collapse; }
           th, td { border-bottom: 1px solid #ccc !important; padding: 8px !important; }
           body { background: white !important; color: black !important; }
@@ -132,7 +133,7 @@ export default function BillingReports() {
 
       <div style={s.content}>
         {/* KPIs */}
-        <div style={s.kpiGrid}>
+        <div style={s.kpiGrid} className="no-print">
           <div style={s.kpiCard}>
             <div style={s.kpiHeader}>
               <span style={s.kpiTitle}>Total Processado</span>
@@ -179,9 +180,9 @@ export default function BillingReports() {
           </div>
         </div>
 
-        <div style={s.mainSection}>
+        <div style={s.mainSection} className="main-section-print">
           {/* Chart */}
-          <div style={s.chartBox}>
+          <div style={s.chartBox} className="no-print">
             <h3 style={s.boxTitle}>Distribuição dos Resultados</h3>
             {chartData.length > 0 ? (
               <div style={{ height: '300px', width: '100%' }}>

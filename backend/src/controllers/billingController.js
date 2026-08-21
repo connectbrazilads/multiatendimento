@@ -674,20 +674,28 @@ async function getBillingDashboardStats(req, res) {
         fantasyName: true,
         phone: true,
         cpfCnpj: true,
-        whatsapp: true
+        whatsapp: true,
+        crmCustomer: {
+          select: {
+            cpfCnpj: true
+          }
+        }
       }
     });
 
     const successfulCpfs = new Set(logs.filter(l => l.status === 'SUCCESS' && l.cpfCnpj).map(l => l.cpfCnpj.replace(/\D/g, '')));
 
     const coverageAnalysis = optInContacts.map(contact => {
-      const contactCpf = (contact.cpfCnpj || '').replace(/\D/g, '');
+      // Tenta usar o CPF do Contato ou então o CPF da Ficha do CRM vinculada
+      const realCpfCnpj = contact.cpfCnpj || contact.crmCustomer?.cpfCnpj || '';
+      const contactCpf = realCpfCnpj.replace(/\D/g, '');
       const hasReceived = contactCpf && successfulCpfs.has(contactCpf);
+      
       return {
         id: contact.id,
         name: contact.fantasyName || contact.name || 'Sem nome',
         phone: contact.whatsapp || contact.phone || 'Sem telefone',
-        cpfCnpj: contact.cpfCnpj || 'Não informado',
+        cpfCnpj: realCpfCnpj || 'Não informado',
         status: hasReceived ? 'RECEIVED' : 'PENDING'
       };
     });
