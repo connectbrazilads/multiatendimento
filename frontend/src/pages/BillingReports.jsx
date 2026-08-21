@@ -38,12 +38,53 @@ const STATUS_COLORS = {
   SKIPPED: '#d97706',
 };
 
+function compareSortValues(left, right) {
+  if (left == null || left === '') return right == null || right === '' ? 0 : 1;
+  if (right == null || right === '') return -1;
+
+  const leftDate = left instanceof Date ? left.getTime() : Date.parse(left);
+  const rightDate = right instanceof Date ? right.getTime() : Date.parse(right);
+  if (Number.isFinite(leftDate) && Number.isFinite(rightDate)) return leftDate - rightDate;
+
+  return String(left).localeCompare(String(right), 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+
+function sortRows(rows, sortConfig, getValue) {
+  if (!sortConfig?.key) return rows;
+  const direction = sortConfig.direction === 'desc' ? -1 : 1;
+  return [...rows].sort((left, right) => direction * compareSortValues(getValue(left, sortConfig.key), getValue(right, sortConfig.key)));
+}
+
+function coverageDetail(contact) {
+  if (contact.status === 'RECEIVED' && contact.lastSentAt) {
+    return `Enviado em ${new Date(contact.lastSentAt).toLocaleString('pt-BR')}`;
+  }
+  return contact.lastError || (contact.status === 'NO_PHONE' ? 'Contato sem telefone cadastrado.' : 'Nenhum envio concluído no período.');
+}
+
+function SortableHeader({ label, scope, sortKey, sortConfig, onSort }) {
+  const active = sortConfig?.key === sortKey;
+  const direction = active ? sortConfig.direction : null;
+  return (
+    <th style={s.th} aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="table-sort-button" style={s.tableSortButton} onClick={() => onSort(scope, sortKey)}>
+        <span>{label}</span>
+        <span className="sort-indicator" aria-hidden="true">{active ? (direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  );
+}
+
 export default function BillingReports() {
   const [period, setPeriod] = useState(1);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ stats: null, logs: [], coverageAnalysis: [], coverageSummary: null });
   const [filterType, setFilterType] = useState('ALL');
   const [activeTab, setActiveTab] = useState('logs');
+  const [sortConfig, setSortConfig] = useState({
+    logs: { key: 'sentAt', direction: 'desc' },
+    coverage: { key: 'name', direction: 'asc' },
+  });
 
   useEffect(() => {
     loadData();
@@ -52,6 +93,14 @@ export default function BillingReports() {
 
   function handlePrint() {
     window.print();
+  }
+
+  function handleSort(scope, key) {
+    setSortConfig((current) => {
+      const previous = current[scope];
+      const direction = previous?.key === key && previous.direction === 'asc' ? 'desc' : 'asc';
+      return { ...current, [scope]: { key, direction } };
+    });
   }
 
   async function loadData() {
@@ -84,6 +133,29 @@ export default function BillingReports() {
     if (filterType === 'SKIPPED_NOCONTACT') return data.logs.filter(l => l.status === 'SKIPPED' && !l.errorMessage?.includes('Opt-in'));
     return data.logs;
   }, [data.logs, filterType]);
+
+  const sortedLogs = useMemo(() => sortRows(
+    filteredLogs,
+    sortConfig.logs,
+    (log, key) => {
+      if (key === 'client') return `${log.clientName || ''} ${log.cpfCnpj || ''}`;
+      if (key === 'status') return log.status === 'SUCCESS' ? 'Enviado' : log.errorMessage || log.status;
+      if (key === 'detail') return log.errorMessage || 'Enviado para o WhatsApp com sucesso.';
+      return log.sentAt;
+    },
+  ), [filteredLogs, sortConfig.logs]);
+
+  const sortedCoverage = useMemo(() => sortRows(
+    data.coverageAnalysis || [],
+    sortConfig.coverage,
+    (contact, key) => {
+      if (key === 'client') return `${contact.name || ''} ${contact.cpfCnpj || ''}`;
+      if (key === 'phone') return contact.phone;
+      if (key === 'status') return contact.status;
+      if (key === 'detail') return coverageDetail(contact);
+      return contact.name;
+    },
+  ), [data.coverageAnalysis, sortConfig.coverage]);
 
   if (loading && !data.stats) {
     return (
@@ -133,6 +205,8 @@ export default function BillingReports() {
           th, td { display: table-cell !important; border-bottom: 1px solid #cbd5e1 !important; padding: 8px !important; color: #1f2937 !important; background: #fff !important; }
           th { background: #f1f5f9 !important; color: #334155 !important; }
           .status-badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .table-sort-button { color: inherit !important; background: transparent !important; border: 0 !important; padding: 0 !important; cursor: default !important; }
+          .sort-indicator { display: none !important; }
           thead { display: table-header-group; }
           .coverage-summary { color: #111827 !important; background: #f8fafc !important; border-color: #94a3b8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .coverage-summary span { display: block; font-size: 11px; color: #555 !important; }
@@ -300,14 +374,14 @@ export default function BillingReports() {
                   <>
                     <thead>
                       <tr>
-                        <th style={s.th}>Data / Hora</th>
-                        <th style={s.th}>Cliente (CPF/CNPJ)</th>
-                        <th style={s.th}>Status</th>
-                        <th style={s.th}>Detalhe</th>
+                        <SortableHeader label="Data / Hora" scope="logs" sortKey="sentAt" sortConfig={sortConfig.logs} onSort={handleSort} />
+                        <SortableHeader label="Cliente (CPF/CNPJ)" scope="logs" sortKey="client" sortConfig={sortConfig.logs} onSort={handleSort} />
+                        <SortableHeader label="Status" scope="logs" sortKey="status" sortConfig={sortConfig.logs} onSort={handleSort} />
+                        <SortableHeader label="Detalhe" scope="logs" sortKey="detail" sortConfig={sortConfig.logs} onSort={handleSort} />
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLogs.map((log) => {
+                      {sortedLogs.map((log) => {
                         const isSuccess = log.status === 'SUCCESS';
                         const isSkipped = log.status === 'SKIPPED';
                         const isFailed = log.status === 'FAILED';
@@ -334,7 +408,7 @@ export default function BillingReports() {
                           </tr>
                         );
                       })}
-                      {filteredLogs.length === 0 && (
+                      {sortedLogs.length === 0 && (
                         <tr>
                           <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             Nenhum registro encontrado para este filtro.
@@ -347,14 +421,14 @@ export default function BillingReports() {
                   <>
                     <thead>
                       <tr>
-                        <th style={s.th}>Cliente</th>
-                        <th style={s.th}>Telefone / WhatsApp</th>
-                        <th style={s.th}>Envio no Período</th>
-                        <th style={s.th}>Detalhe</th>
+                        <SortableHeader label="Cliente" scope="coverage" sortKey="client" sortConfig={sortConfig.coverage} onSort={handleSort} />
+                        <SortableHeader label="Telefone / WhatsApp" scope="coverage" sortKey="phone" sortConfig={sortConfig.coverage} onSort={handleSort} />
+                        <SortableHeader label="Envio no Período" scope="coverage" sortKey="status" sortConfig={sortConfig.coverage} onSort={handleSort} />
+                        <SortableHeader label="Detalhe" scope="coverage" sortKey="detail" sortConfig={sortConfig.coverage} onSort={handleSort} />
                       </tr>
                     </thead>
                     <tbody>
-                      {data.coverageAnalysis && data.coverageAnalysis.map((contact) => {
+                      {sortedCoverage.map((contact) => {
                         const badgeColor = STATUS_COLORS[contact.status] || STATUS_COLORS.FAILED;
                         return (
                           <tr key={contact.id}>
@@ -372,14 +446,12 @@ export default function BillingReports() {
                               </span>
                             </td>
                             <td style={s.tdMessage}>
-                              {contact.status === 'RECEIVED' && contact.lastSentAt
-                                ? `Enviado em ${new Date(contact.lastSentAt).toLocaleString('pt-BR')}`
-                                : contact.lastError || (contact.status === 'NO_PHONE' ? 'Contato sem telefone cadastrado.' : 'Nenhum envio concluído no período.')}
+                              {coverageDetail(contact)}
                             </td>
                           </tr>
                         );
                       })}
-                      {(!data.coverageAnalysis || data.coverageAnalysis.length === 0) && (
+                      {sortedCoverage.length === 0 && (
                         <tr>
                           <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             Nenhum cliente com opt-in encontrado.
@@ -561,6 +633,20 @@ const s = {
     textAlign: 'left',
     fontSize: '0.875rem'
   },
+  tableSortButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '0.5rem',
+    width: '100%',
+    padding: 0,
+    border: 0,
+    background: 'transparent',
+    color: 'inherit',
+    font: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
   th: {
     padding: 'var(--space-3) var(--space-4)',
     borderBottom: '1px solid var(--border-color)',
@@ -620,10 +706,10 @@ const s = {
     alignItems: 'center',
     gap: '8px',
     padding: '8px 16px',
-    background: 'white',
-    border: '1px solid var(--border-color)',
+    background: 'var(--accent)',
+    border: '1px solid var(--accent)',
     borderRadius: '8px',
-    color: 'var(--text-main)',
+    color: 'var(--text-inverse)',
     fontWeight: 600,
     cursor: 'pointer'
   },
