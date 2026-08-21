@@ -146,6 +146,7 @@ test('nunca chama o WhatsApp quando o opt-in do contato esta desligado', async (
 
   assert.equal(res.statusCode, undefined); // 200 default
   assert.equal(res.body.success, true);
+  assert.equal(res.body.skipped, true);
   assert.equal(mediaSent, false, 'nao deveria ter enviado midia com opt-in desligado');
   assert.equal(textSent, false, 'nao deveria ter enviado texto com opt-in desligado');
   assert.equal(billingLogged.status, 'SKIPPED');

@@ -227,6 +227,30 @@ class RunBillingAutomationTest(unittest.TestCase):
         send.assert_called_once()
         self.assertEqual(stats_retry["sent"], 1)
 
+    def test_real_mode_does_not_record_a_skipped_send_so_it_retries_next_time(self):
+        self.config.billing_auto_send_test_mode = False
+        ledger = BillingSendLedger(self.root / "ledger.json")
+        crm = CRMClient(self.config)
+        skipped_response = {
+            "success": True,
+            "skipped": True,
+            "message": "Envio automatico nao habilitado para este contato.",
+        }
+        with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]), \
+             patch.object(crm, "send_billing_package", return_value=skipped_response) as send:
+            stats = run_billing_automation(self.repo, crm, self.config, ledger)
+        send.assert_called_once()
+        self.assertEqual(stats["sent"], 0)
+        self.assertEqual(stats["failed"], 0)
+
+        # Sem ledger para uma resposta ignorada, uma nova rodada tenta de novo
+        # quando o contato/opt-in for corrigido.
+        with patch.object(self.repo, "fetch_open_receivables_for_billing", return_value=[self.receivable_row]), \
+             patch.object(crm, "send_billing_package", return_value={"success": True}) as send_retry:
+            stats_retry = run_billing_automation(self.repo, crm, self.config, ledger)
+        send_retry.assert_called_once()
+        self.assertEqual(stats_retry["sent"], 1)
+
 
 class ResolveBillingAutoSendSinceTest(unittest.TestCase):
     """The safety cutoff that stops automatic sending from blasting a

@@ -465,7 +465,7 @@ async function autoSendBilling(req, res) {
       await prisma.billingLog.create({
         data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Opt-in de cobrança desativado para este contato.' },
       });
-      return res.json({ success: true, message: 'Envio automático não habilitado para este contato.' });
+      return res.json({ success: true, skipped: true, message: 'Envio automático não habilitado para este contato.' });
     }
 
     const evolutionUrl = tenant.settings?.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL;
