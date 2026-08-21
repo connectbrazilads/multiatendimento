@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getBillingReports } from '../services/api';
+import { getBillingReports, triggerBillingProcess } from '../services/api';
 import PageHeader from '../components/ui/PageHeader';
 import {
   PieChart,
   Pie,
   Cell,
   Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Legend
+  ResponsiveContainer
 } from 'recharts';
 import {
   BarChart2,
@@ -18,7 +17,11 @@ import {
   Clock,
   Filter,
   Printer,
-  Download
+  Download,
+  RefreshCw,
+  Search,
+  AlertTriangle,
+  CalendarDays
 } from 'lucide-react';
 
 const PERIOD_OPTIONS = [
@@ -62,6 +65,36 @@ function coverageDetail(contact) {
   return contact.lastError || (contact.status === 'NO_PHONE' ? 'Contato sem telefone cadastrado.' : 'Nenhum envio concluído no período.');
 }
 
+function billingLogDetail(log) {
+  if (log.status === 'SUCCESS') return 'Enviado para o WhatsApp com sucesso.';
+  const raw = log.errorMessage || 'Falha sem mensagem detalhada.';
+  if (/status code 400/i.test(raw)) {
+    return 'WhatsApp recusou a solicitacao (HTTP 400). Verifique o telefone, a instancia e tente novamente.';
+  }
+  if (/status code 401|status code 403/i.test(raw)) {
+    return 'A instancia recusou a autenticacao. Verifique a conexao do WhatsApp.';
+  }
+  return raw;
+}
+
+function billingLogCategory(log) {
+  if (log.status === 'SUCCESS') return 'Enviado';
+  if (log.status === 'SKIPPED' && log.errorMessage?.includes('Opt-in')) return 'Sem opt-in';
+  if (log.status === 'SKIPPED') return 'Sem telefone';
+  if (/status code 400/i.test(log.errorMessage || '')) return 'Falha tecnica - HTTP 400';
+  return 'Falha tecnica';
+}
+
+function csvCell(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function formatDateOnly(value) {
+  if (!value) return '';
+  const [year, month, day] = String(value).split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
 function SortableHeader({ label, scope, sortKey, sortConfig, onSort }) {
   const active = sortConfig?.key === sortKey;
   const direction = active ? sortConfig.direction : null;
@@ -77,9 +110,17 @@ function SortableHeader({ label, scope, sortKey, sortConfig, onSort }) {
 
 export default function BillingReports() {
   const [period, setPeriod] = useState(1);
+  const [customRange, setCustomRange] = useState(null);
+  const [customRangeDraft, setCustomRangeDraft] = useState({ startDate: '', endDate: '' });
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ stats: null, logs: [], coverageAnalysis: [], coverageSummary: null });
   const [filterType, setFilterType] = useState('ALL');
+  const [coverageFilter, setCoverageFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('logs');
   const [sortConfig, setSortConfig] = useState({
     logs: { key: 'sentAt', direction: 'desc' },
@@ -89,10 +130,27 @@ export default function BillingReports() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period]);
+  }, [period, customRange]);
 
   function handlePrint() {
     window.print();
+  }
+
+  function selectPeriod(value) {
+    setPeriod(value);
+    setCustomRange(null);
+    setCustomRangeOpen(false);
+  }
+
+  function applyCustomRange() {
+    const { startDate, endDate } = customRangeDraft;
+    if (!startDate || !endDate || startDate > endDate) {
+      setActionMessage('Informe um periodo personalizado valido.');
+      return;
+    }
+    setActionMessage('');
+    setCustomRange({ startDate, endDate });
+    setCustomRangeOpen(false);
   }
 
   function handleSort(scope, key) {
@@ -103,16 +161,60 @@ export default function BillingReports() {
     });
   }
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData({ silent = false } = {}) {
+    if (!silent) setLoading(true);
+    setRefreshing(true);
     try {
-      const res = await getBillingReports(period);
+      const res = await getBillingReports(customRange ? { ...customRange } : { period });
       setData(res.data);
+      setUpdatedAt(new Date());
     } catch (err) {
       console.error('Erro ao buscar relatórios de cobrança:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }
+
+  async function requestBillingRetry() {
+    setActionMessage('Solicitando nova leitura das pendencias ao agente...');
+    try {
+      await triggerBillingProcess();
+      setActionMessage('Reprocessamento solicitado. O agente tentara os titulos pendentes na proxima leitura.');
+    } catch (err) {
+      setActionMessage(err.response?.data?.error || 'Nao foi possivel solicitar o reprocessamento.');
+    }
+  }
+
+  function exportCsv() {
+    const rows = activeTab === 'logs'
+      ? [
+          ['Data / Hora', 'Cliente', 'CPF/CNPJ', 'Status', 'Detalhe'],
+          ...sortedLogs.map((log) => [
+            new Date(log.sentAt).toLocaleString('pt-BR'),
+            log.clientName || 'Cliente nao identificado',
+            log.cpfCnpj || '',
+            billingLogCategory(log),
+            billingLogDetail(log),
+          ]),
+        ]
+      : [
+          ['Cliente', 'CPF/CNPJ', 'Telefone / WhatsApp', 'Envio no periodo', 'Detalhe'],
+          ...sortedCoverage.map((contact) => [
+            contact.name,
+            contact.cpfCnpj,
+            contact.phone || 'Sem telefone',
+            contact.status === 'RECEIVED' ? 'Recebeu' : contact.status === 'NO_PHONE' ? 'Sem telefone' : 'Faltou enviar',
+            coverageDetail(contact),
+          ]),
+        ];
+    const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(';')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio-cobranca-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   const chartData = useMemo(() => {
@@ -126,27 +228,40 @@ export default function BillingReports() {
   }, [data.stats]);
 
   const filteredLogs = useMemo(() => {
-    if (filterType === 'ALL') return data.logs;
-    if (filterType === 'SUCCESS') return data.logs.filter(l => l.status === 'SUCCESS');
-    if (filterType === 'FAILED') return data.logs.filter(l => l.status === 'FAILED');
-    if (filterType === 'SKIPPED_OPTIN') return data.logs.filter(l => l.status === 'SKIPPED' && l.errorMessage?.includes('Opt-in'));
-    if (filterType === 'SKIPPED_NOCONTACT') return data.logs.filter(l => l.status === 'SKIPPED' && !l.errorMessage?.includes('Opt-in'));
-    return data.logs;
-  }, [data.logs, filterType]);
+    const query = searchTerm.trim().toLowerCase();
+    return data.logs.filter((log) => {
+      const matchesType = filterType === 'ALL'
+        || (filterType === 'SUCCESS' && log.status === 'SUCCESS')
+        || (filterType === 'FAILED' && log.status === 'FAILED')
+        || (filterType === 'SKIPPED_OPTIN' && log.status === 'SKIPPED' && log.errorMessage?.includes('Opt-in'))
+        || (filterType === 'SKIPPED_NOCONTACT' && log.status === 'SKIPPED' && !log.errorMessage?.includes('Opt-in'));
+      const haystack = `${log.clientName || ''} ${log.cpfCnpj || ''} ${log.errorMessage || ''}`.toLowerCase();
+      return matchesType && (!query || haystack.includes(query));
+    });
+  }, [data.logs, filterType, searchTerm]);
+
+  const filteredCoverage = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return (data.coverageAnalysis || []).filter((contact) => {
+      const matchesStatus = coverageFilter === 'ALL' || contact.status === coverageFilter;
+      const haystack = `${contact.name || ''} ${contact.cpfCnpj || ''} ${contact.phone || ''} ${coverageDetail(contact)}`.toLowerCase();
+      return matchesStatus && (!query || haystack.includes(query));
+    });
+  }, [data.coverageAnalysis, coverageFilter, searchTerm]);
 
   const sortedLogs = useMemo(() => sortRows(
     filteredLogs,
     sortConfig.logs,
     (log, key) => {
       if (key === 'client') return `${log.clientName || ''} ${log.cpfCnpj || ''}`;
-      if (key === 'status') return log.status === 'SUCCESS' ? 'Enviado' : log.errorMessage || log.status;
-      if (key === 'detail') return log.errorMessage || 'Enviado para o WhatsApp com sucesso.';
+      if (key === 'status') return billingLogCategory(log);
+      if (key === 'detail') return billingLogDetail(log);
       return log.sentAt;
     },
   ), [filteredLogs, sortConfig.logs]);
 
   const sortedCoverage = useMemo(() => sortRows(
-    data.coverageAnalysis || [],
+    filteredCoverage,
     sortConfig.coverage,
     (contact, key) => {
       if (key === 'client') return `${contact.name || ''} ${contact.cpfCnpj || ''}`;
@@ -155,7 +270,7 @@ export default function BillingReports() {
       if (key === 'detail') return coverageDetail(contact);
       return contact.name;
     },
-  ), [data.coverageAnalysis, sortConfig.coverage]);
+  ), [filteredCoverage, sortConfig.coverage]);
 
   if (loading && !data.stats) {
     return (
@@ -169,10 +284,16 @@ export default function BillingReports() {
 
   const { stats } = data;
   const deliveryRate = stats?.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
+  const accountedTotal = (stats?.success || 0) + (stats?.skippedOptIn || 0) + (stats?.skippedNoContact || 0) + (stats?.failed || 0);
+  const reportPeriodLabel = customRange
+    ? `${formatDateOnly(customRange.startDate)} a ${formatDateOnly(customRange.endDate)}`
+    : PERIOD_OPTIONS.find((option) => option.value === period)?.label || `${period} dias`;
 
   return (
     <div style={s.container} className="billing-report-container">
       <style>{`
+        @keyframes billing-spin { to { transform: rotate(360deg); } }
+        .billing-spin { animation: billing-spin 0.9s linear infinite; }
         @media print {
           @page { size: landscape; margin: 12mm; }
           html, body, #root,
@@ -218,25 +339,47 @@ export default function BillingReports() {
         title="Relatórios de Cobrança"
         subtitle="Analise a efetividade dos envios automáticos de boletos via WhatsApp."
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
+          <div style={s.headerActions}>
             <button onClick={handlePrint} className="no-print" style={s.printBtn}>
               <Printer size={16} /> Salvar PDF
+            </button>
+            <button onClick={exportCsv} className="no-print" style={s.secondaryActionBtn} title="Exportar os dados filtrados para Excel">
+              <Download size={16} /> CSV/Excel
+            </button>
+            <button onClick={() => loadData({ silent: true })} className="no-print" style={s.secondaryActionBtn} disabled={refreshing} title="Atualizar relatórios">
+              <RefreshCw size={16} className={refreshing ? 'billing-spin' : ''} /> Atualizar
             </button>
             <div style={s.periodGroup} className="no-print">
             {PERIOD_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                style={{ ...s.periodBtn, ...(period === opt.value ? s.periodBtnActive : {}) }}
-                onClick={() => setPeriod(opt.value)}
+                style={{ ...s.periodBtn, ...(period === opt.value && !customRange ? s.periodBtnActive : {}) }}
+                onClick={() => selectPeriod(opt.value)}
               >
                 {opt.label}
               </button>
             ))}
+            <button type="button" style={{ ...s.periodBtn, ...(customRange ? s.periodBtnActive : {}) }} onClick={() => setCustomRangeOpen((open) => !open)}>
+              Personalizado
+            </button>
             </div>
           </div>
         }
       />
+
+      <div style={s.reportMeta} className="no-print">
+        <span><CalendarDays size={15} /> Periodo: <strong>{reportPeriodLabel}</strong></span>
+        <span>{updatedAt ? `Atualizado as ${updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Aguardando atualizacao'}</span>
+      </div>
+      {customRangeOpen && (
+        <div style={s.customRangePanel} className="no-print">
+          <label style={s.dateField}>De<input type="date" style={s.dateInput} value={customRangeDraft.startDate} onChange={(event) => setCustomRangeDraft((current) => ({ ...current, startDate: event.target.value }))} /></label>
+          <label style={s.dateField}>Ate<input type="date" style={s.dateInput} value={customRangeDraft.endDate} onChange={(event) => setCustomRangeDraft((current) => ({ ...current, endDate: event.target.value }))} /></label>
+          <button type="button" style={s.applyRangeBtn} onClick={applyCustomRange}>Aplicar periodo</button>
+        </div>
+      )}
+      {actionMessage ? <div style={s.actionMessage} className="no-print">{actionMessage}</div> : null}
 
       <div style={s.content}>
         {/* KPIs */}
@@ -285,6 +428,15 @@ export default function BillingReports() {
             <div style={{ ...s.kpiValue, color: STATUS_COLORS.SKIPPED_NOCONTACT }}>{stats?.skippedNoContact || 0}</div>
             <div style={s.kpiSub}>Contato não encontrado ou telefone em branco</div>
           </div>
+
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Falhas tecnicas</span>
+              <AlertTriangle size={18} color={STATUS_COLORS.FAILED} />
+            </div>
+            <div style={{ ...s.kpiValue, color: STATUS_COLORS.FAILED }}>{stats?.failed || 0}</div>
+            <div style={s.kpiSub}>{accountedTotal === (stats?.total || 0) ? 'Conferencia dos totais OK' : 'Requer conferencia dos totais'}</div>
+          </div>
         </div>
 
         <div style={s.mainSection} className="main-section-print">
@@ -292,6 +444,7 @@ export default function BillingReports() {
           <div style={s.chartBox} className="no-print">
             <h3 style={s.boxTitle}>Distribuição dos Resultados</h3>
             {chartData.length > 0 ? (
+              <>
               <div style={{ height: '300px', width: '100%' }}>
                 <ResponsiveContainer>
                   <PieChart>
@@ -307,10 +460,21 @@ export default function BillingReports() {
                       ))}
                     </Pie>
                     <RechartsTooltip formatter={(value) => [`${value} boletos`, '']} />
-                    <Legend verticalAlign="bottom" height={36} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+              <div style={s.chartBars}>
+                {chartData.map((entry) => {
+                  const percentage = stats?.total ? Math.round((entry.value / stats.total) * 100) : 0;
+                  return (
+                    <div key={entry.name} style={s.chartBarRow}>
+                      <div style={s.chartBarLabel}><span>{entry.name}</span><strong>{entry.value} ({percentage}%)</strong></div>
+                      <div style={s.chartTrack}><div style={{ ...s.chartFill, width: `${percentage}%`, background: entry.color }} /></div>
+                    </div>
+                  );
+                })}
+              </div>
+              </>
             ) : (
               <div style={s.emptyState}>Sem dados no período</div>
             )}
@@ -353,8 +517,40 @@ export default function BillingReports() {
               )}
             </div>
 
+            <div style={s.tableToolbar} className="no-print">
+              <div style={s.searchBox}>
+                <Search size={16} color="var(--text-muted)" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={activeTab === 'logs' ? 'Buscar cliente, CNPJ ou erro...' : 'Buscar cliente, telefone ou detalhe...'}
+                  style={s.searchInput}
+                />
+              </div>
+              {activeTab === 'coverage' ? (
+                <div style={s.filterGroup}>
+                  <Filter size={16} color="var(--text-muted)" />
+                  <select style={s.select} value={coverageFilter} onChange={(event) => setCoverageFilter(event.target.value)}>
+                    <option value="ALL">Todos os clientes</option>
+                    <option value="RECEIVED">Receberam</option>
+                    <option value="NOT_SENT">Faltou enviar</option>
+                    <option value="FAILED">Falha técnica</option>
+                    <option value="NO_PHONE">Sem telefone</option>
+                    <option value="SKIPPED">Sem opt-in</option>
+                  </select>
+                </div>
+              ) : (
+                <button type="button" style={s.retryBtn} onClick={requestBillingRetry}>
+                  Reprocessar pendências
+                </button>
+              )}
+              <span style={s.resultCount}>{activeTab === 'logs' ? `${sortedLogs.length} registros` : `${sortedCoverage.length} clientes`}</span>
+            </div>
+
             {activeTab === 'coverage' && (
               <div style={s.coverageSummary} className="coverage-summary">
+                <div style={s.coverageSummaryTop}>
                 <div style={s.coverageIntro}>
                   <strong>Conferência de cobertura</strong>
                   <span>Clientes com cobrança autorizada no CRM x envios concluídos no período</span>
@@ -364,6 +560,13 @@ export default function BillingReports() {
                   <div style={{ ...s.coverageMetric, color: STATUS_COLORS.RECEIVED }}><strong>{data.coverageSummary?.received || 0}</strong><span>Receberam</span></div>
                   <div style={{ ...s.coverageMetric, color: STATUS_COLORS.NOT_SENT }}><strong>{data.coverageSummary?.notReceived || 0}</strong><span>Não receberam</span></div>
                   <div style={{ ...s.coverageMetric, color: STATUS_COLORS.RECEIVED }}><strong>{data.coverageSummary?.rate || 0}%</strong><span>Cobertura</span></div>
+                </div>
+                </div>
+                <div style={s.coverageReasons}>
+                  <span>Falhas: <strong>{data.coverageSummary?.failed || 0}</strong></span>
+                  <span>Sem telefone: <strong>{data.coverageSummary?.noPhone || 0}</strong></span>
+                  <span>Sem opt-in: <strong>{data.coverageSummary?.skipped || 0}</strong></span>
+                  <span>Nao processados: <strong>{data.coverageSummary?.notSent || 0}</strong></span>
                 </div>
               </div>
             )}
@@ -378,6 +581,7 @@ export default function BillingReports() {
                         <SortableHeader label="Cliente (CPF/CNPJ)" scope="logs" sortKey="client" sortConfig={sortConfig.logs} onSort={handleSort} />
                         <SortableHeader label="Status" scope="logs" sortKey="status" sortConfig={sortConfig.logs} onSort={handleSort} />
                         <SortableHeader label="Detalhe" scope="logs" sortKey="detail" sortConfig={sortConfig.logs} onSort={handleSort} />
+                        <th style={s.th} className="no-print">Acao</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -395,7 +599,7 @@ export default function BillingReports() {
                               {new Date(log.sentAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                             </td>
                             <td style={s.tdClient}>
-                              <strong>{log.clientName || 'N/A'}</strong>
+                              <strong>{log.clientName || (log.cpfCnpj ? 'Cliente sem nome' : 'Cliente nao identificado')}</strong>
                               <br />
                               <span style={s.cnpj}>{log.cpfCnpj}</span>
                             </td>
@@ -404,13 +608,19 @@ export default function BillingReports() {
                                 {isSuccess ? 'Enviado' : isSkipped ? (isOptin ? 'Sem Permissão' : 'S/ Telefone') : 'Erro'}
                               </span>
                             </td>
-                            <td style={s.tdMessage}>{log.errorMessage || 'Enviado para o WhatsApp com sucesso.'}</td>
+                            <td style={s.tdMessage}>
+                              <strong style={s.detailCategory}>{billingLogCategory(log)}</strong>
+                              <span style={s.detailText}>{billingLogDetail(log)}</span>
+                            </td>
+                            <td style={s.tdAction} className="no-print">
+                              {log.status === 'FAILED' ? <button type="button" style={s.retrySmallBtn} onClick={requestBillingRetry}>Tentar novamente</button> : '—'}
+                            </td>
                           </tr>
                         );
                       })}
                       {sortedLogs.length === 0 && (
                         <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             Nenhum registro encontrado para este filtro.
                           </td>
                         </tr>
@@ -479,6 +689,80 @@ const s = {
     flexDirection: 'column',
     height: '100%',
     overflowY: 'auto'
+  },
+  headerActions: {
+    display: 'flex',
+    gap: 'var(--space-3)',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  secondaryActionBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+    padding: '8px 12px',
+    background: 'var(--bg-panel)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+    color: 'var(--text-main)',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  reportMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 'var(--space-4)',
+    marginTop: 'var(--space-3)',
+    color: 'var(--text-muted)',
+    fontSize: '0.78rem',
+  },
+  customRangePanel: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 'var(--space-3)',
+    marginTop: 'var(--space-3)',
+    padding: 'var(--space-3)',
+    background: 'var(--bg-panel)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+  },
+  dateField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    color: 'var(--text-muted)',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+  },
+  dateInput: {
+    minHeight: '36px',
+    padding: '6px 9px',
+    border: '1px solid var(--border-color)',
+    borderRadius: '7px',
+    background: 'var(--bg-base)',
+    color: 'var(--text-main)',
+    font: 'inherit',
+  },
+  applyRangeBtn: {
+    padding: '9px 14px',
+    border: 'none',
+    borderRadius: '8px',
+    background: 'var(--accent)',
+    color: 'var(--text-inverse)',
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  actionMessage: {
+    marginTop: 'var(--space-3)',
+    padding: '10px 14px',
+    border: '1px solid var(--accent-border)',
+    borderRadius: '10px',
+    background: 'var(--accent-light)',
+    color: 'var(--text-main)',
+    fontSize: '0.82rem',
+    fontWeight: 600,
   },
   periodGroup: {
     display: 'flex',
@@ -555,6 +839,35 @@ const s = {
     borderRadius: '16px',
     border: '1px solid var(--border-color)',
   },
+  chartBars: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.7rem',
+    marginTop: 'var(--space-3)',
+  },
+  chartBarRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+  },
+  chartBarLabel: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 'var(--space-2)',
+    color: 'var(--text-muted)',
+    fontSize: '0.72rem',
+  },
+  chartTrack: {
+    height: '7px',
+    background: 'var(--bg-base)',
+    borderRadius: '999px',
+    overflow: 'hidden',
+  },
+  chartFill: {
+    height: '100%',
+    minWidth: '3px',
+    borderRadius: '999px',
+  },
   tableBox: {
     background: 'var(--bg-panel)',
     padding: 'var(--space-6)',
@@ -566,14 +879,28 @@ const s = {
   },
   coverageSummary: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 'var(--space-4)',
     padding: 'var(--space-4)',
     marginBottom: 'var(--space-4)',
     border: '1px solid var(--border-color)',
     borderRadius: '12px',
     background: 'var(--bg-base)',
+  },
+  coverageSummaryTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 'var(--space-4)',
+    flexWrap: 'wrap',
+  },
+  coverageReasons: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 'var(--space-2)',
+    color: 'var(--text-muted)',
+    fontSize: '0.75rem',
   },
   coverageMetrics: {
     display: 'grid',
@@ -603,6 +930,49 @@ const s = {
     alignItems: 'center',
     marginBottom: 'var(--space-4)'
   },
+  tableToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-3)',
+    marginBottom: 'var(--space-4)',
+    flexWrap: 'wrap',
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    flex: '1 1 260px',
+    minWidth: '220px',
+    padding: '8px 11px',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+  },
+  searchInput: {
+    width: '100%',
+    minWidth: 0,
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    color: 'var(--text-main)',
+    font: 'inherit',
+  },
+  resultCount: {
+    marginLeft: 'auto',
+    color: 'var(--text-muted)',
+    fontSize: '0.75rem',
+    whiteSpace: 'nowrap',
+  },
+  retryBtn: {
+    padding: '9px 13px',
+    border: '1px solid var(--accent-border)',
+    borderRadius: '8px',
+    background: 'var(--accent-light)',
+    color: 'var(--accent)',
+    fontWeight: 800,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
   filterGroup: {
     display: 'flex',
     alignItems: 'center',
@@ -619,6 +989,30 @@ const s = {
     fontSize: '0.875rem',
     outline: 'none',
     cursor: 'pointer'
+  },
+  tdAction: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--border-color)',
+    whiteSpace: 'nowrap',
+  },
+  retrySmallBtn: {
+    padding: '5px 8px',
+    border: '1px solid var(--accent-border)',
+    borderRadius: '6px',
+    background: 'var(--accent-light)',
+    color: 'var(--accent)',
+    fontSize: '0.7rem',
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  detailCategory: {
+    display: 'block',
+    marginBottom: '2px',
+    color: 'var(--text-main)',
+    fontSize: '0.72rem',
+  },
+  detailText: {
+    display: 'block',
   },
   tableWrapper: {
     overflowX: 'auto',

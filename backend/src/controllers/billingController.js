@@ -706,19 +706,40 @@ function buildBillingCoverageReport(contacts, logs) {
   };
 }
 
+function resolveBillingDateRange(query = {}) {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+  const customStart = String(query.startDate || '');
+  const customEnd = String(query.endDate || '');
+
+  if (dateOnly.test(customStart) && dateOnly.test(customEnd)) {
+    const startDate = new Date(`${customStart}T00:00:00.000Z`);
+    const endDate = new Date(`${customEnd}T23:59:59.999Z`);
+    if (Number.isFinite(startDate.getTime()) && Number.isFinite(endDate.getTime()) && startDate <= endDate) {
+      return { startDate, endDate, custom: true };
+    }
+  }
+
+  const parsedPeriod = Number.parseInt(query.period, 10);
+  const period = Number.isFinite(parsedPeriod) && parsedPeriod > 0 ? Math.min(parsedPeriod, 365) : 30;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - period);
+  startDate.setHours(0, 0, 0, 0);
+  return { startDate, endDate: null, custom: false, period };
+}
+
 async function getBillingDashboardStats(req, res) {
   const { tenantId } = req.user;
-  const { period = 30 } = req.query;
 
   try {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(period, 10));
-    startDate.setHours(0, 0, 0, 0);
+    const range = resolveBillingDateRange(req.query);
 
     const logs = await prisma.billingLog.findMany({
       where: { 
         tenantId,
-        sentAt: { gte: startDate }
+        sentAt: {
+          gte: range.startDate,
+          ...(range.endDate ? { lte: range.endDate } : {}),
+        }
       },
       orderBy: { sentAt: 'desc' }
     });
@@ -777,7 +798,17 @@ async function getBillingDashboardStats(req, res) {
 
     const coverage = buildBillingCoverageReport(optInContacts, operationalLogs);
     stats.totalOptIn = coverage.coverageSummary.expected;
-    res.json({ stats, logs, ...coverage });
+    res.json({
+      stats,
+      logs,
+      ...coverage,
+      period: {
+        custom: range.custom,
+        startDate: range.startDate.toISOString(),
+        endDate: range.endDate?.toISOString() || null,
+      },
+      generatedAt: new Date().toISOString(),
+    });
   } catch (err) {
     console.error('[getBillingDashboardStats] erro:', err.message);
     res.status(500).json({ error: err.message });
@@ -815,5 +846,6 @@ module.exports = {
     normalizeBillingPhone,
     getBillingContactPhone,
     selectBillingContact,
+    resolveBillingDateRange,
   }
 };

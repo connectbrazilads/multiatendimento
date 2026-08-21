@@ -30,6 +30,17 @@ test('compara clientes com opt-in e envios por cliente, sem duplicar contatos', 
   assert.equal(report.coverageAnalysis.find((item) => item.name === 'Cliente C').status, 'FAILED');
 });
 
+test('aceita periodo personalizado e rejeita datas invertidas', () => {
+  const custom = _private.resolveBillingDateRange({ startDate: '2026-08-01', endDate: '2026-08-21' });
+  assert.equal(custom.custom, true);
+  assert.equal(custom.startDate.toISOString().slice(0, 10), '2026-08-01');
+  assert.equal(custom.endDate.toISOString().slice(0, 10), '2026-08-21');
+
+  const fallback = _private.resolveBillingDateRange({ startDate: '2026-08-21', endDate: '2026-08-01', period: '7' });
+  assert.equal(fallback.custom, false);
+  assert.equal(fallback.period, 7);
+});
+
 test('rejeita telefone curto do iLux e prioriza o contato WhatsApp válido', () => {
   assert.equal(_private.normalizeBillingPhone('05101'), '');
   assert.equal(_private.normalizeBillingPhone('5551999990001'), '5551999990001');
