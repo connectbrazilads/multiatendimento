@@ -28,14 +28,14 @@ const PERIOD_OPTIONS = [
 ];
 
 const STATUS_COLORS = {
-  SUCCESS: 'var(--success, #10b981)',
-  SKIPPED_OPTIN: 'var(--warning, #f59e0b)',
-  SKIPPED_NOCONTACT: 'var(--danger, #ef4444)',
-  FAILED: 'var(--text-muted, #94a3b8)',
-  RECEIVED: 'var(--success, #10b981)',
-  NOT_SENT: 'var(--danger, #ef4444)',
-  NO_PHONE: 'var(--danger, #ef4444)',
-  SKIPPED: 'var(--warning, #f59e0b)',
+  SUCCESS: '#16a34a',
+  SKIPPED_OPTIN: '#d97706',
+  SKIPPED_NOCONTACT: '#dc2626',
+  FAILED: '#64748b',
+  RECEIVED: '#16a34a',
+  NOT_SENT: '#dc2626',
+  NO_PHONE: '#dc2626',
+  SKIPPED: '#d97706',
 };
 
 export default function BillingReports() {
@@ -102,19 +102,42 @@ export default function BillingReports() {
     <div style={s.container} className="billing-report-container">
       <style>{`
         @media print {
+          @page { size: landscape; margin: 12mm; }
+          html, body, #root,
+          .app-layout-root, .app-layout-content,
+          .billing-report-container {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+          .app-layout-root, .app-layout-content, .billing-report-container {
+            display: block !important;
+          }
           nav, header, .no-print { display: none !important; }
-          .billing-report-container { padding: 0 !important; background: white !important; overflow: visible !important; }
-          .billing-report-container, .billing-report-container .content, .billing-report-container .table-box { height: auto !important; min-height: 0 !important; overflow: visible !important; }
-          .print-full { max-height: none !important; overflow: visible !important; border: none !important; }
+          .billing-report-container { padding: 0 !important; background: #fff !important; color: #111827 !important; }
+          .billing-report-container .content,
+          .billing-report-container .table-box,
+          .billing-report-container .print-full {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .billing-report-container .table-box { display: block !important; border: 1px solid #cbd5e1 !important; padding: 14px !important; }
+          .billing-report-container .print-full { display: block !important; border: 1px solid #cbd5e1 !important; }
           .main-section-print { display: block !important; grid-template-columns: 1fr !important; }
-          table { width: 100% !important; border-collapse: collapse; }
-          th, td { border-bottom: 1px solid #ccc !important; padding: 8px !important; color: #222 !important; background: #fff !important; }
-          th { background: #f2f2f2 !important; }
+          table { display: table !important; width: 100% !important; height: auto !important; border-collapse: collapse !important; page-break-after: auto; }
+          thead { display: table-header-group !important; }
+          tbody { display: table-row-group !important; }
+          tr { display: table-row !important; page-break-inside: avoid; break-inside: avoid; }
+          th, td { display: table-cell !important; border-bottom: 1px solid #cbd5e1 !important; padding: 8px !important; color: #1f2937 !important; background: #fff !important; }
+          th { background: #f1f5f9 !important; color: #334155 !important; }
+          .status-badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           thead { display: table-header-group; }
-          tr { page-break-inside: avoid; }
-          .coverage-summary { color: #111 !important; border-color: #bbb !important; }
+          .coverage-summary { color: #111827 !important; background: #f8fafc !important; border-color: #94a3b8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .coverage-summary span { display: block; font-size: 11px; color: #555 !important; }
-          body { background: white !important; color: black !important; }
+          .coverage-summary strong { color: #111827 !important; }
+          body { background: #fff !important; color: #111827 !important; }
         }
       `}</style>
       <PageHeader
@@ -147,7 +170,7 @@ export default function BillingReports() {
           <div style={s.kpiCard}>
             <div style={s.kpiHeader}>
               <span style={s.kpiTitle}>Total Processado</span>
-              <BarChart2 size={18} color="var(--primary)" />
+              <BarChart2 size={18} color="var(--accent)" />
             </div>
             <div style={s.kpiValue}>{stats?.total || 0}</div>
             <div style={s.kpiSub}>Boletos lidos pelo robô</div>
@@ -303,7 +326,7 @@ export default function BillingReports() {
                               <span style={s.cnpj}>{log.cpfCnpj}</span>
                             </td>
                             <td style={s.td}>
-                              <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
+                              <span className="status-badge" style={{ ...s.badge, backgroundColor: `${badgeColor}20`, color: badgeColor }}>
                                 {isSuccess ? 'Enviado' : isSkipped ? (isOptin ? 'Sem Permissão' : 'S/ Telefone') : 'Erro'}
                               </span>
                             </td>
@@ -344,7 +367,7 @@ export default function BillingReports() {
                               {contact.phone || 'Sem telefone'}
                             </td>
                             <td style={s.td}>
-                              <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
+                              <span className="status-badge" style={{ ...s.badge, backgroundColor: `${badgeColor}20`, color: badgeColor }}>
                                 {contact.status === 'RECEIVED' ? '✓ Recebeu' : contact.status === 'NO_PHONE' ? 'Sem telefone' : contact.status === 'FAILED' ? 'Falha no envio' : 'Faltou enviar'}
                               </span>
                             </td>
@@ -405,8 +428,8 @@ const s = {
     transition: 'all 0.2s',
   },
   periodBtnActive: {
-    background: 'var(--primary)',
-    color: '#fff',
+    background: 'var(--accent)',
+    color: 'var(--text-inverse)',
   },
   content: {
     marginTop: 'var(--space-6)',
@@ -440,7 +463,7 @@ const s = {
   kpiValue: {
     fontSize: '2rem',
     fontWeight: 800,
-    color: 'var(--text-color)',
+    color: 'var(--text-main)',
     lineHeight: 1
   },
   kpiSub: {
@@ -520,7 +543,7 @@ const s = {
   select: {
     background: 'transparent',
     border: 'none',
-    color: 'var(--text-color)',
+    color: 'var(--text-main)',
     fontSize: '0.875rem',
     outline: 'none',
     cursor: 'pointer'
@@ -600,7 +623,7 @@ const s = {
     background: 'white',
     border: '1px solid var(--border-color)',
     borderRadius: '8px',
-    color: 'var(--text-color)',
+    color: 'var(--text-main)',
     fontWeight: 600,
     cursor: 'pointer'
   },
@@ -608,8 +631,8 @@ const s = {
     padding: '8px 16px',
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
-    borderBottom: '2px solid var(--primary)',
-    color: 'var(--primary)',
+    borderBottom: '2px solid var(--accent)',
+    color: 'var(--accent)',
     fontWeight: 700,
     cursor: 'pointer',
     borderRadius: '8px 8px 0 0'

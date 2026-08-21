@@ -228,7 +228,7 @@ export default function Layout() {
   }
 
   return (
-    <div style={styles.root}>
+    <div style={styles.root} className="app-layout-root">
       <style>{`
         .desktop-nav-scroll::-webkit-scrollbar {
           display: none;
@@ -335,7 +335,7 @@ export default function Layout() {
         </div>
       )}
 
-      <div style={{ ...styles.content, paddingBottom: isMobile ? '74px' : '0' }}>
+      <div style={{ ...styles.content, paddingBottom: isMobile ? '74px' : '0' }} className="app-layout-content">
         <Outlet context={{ instances }} />
       </div>
 
