@@ -741,7 +741,18 @@ async function getBillingDashboardStats(req, res) {
           ...(range.endDate ? { lte: range.endDate } : {}),
         }
       },
-      orderBy: { sentAt: 'desc' }
+      orderBy: { sentAt: 'desc' },
+      // A tela de relatórios não precisa carregar o PDF/nome do arquivo para
+      // calcular os indicadores ou exibir o log. Selecionar somente os campos
+      // usados evita payloads grandes e reduz o tempo de serialização.
+      select: {
+        id: true,
+        cpfCnpj: true,
+        clientName: true,
+        status: true,
+        errorMessage: true,
+        sentAt: true,
+      },
     });
 
     const operationalLogs = logs.filter((log) => log.status !== 'TEST');

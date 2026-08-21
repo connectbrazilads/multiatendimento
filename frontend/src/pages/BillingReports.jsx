@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { getBillingReports, triggerBillingProcess } from '../services/api';
 import PageHeader from '../components/ui/PageHeader';
 import {
@@ -95,6 +95,17 @@ function formatDateOnly(value) {
   return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
+function normalizeReportPayload(payload) {
+  return {
+    stats: payload?.stats && typeof payload.stats === 'object' ? payload.stats : null,
+    logs: Array.isArray(payload?.logs) ? payload.logs : [],
+    coverageAnalysis: Array.isArray(payload?.coverageAnalysis) ? payload.coverageAnalysis : [],
+    coverageSummary: payload?.coverageSummary && typeof payload.coverageSummary === 'object'
+      ? payload.coverageSummary
+      : null,
+  };
+}
+
 function SortableHeader({ label, scope, sortKey, sortConfig, onSort }) {
   const active = sortConfig?.key === sortKey;
   const direction = active ? sortConfig.direction : null;
@@ -119,6 +130,7 @@ export default function BillingReports() {
   const [coverageFilter, setCoverageFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('logs');
@@ -126,9 +138,12 @@ export default function BillingReports() {
     logs: { key: 'sentAt', direction: 'desc' },
     coverage: { key: 'name', direction: 'asc' },
   });
+  const requestControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     loadData();
+    return () => requestControllerRef.current?.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, customRange]);
 
@@ -162,15 +177,24 @@ export default function BillingReports() {
   }
 
   async function loadData({ silent = false } = {}) {
+    const requestId = ++requestIdRef.current;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
     if (!silent) setLoading(true);
     setRefreshing(true);
+    setLoadError('');
     try {
-      const res = await getBillingReports(customRange ? { ...customRange } : { period });
-      setData(res.data);
+      const res = await getBillingReports(customRange ? { ...customRange } : { period }, { signal: controller.signal });
+      if (requestId !== requestIdRef.current) return;
+      setData(normalizeReportPayload(res?.data));
       setUpdatedAt(new Date());
     } catch (err) {
-      console.error('Erro ao buscar relatórios de cobrança:', err);
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+      if (requestId !== requestIdRef.current) return;
+      console.error('Erro ao buscar relatório de cobrança:', err);
+      setLoadError(err.response?.data?.error || 'Não foi possível carregar os relatórios.');
     } finally {
+      if (requestId !== requestIdRef.current) return;
       setLoading(false);
       setRefreshing(false);
     }
@@ -282,6 +306,18 @@ export default function BillingReports() {
     );
   }
 
+  if (loadError && !data.stats) {
+    return (
+      <div style={s.container}>
+        <div style={s.errorState} role="alert">
+          <AlertTriangle size={22} />
+          <strong>{loadError}</strong>
+          <button type="button" style={s.retryBtn} onClick={() => loadData()}>Tentar novamente</button>
+        </div>
+      </div>
+    );
+  }
+
   const { stats } = data;
   const deliveryRate = stats?.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
   const accountedTotal = (stats?.success || 0) + (stats?.skippedOptIn || 0) + (stats?.skippedNoContact || 0) + (stats?.failed || 0);
@@ -380,6 +416,13 @@ export default function BillingReports() {
         </div>
       )}
       {actionMessage ? <div style={s.actionMessage} className="no-print">{actionMessage}</div> : null}
+      {loadError ? (
+        <div style={s.inlineError} className="no-print" role="alert">
+          <AlertTriangle size={15} />
+          <span>{loadError}</span>
+          <button type="button" style={s.inlineErrorButton} onClick={() => loadData({ silent: true })}>Tentar novamente</button>
+        </div>
+      ) : null}
 
       <div style={s.content}>
         {/* KPIs */}
@@ -763,6 +806,40 @@ const s = {
     color: 'var(--text-main)',
     fontSize: '0.82rem',
     fontWeight: 600,
+  },
+  inlineError: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    marginTop: 'var(--space-3)',
+    padding: '10px 14px',
+    border: '1px solid rgba(220, 38, 38, 0.35)',
+    borderRadius: '10px',
+    background: 'rgba(220, 38, 38, 0.08)',
+    color: '#dc2626',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+  },
+  inlineErrorButton: {
+    marginLeft: 'auto',
+    padding: '5px 9px',
+    border: '1px solid currentColor',
+    borderRadius: '6px',
+    background: 'transparent',
+    color: 'inherit',
+    fontWeight: 800,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  errorState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 'var(--space-3)',
+    minHeight: '60vh',
+    color: 'var(--text-muted)',
+    textAlign: 'center',
   },
   periodGroup: {
     display: 'flex',

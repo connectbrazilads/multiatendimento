@@ -205,9 +205,13 @@ export const getCrmFlaggedDocuments = () => api.get('/crm/financial/flagged-docu
 
 // Billing Integration (Automação de Cobranças)
 export const getBillingLogs = () => api.get('/integrations/firebird/billing-logs');
-export const getBillingReports = (params = {}) => {
+export const getBillingReports = (params = {}, config = {}) => {
   const query = typeof params === 'number' ? { period: params } : params;
-  return api.get('/integrations/firebird/billing-reports', { params: query });
+  return api.get('/integrations/firebird/billing-reports', {
+    timeout: 45000,
+    ...config,
+    params: query,
+  });
 };
 export const triggerBillingProcess = () => api.post('/integrations/firebird/trigger-billing-process');
 export default api;
