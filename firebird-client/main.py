@@ -447,6 +447,7 @@ class CRMClient:
         repo: FirebirdRepository,
         result_store: CommandResultStore,
         wait_seconds: int = 0,
+        billing_trigger_event: threading.Event | None = None,
     ) -> None:
         url = f"{self.config.crm_base_url}/api/integrations/firebird/pending-commands"
         try:
@@ -497,15 +498,17 @@ class CRMClient:
                         self.report_command_result(cmd_id, success=True, result=command_result)
                         logging.info("O.S. criada no Firebird com sucesso. SEQOS: %s", seq_os)
                     elif cmd_type == "PROCESS_BILLING":
-                        # A pasta separada de cobrancas foi aposentada: o envio automatico
-                        # agora nasce do indice de Documentos financeiros (ver
-                        # run_billing_automation). Este comando so existe para instalacoes
-                        # antigas que ainda tenham o botao na tela; nao ha mais o que rodar.
-                        logging.info("Comando PROCESS_BILLING recebido, mas esse fluxo foi aposentado.")
+                        # O fluxo antigo de pasta foi aposentado, mas o comando continua
+                        # sendo usado pelo botao "Reprocessar pendencias" do CRM. Acorda
+                        # o monitor de documentos para executar uma rodada imediata; o
+                        # proprio ledger continua impedindo qualquer pacote ja entregue.
+                        if billing_trigger_event is not None:
+                            billing_trigger_event.set()
+                        logging.info("Reprocessamento de cobrancas solicitado pelo CRM; monitor acordado.")
                         self.report_command_result(
                             cmd_id,
                             success=True,
-                            result={"message": "Fluxo antigo aposentado. O envio automatico agora usa o indice de Documentos financeiros."},
+                            result={"message": "Reprocessamento solicitado. Pacotes ja enviados permanecem protegidos pelo ledger."},
                         )
                     elif cmd_type == "FETCH_BILLING_PDF":
                         logging.info("Buscando PDF do boleto %s sob demanda...", payload.get("receivableExternalId"))
@@ -2490,7 +2493,11 @@ def run_service_order_history_backfill(config: AppConfig) -> dict[str, Any]:
     return {"ok": ok, "finalCursor": state.get_cursor("serviceOrders")}
 
 
-def run_command_listener(config: AppConfig, stop_event: threading.Event | None = None) -> None:
+def run_command_listener(
+    config: AppConfig,
+    stop_event: threading.Event | None = None,
+    billing_trigger_event: threading.Event | None = None,
+) -> None:
     """Keep an outbound HTTPS request ready for immediate CRM commands."""
     repo = FirebirdRepository(config)
     crm = CRMClient(config)
@@ -2499,7 +2506,12 @@ def run_command_listener(config: AppConfig, stop_event: threading.Event | None =
 
     while stop_event is None or not stop_event.is_set():
         try:
-            crm.process_pending_commands(repo, result_store, wait_seconds=25)
+            crm.process_pending_commands(
+                repo,
+                result_store,
+                wait_seconds=25,
+                billing_trigger_event=billing_trigger_event,
+            )
         except Exception as exc:
             logging.exception("Falha no listener de comandos: %s", exc)
             time.sleep(2)
@@ -2591,7 +2603,11 @@ def run_billing_automation(
     return {"ready": len(packages), "sent": sent, "failed": failed}
 
 
-def run_financial_document_monitor(config: AppConfig, stop_event: threading.Event | None = None) -> None:
+def run_financial_document_monitor(
+    config: AppConfig,
+    stop_event: threading.Event | None = None,
+    billing_trigger_event: threading.Event | None = None,
+) -> None:
     if not config.financial_document_folders:
         return
     repo = FirebirdRepository(config)
@@ -2635,9 +2651,13 @@ def run_financial_document_monitor(config: AppConfig, stop_event: threading.Even
             logging.exception("Falha no envio automatico de cobrancas: %s", exc)
 
         wait_seconds = max(60, config.financial_document_scan_seconds)
-        if stop_event is not None:
-            if stop_event.wait(wait_seconds):
-                return
+        if stop_event is not None and stop_event.is_set():
+            return
+        if billing_trigger_event is not None:
+            # Um clique em "Reprocessar pendencias" interrompe a espera normal e
+            # inicia outra leitura assim que a rodada atual terminar.
+            billing_trigger_event.wait(wait_seconds)
+            billing_trigger_event.clear()
         else:
             time.sleep(wait_seconds)
 
@@ -2730,16 +2750,17 @@ def main() -> None:
     state.data["crm360_recent_refresh_at"] = None
     state.save()
     logging.info("Client iniciado. Intervalo: %ss", config.sync_interval_seconds)
+    billing_trigger_event = threading.Event()
     command_thread = threading.Thread(
         target=run_command_listener,
-        args=(config,),
+        args=(config, None, billing_trigger_event),
         name="firebird-command-listener",
         daemon=True,
     )
     command_thread.start()
     threading.Thread(
         target=run_financial_document_monitor,
-        args=(config,),
+        args=(config, None, billing_trigger_event),
         name="financial-document-monitor",
         daemon=True,
     ).start()
