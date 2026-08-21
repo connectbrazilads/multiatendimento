@@ -4,6 +4,68 @@ const billingDocuments = require('../services/billingDocumentService');
 
 const HISTORY_DEFAULT_LIMIT = 25;
 const HISTORY_MAX_LIMIT = 100;
+const HISTORY_MAX_OFFSET = 100000;
+
+function parseHistoryPagination(query = {}) {
+  const rawLimit = Number.parseInt(query.limit, 10);
+  const rawOffset = Number.parseInt(query.offset, 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(rawLimit, 1), HISTORY_MAX_LIMIT)
+    : HISTORY_DEFAULT_LIMIT;
+  const offset = Number.isFinite(rawOffset)
+    ? Math.min(Math.max(rawOffset, 0), HISTORY_MAX_OFFSET)
+    : 0;
+  return { limit, offset };
+}
+
+function paginateServiceOrders(orders, pagination) {
+  const { limit, offset } = pagination;
+  const total = orders.length;
+  const items = orders.slice(offset, offset + limit);
+  const hasMore = offset + items.length < total;
+  return {
+    items,
+    total,
+    limit,
+    offset,
+    hasMore,
+    nextOffset: hasMore ? offset + items.length : null,
+  };
+}
+
+function getCrmCapabilities(user) {
+  const can = (permission) => hasPermission(user, permission);
+  const canViewCrm = can('crm.view');
+  const canViewFinancial = canViewCrm && can('crm.financial.view');
+  return {
+    tabs: {
+      overview: canViewCrm,
+      units: canViewCrm,
+      contacts: canViewCrm,
+      equipments: canViewCrm,
+      contracts: canViewCrm,
+      serviceOrders: canViewCrm,
+      technical: canViewCrm,
+      financial: canViewFinancial,
+    },
+    actions: {
+      openConversation: can('inbox.view'),
+      createServiceOrder: canViewCrm && can('inbox.create_os'),
+      viewFinancial: canViewFinancial,
+      sendFinancialDocuments: canViewFinancial && can('crm.financial.send'),
+    },
+  };
+}
+
+function syncMetadata(settings, fallbackLastSyncedAt = null) {
+  const lastSyncedAt = asDate(settings?.firebirdLastSyncAt || fallbackLastSyncedAt);
+  return {
+    source: 'firebird',
+    status: settings?.firebirdLastSyncStatus || (lastSyncedAt ? 'ok' : 'unknown'),
+    lastSyncedAt,
+    error: settings?.firebirdLastSyncError || null,
+  };
+}
 
 function text(value) {
   if (value === undefined || value === null) return null;
@@ -393,7 +455,7 @@ async function loadContracts(tenantId, customerExternalId) {
   return records.map(normalizeContract).sort((a, b) => Number(b.isActive) - Number(a.isActive));
 }
 
-async function loadCustomerOrders(tenantId, customer, limit) {
+async function loadCustomerOrderCatalog(tenantId, customer, sourceLimit = null) {
   const externalId = String(customer.externalId || '');
   const numericExternalId = /^\d+$/.test(externalId) ? Number(externalId) : null;
   const printClientFilters = [{ path: ['serviceOrder', 'cdcliente'], equals: externalId }];
@@ -408,9 +470,9 @@ async function loadCustomerOrders(tenantId, customer, limit) {
           entity: 'serviceOrders',
           payload: { path: ['clientExternalId'], equals: externalId },
         },
-        select: { externalId: true, payload: true },
+        select: { externalId: true, payload: true, syncedAt: true, receivedAt: true },
         orderBy: { receivedAt: 'desc' },
-        take: limit,
+        ...(sourceLimit ? { take: sourceLimit } : {}),
       })
       : [],
     externalId
@@ -421,9 +483,9 @@ async function loadCustomerOrders(tenantId, customer, limit) {
           entity: 'osPrintData',
           OR: printClientFilters.map((payload) => ({ payload })),
         },
-        select: { externalId: true, payload: true },
+        select: { externalId: true, payload: true, syncedAt: true, receivedAt: true },
         orderBy: { receivedAt: 'desc' },
-        take: limit,
+        ...(sourceLimit ? { take: sourceLimit } : {}),
       })
       : [],
     prisma.serviceOrder.findMany({
@@ -445,7 +507,7 @@ async function loadCustomerOrders(tenantId, customer, limit) {
         closedBy: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      ...(sourceLimit ? { take: sourceLimit } : {}),
     }),
   ]);
 
@@ -464,7 +526,23 @@ async function loadCustomerOrders(tenantId, customer, limit) {
     }
   }
 
-  return mergeOrders(synced, snapshots, localOrders.map(normalizeLocalOrder)).slice(0, limit);
+  const externalSyncDates = [...syncedRecords, ...printRecords]
+    .map((record) => record.syncedAt || record.receivedAt)
+    .filter(Boolean)
+    .map((date) => new Date(date).getTime())
+    .filter(Number.isFinite);
+  return {
+    orders: mergeOrders(synced, snapshots, localOrders.map(normalizeLocalOrder)),
+    lastSyncedAt: externalSyncDates.length
+      ? new Date(Math.max(...externalSyncDates)).toISOString()
+      : null,
+  };
+}
+
+async function loadCustomerOrders(tenantId, customer, limit = HISTORY_DEFAULT_LIMIT) {
+  const normalizedLimit = Math.min(Math.max(Number(limit) || HISTORY_DEFAULT_LIMIT, 1), HISTORY_MAX_LIMIT);
+  const catalog = await loadCustomerOrderCatalog(tenantId, customer, normalizedLimit);
+  return catalog.orders.slice(0, normalizedLimit);
 }
 
 async function getSummary(req, res) {
@@ -619,6 +697,9 @@ async function getCustomer(req, res) {
 
   res.json({
     ...customer,
+    generatedAt: new Date().toISOString(),
+    sync: syncMetadata(null, customer.externalUpdatedAt || customer.updatedAt),
+    capabilities: getCrmCapabilities(req.user),
     operationalSummary: {
       equipments: customer.equipments.length,
       activeEquipments: customer.equipments.filter((equipment) => equipment.isActive).length,
@@ -658,15 +739,37 @@ async function getCustomerContracts(req, res) {
     }
     if (!onlyContract.equipmentCount) onlyContract.equipmentCount = customer.equipments.length;
   }
-  res.json({ items: contracts, total: contracts.length, active: contracts.filter((item) => item.isActive).length });
+  const contractSyncDates = contracts
+    .map((contract) => contract.updatedAt ? new Date(contract.updatedAt).getTime() : NaN)
+    .filter(Number.isFinite);
+  res.json({
+    items: contracts,
+    total: contracts.length,
+    active: contracts.filter((item) => item.isActive).length,
+    generatedAt: new Date().toISOString(),
+    sync: syncMetadata(null, contractSyncDates.length ? new Date(Math.max(...contractSyncDates)).toISOString() : null),
+    capabilities: getCrmCapabilities(req.user),
+  });
 }
 
 async function getCustomerServiceOrders(req, res) {
   const customer = await findTenantCustomer(req.user.tenantId, req.params.id);
   if (!customer) return res.status(404).json({ error: 'Cliente CRM nao encontrado' });
-  const limit = Math.min(Number(req.query.limit || HISTORY_DEFAULT_LIMIT) || HISTORY_DEFAULT_LIMIT, HISTORY_MAX_LIMIT);
-  const orders = await loadCustomerOrders(req.user.tenantId, customer, limit);
-  res.json({ items: orders, total: orders.length, limit });
+  const { limit, offset } = parseHistoryPagination(req.query);
+  const [catalog, settings] = await Promise.all([
+    loadCustomerOrderCatalog(req.user.tenantId, customer),
+    prisma.tenantSettings.findUnique({
+      where: { tenantId: req.user.tenantId },
+      select: { firebirdLastSyncAt: true, firebirdLastSyncStatus: true, firebirdLastSyncError: true },
+    }),
+  ]);
+  const page = paginateServiceOrders(catalog.orders, { limit, offset });
+  res.json({
+    ...page,
+    generatedAt: new Date().toISOString(),
+    sync: syncMetadata(settings, catalog.lastSyncedAt),
+    capabilities: getCrmCapabilities(req.user),
+  });
 }
 
 async function getCustomer360(req, res) {
@@ -677,12 +780,18 @@ async function getCustomer360(req, res) {
   const contactIds = customer.whatsappContacts.map((contact) => contact.id);
   const equipmentExternalIds = customer.equipments.map((equipment) => text(equipment.externalId)).filter(Boolean);
   const canViewFinancial = hasPermission(req.user, 'crm.financial.view');
+  const capabilities = getCrmCapabilities(req.user);
   const [contracts, orders, settings, tickets, receivableRecords, meterRecords] = await Promise.all([
     loadContracts(tenantId, customer.externalId),
     loadCustomerOrders(tenantId, customer, HISTORY_MAX_LIMIT),
     prisma.tenantSettings.findUnique({
       where: { tenantId },
-      select: { kpiSlaLimitHours: true },
+      select: {
+        kpiSlaLimitHours: true,
+        firebirdLastSyncAt: true,
+        firebirdLastSyncStatus: true,
+        firebirdLastSyncError: true,
+      },
     }),
     contactIds.length
       ? prisma.ticket.findMany({
@@ -893,6 +1002,8 @@ async function getCustomer360(req, res) {
 
   res.json({
     generatedAt: new Date().toISOString(),
+    sync: syncMetadata(settings),
+    capabilities,
     sla: {
       targetHours: slaTargetHours,
       orders30Days: orders.filter((order) => orderOpenedTimestamp(order) >= now - 30 * 86400000).length,
@@ -914,8 +1025,8 @@ async function getCustomer360(req, res) {
       contactId: preferredContact?.id || null,
       phone: first(preferredContact?.whatsapp, preferredContact?.phone, customer.phone),
       address: [customer.address, customer.neighborhood, customer.city, customer.state].filter(Boolean).join(', '),
-      canOpenConversation: Boolean(activeTicket?.id),
-      canOpenServiceOrder: Boolean(activeTicket?.id && preferredContact?.id),
+      canOpenConversation: Boolean(capabilities.actions.openConversation && activeTicket?.id),
+      canOpenServiceOrder: Boolean(capabilities.actions.createServiceOrder && activeTicket?.id && preferredContact?.id),
     },
     financial: canViewFinancial ? {
       allowed: true,
@@ -926,7 +1037,7 @@ async function getCustomer360(req, res) {
       nextReceivable,
       lastPayment,
       items: receivables,
-    } : { allowed: false, reason: 'Informacoes financeiras disponiveis apenas para administradores.' },
+    } : { allowed: false, reason: 'Usuario sem permissao para visualizar informacoes financeiras.' },
     equipmentEvolution,
     alerts,
   });
@@ -1284,5 +1395,10 @@ module.exports = {
   listEquipments,
   loadContracts,
   loadCustomerOrders,
+  loadCustomerOrderCatalog,
   findTenantCustomer,
+  parseHistoryPagination,
+  paginateServiceOrders,
+  getCrmCapabilities,
+  syncMetadata,
 };

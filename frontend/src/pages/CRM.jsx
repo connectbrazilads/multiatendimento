@@ -49,6 +49,8 @@ import {
   sendOSManagerCopy,
 } from '../services/api';
 import { toast } from '../utils/toast';
+import { usePermissions } from '../auth/PermissionContext';
+import { CrmContactActions, CrmEquipmentFilters, filterCrmEquipments } from '../components/CrmOperationalControls';
 
 const EMPTY_SUMMARY = { customers: 0, equipments: 0, linkedEquipments: 0, contractedEquipments: 0, activeContracts: 0, openServiceOrders: 0 };
 
@@ -60,6 +62,7 @@ export default function CRM() {
   const [modalLoading, setModalLoading] = useState(false);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [modalResources, setModalResources] = useState({ base: 'idle', contracts: 'idle', os: 'idle', view360: 'idle' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [flaggedDocuments, setFlaggedDocuments] = useState([]);
@@ -95,10 +98,12 @@ export default function CRM() {
     setModalLoading(true);
     setRelatedLoading(false);
     setModalError('');
+    setModalResources({ base: 'loading', contracts: 'idle', os: 'idle', view360: 'idle' });
     try {
       const response = await getCrmCustomer(customer.id);
       const fullCustomer = response.data || customer;
       setSelectedCustomer(fullCustomer);
+      setModalResources({ base: 'ready', contracts: 'loading', os: 'loading', view360: 'loading' });
       setModalLoading(false);
       setRelatedLoading(true);
 
@@ -110,11 +115,18 @@ export default function CRM() {
       const contracts = contractsResult.status === 'fulfilled' ? contractsResult.value.data?.items || [] : [];
       const serviceOrders = ordersResult.status === 'fulfilled' ? ordersResult.value.data?.items || [] : [];
       const customer360 = view360Result.status === 'fulfilled' ? view360Result.value.data || null : null;
+      setModalResources({
+        base: 'ready',
+        contracts: contractsResult.status === 'fulfilled' ? 'ready' : 'error',
+        os: ordersResult.status === 'fulfilled' ? 'ready' : 'error',
+        view360: view360Result.status === 'fulfilled' ? 'ready' : 'error',
+      });
 
       setSelectedCustomer((current) => ({
         ...(current || fullCustomer),
         contracts,
         serviceOrders,
+        serviceOrdersPage: ordersResult.status === 'fulfilled' ? ordersResult.value.data : null,
         customer360,
         operationalSummary: {
           ...(current?.operationalSummary || fullCustomer.operationalSummary || {}),
@@ -130,6 +142,7 @@ export default function CRM() {
         setModalError('Algumas informações complementares não puderam ser carregadas. Você pode tentar novamente.');
       }
     } catch (error) {
+      setModalResources((current) => ({ ...current, base: 'error' }));
       setModalError(error.code === 'ECONNABORTED'
         ? 'A consulta ao servidor demorou mais que o esperado. Tente novamente.'
         : 'Não foi possível atualizar os dados deste cliente.');
@@ -274,6 +287,7 @@ export default function CRM() {
           setActiveTab={setActiveTab}
           loading={modalLoading}
           relatedLoading={relatedLoading}
+          resourceStatus={modalResources}
           error={modalError}
           onRetry={() => openCustomer(selectedCustomer, activeTab)}
           onClose={() => { setSelectedCustomer(null); setActiveTab('overview'); }}
@@ -289,16 +303,19 @@ export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTa
   const [loading, setLoading] = useState(true);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resourceStatus, setResourceStatus] = useState({ base: 'idle', contracts: 'idle', os: 'idle', view360: 'idle' });
 
   async function loadProfile() {
     if (!customerId) return;
     setLoading(true);
     setRelatedLoading(false);
     setError('');
+    setResourceStatus({ base: 'loading', contracts: 'idle', os: 'idle', view360: 'idle' });
     try {
       const response = await getCrmCustomer(customerId);
       const fullCustomer = response.data || initialCustomer;
       setCustomer(fullCustomer);
+      setResourceStatus({ base: 'ready', contracts: 'loading', os: 'loading', view360: 'loading' });
       setLoading(false);
       setRelatedLoading(true);
 
@@ -310,10 +327,17 @@ export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTa
       const contracts = contractsResult.status === 'fulfilled' ? contractsResult.value.data?.items || [] : [];
       const serviceOrders = ordersResult.status === 'fulfilled' ? ordersResult.value.data?.items || [] : [];
       const customer360 = view360Result.status === 'fulfilled' ? view360Result.value.data || null : null;
+      setResourceStatus({
+        base: 'ready',
+        contracts: contractsResult.status === 'fulfilled' ? 'ready' : 'error',
+        os: ordersResult.status === 'fulfilled' ? 'ready' : 'error',
+        view360: view360Result.status === 'fulfilled' ? 'ready' : 'error',
+      });
       setCustomer((current) => ({
         ...(current || fullCustomer),
         contracts,
         serviceOrders,
+        serviceOrdersPage: ordersResult.status === 'fulfilled' ? ordersResult.value.data : null,
         customer360,
         operationalSummary: {
           ...(current?.operationalSummary || fullCustomer?.operationalSummary || {}),
@@ -328,6 +352,7 @@ export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTa
         setError('Algumas informações complementares não puderam ser carregadas. Você pode tentar novamente.');
       }
     } catch (requestError) {
+      setResourceStatus((current) => ({ ...current, base: 'error' }));
       setError(requestError.code === 'ECONNABORTED'
         ? 'A consulta ao servidor demorou mais que o esperado. Tente novamente.'
         : 'Não foi possível atualizar os dados deste cliente.');
@@ -347,6 +372,7 @@ export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTa
       setActiveTab={setActiveTab}
       loading={loading}
       relatedLoading={relatedLoading}
+      resourceStatus={resourceStatus}
       error={error}
       onRetry={loadProfile}
       onClose={onClose}
@@ -356,11 +382,25 @@ export function CrmCustomerProfileModal({ customerId, initialCustomer, initialTa
   );
 }
 
-function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoading, error, onRetry, onClose, onOpenConversation, onOpenServiceOrder }) {
+function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoading, resourceStatus = {}, error, onRetry, onClose, onOpenConversation, onOpenServiceOrder }) {
+  const { can, loading: permissionsLoading } = usePermissions();
   const equipments = arrayOf(customer.equipments);
   const contracts = arrayOf(customer.contracts);
   const serviceOrders = arrayOf(customer.serviceOrders, customer.orders, customer.osHistory);
   const customer360 = customer.customer360 || {};
+  const serverFinancialAllowed = customer360.capabilities?.tabs?.financial;
+  const serverCanSendFinancial = customer360.capabilities?.actions?.sendFinancialDocuments;
+  const financialAllowed = permissionsLoading
+    ? null
+    : (typeof serverFinancialAllowed === 'boolean' ? serverFinancialAllowed : can('crm.financial.view'));
+  const canSendFinancial = !permissionsLoading
+    && (typeof serverCanSendFinancial === 'boolean' ? serverCanSendFinancial : can('crm.financial.send'));
+  const resourceForTab = { overview: 'view360', contracts: 'contracts', os: 'os', units: 'view360', contacts: 'view360', financial: 'view360' }[activeTab];
+  const activeResourceStatus = loading ? 'loading' : (resourceForTab ? resourceStatus[resourceForTab] : 'ready');
+
+  useEffect(() => {
+    if (financialAllowed === false && activeTab === 'financial') setActiveTab('overview');
+  }, [financialAllowed, activeTab, setActiveTab]);
 
   useEffect(() => {
     function onKeyDown(event) { if (event.key === 'Escape') onClose(); }
@@ -388,34 +428,36 @@ function CustomerModal({ customer, activeTab, setActiveTab, loading, relatedLoad
         </header>
 
         <nav className="crm-profile-tabs" style={s.tabs} role="tablist" aria-label="Seções do perfil do cliente">
-          <div style={s.tabGroup}>
+          <div style={s.tabGroup} role="group" aria-label="Operação">
+            <span style={s.tabGroupLabel}>Operação</span>
             <Tab active={activeTab === 'overview'} icon={<User size={16} />} label="Resumo" onClick={() => setActiveTab('overview')} />
-            <Tab active={activeTab === 'financial'} icon={<CreditCard size={16} />} label="Financeiro" onClick={() => setActiveTab('financial')} />
             <Tab active={activeTab === 'equipments'} icon={<Printer size={16} />} label={`Equipamentos (${equipments.length})`} onClick={() => setActiveTab('equipments')} />
-            <Tab active={activeTab === 'os'} icon={<ClipboardList size={16} />} label={`O.S. (${serviceOrders.length})`} onClick={() => setActiveTab('os')} />
-            <Tab active={activeTab === 'contracts'} icon={<FileText size={16} />} label={`Contratos (${contracts.length})`} onClick={() => setActiveTab('contracts')} />
+            <Tab active={activeTab === 'os'} icon={<ClipboardList size={16} />} label={`O.S. (${resourceStatus.os === 'loading' ? '…' : serviceOrders.length})`} onClick={() => setActiveTab('os')} />
           </div>
-          <div style={s.tabGroupSecondary}>
-            <Tab active={activeTab === 'units'} icon={<MapPinned size={16} />} label={`Unidades (${arrayOf(customer360.units).length})`} onClick={() => setActiveTab('units')} />
-            <Tab active={activeTab === 'contacts'} icon={<Phone size={16} />} label={`Contatos (${arrayOf(customer360.contacts).length})`} onClick={() => setActiveTab('contacts')} />
+          <div style={s.tabGroupSecondary} role="group" aria-label="Relacionamento">
+            <span style={s.tabGroupLabel}>Relacionamento</span>
+            <Tab active={activeTab === 'contracts'} icon={<FileText size={16} />} label={`Contratos (${resourceStatus.contracts === 'loading' ? '…' : contracts.length})`} onClick={() => setActiveTab('contracts')} />
+            <Tab active={activeTab === 'units'} icon={<MapPinned size={16} />} label={`Unidades (${resourceStatus.view360 === 'loading' ? '…' : arrayOf(customer360.units).length})`} onClick={() => setActiveTab('units')} />
+            <Tab active={activeTab === 'contacts'} icon={<Phone size={16} />} label={`Contatos (${resourceStatus.view360 === 'loading' ? '…' : arrayOf(customer360.contacts).length})`} onClick={() => setActiveTab('contacts')} />
+            {financialAllowed !== false ? <Tab active={activeTab === 'financial'} disabled={financialAllowed === null} icon={<CreditCard size={16} />} label={financialAllowed === null ? 'Financeiro (…)': 'Financeiro'} onClick={() => setActiveTab('financial')} /> : null}
           </div>
         </nav>
 
         <div className="crm-profile-body" style={s.modalBody}>
-          {loading ? <div style={s.loadingBox}><RefreshCw size={18} /> Carregando informações atualizadas do ILUX...</div> : null}
-          {!loading && relatedLoading ? <div style={s.loadingInline}><RefreshCw size={16} /> Montando a visão 360 do cliente em segundo plano...</div> : null}
+          {activeResourceStatus === 'loading' ? <TabSkeleton tab={activeTab} /> : null}
           {!loading && error ? <div style={s.errorBox}><AlertCircle size={17} /><span style={{ flex: 1 }}>{error}</span><button type="button" style={s.retryBtn} onClick={onRetry}>Tentar novamente</button></div> : null}
-          {!loading && activeTab === 'overview' ? <OverviewTab customer={customer} equipments={equipments} contracts={contracts} serviceOrders={serviceOrders} customer360={customer360} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} setActiveTab={setActiveTab} /> : null}
-          {!loading && activeTab === 'units' ? <UnitsTab units={arrayOf(customer360.units)} /> : null}
-          {!loading && activeTab === 'contacts' ? <ContactsTab contacts={arrayOf(customer360.contacts)} /> : null}
-          {!loading && activeTab === 'equipments' ? <EquipmentsTab equipments={equipments} evolution={arrayOf(customer360.equipmentEvolution)} /> : null}
-          {!loading && activeTab === 'contracts' ? <ContractsTab contracts={contracts} /> : null}
-          {!loading && activeTab === 'financial' ? <FinancialTab financial={customer360.financial} loading={relatedLoading} customerId={customer.id} ticketId={customer360.quickActions?.ticketId} /> : null}
-          {!loading && activeTab === 'os' ? <OsTab serviceOrders={serviceOrders} onRefresh={onRetry} /> : null}
+          {activeResourceStatus === 'error' ? <ResourceError onRetry={onRetry} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'overview' ? <OverviewTab customer={customer} equipments={equipments} contracts={contracts} serviceOrders={serviceOrders} customer360={customer360} onOpenConversation={onOpenConversation} onOpenServiceOrder={onOpenServiceOrder} setActiveTab={setActiveTab} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'units' ? <UnitsTab units={arrayOf(customer360.units)} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'contacts' ? <ContactsTab contacts={arrayOf(customer360.contacts)} quickActions={customer360.quickActions} onOpenConversation={onOpenConversation} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'equipments' ? <EquipmentsTab equipments={equipments} evolution={arrayOf(customer360.equipmentEvolution)} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'contracts' ? <ContractsTab contracts={contracts} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'financial' && financialAllowed ? <FinancialTab financial={customer360.financial} loading={relatedLoading} customerId={customer.id} ticketId={customer360.quickActions?.ticketId} canSend={canSendFinancial} /> : null}
+          {activeResourceStatus === 'ready' && activeTab === 'os' ? <OsTab customerId={customer.id} serviceOrders={serviceOrders} initialPage={customer.serviceOrdersPage} onRefresh={onRetry} /> : null}
         </div>
 
         <footer style={s.modalFooter}>
-          <span><Clock3 size={14} /> Atualizado em {formatDate(customer.updatedAt) || 'data não informada'}</span>
+          <span><Clock3 size={14} /> Sincronizado em {formatDate(customer360.sync?.lastSyncedAt || customer360.generatedAt || customer.syncedAt || customer.updatedAt) || 'data não informada'}</span>
           <button type="button" style={s.secondaryBtn} onClick={onClose}>Fechar</button>
         </footer>
       </section>
@@ -594,7 +636,7 @@ function UnitsTab({ units }) {
   );
 }
 
-function ContactsTab({ contacts }) {
+function ContactsTab({ contacts, quickActions, onOpenConversation }) {
   if (!contacts.length) return <Empty icon={<Phone size={28} />} title="Nenhum contato identificado" text="Os responsáveis aparecerão conforme os cadastros do iLux e WhatsApp forem vinculados." />;
   return (
     <div style={s.contactsGrid}>
@@ -609,6 +651,7 @@ function ContactsTab({ contacts }) {
               {contact.phone ? <span><Phone size={13} /> {contact.phone}</span> : null}
               {contact.email ? <span><Mail size={13} /> {contact.email}</span> : null}
             </div>
+            <CrmContactActions contact={contact} quickActions={quickActions} onOpenConversation={onOpenConversation} />
           </div>
         </article>
       ))}
@@ -616,7 +659,7 @@ function ContactsTab({ contacts }) {
   );
 }
 
-function FinancialTab({ financial, loading, customerId, ticketId }) {
+function FinancialTab({ financial, loading, customerId, ticketId, canSend = false }) {
   const [selected, setSelected] = useState(null);
   const [documentsData, setDocumentsData] = useState(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -628,6 +671,9 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
   const [showSendConfirmation, setShowSendConfirmation] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [financeQuery, setFinanceQuery] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
 
   const selectedReceivableId = selected?.externalId;
 
@@ -668,11 +714,16 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
     open: items.filter((item) => item.status !== 'overdue' && item.status !== 'paid').length,
     paid: items.filter((item) => item.status === 'paid').length,
   }), [items]);
-  const visibleItems = useMemo(() => (
-    statusFilter === 'all' ? items : items.filter((item) => (
-      statusFilter === 'open' ? item.status !== 'overdue' && item.status !== 'paid' : item.status === statusFilter
-    ))
-  ), [items, statusFilter]);
+  const visibleItems = useMemo(() => items.filter((item) => {
+    const statusMatches = statusFilter === 'all' || (statusFilter === 'open'
+      ? item.status !== 'overdue' && item.status !== 'paid'
+      : item.status === statusFilter);
+    const searchable = [item.invoiceNumber, item.externalId, item.billingType, item.paymentMethod, item.ourNumber].filter(Boolean).join(' ').toLowerCase();
+    const queryMatches = !financeQuery.trim() || searchable.includes(financeQuery.trim().toLowerCase());
+    const referenceDate = String(item.issuedAt || item.dueAt || '').slice(0, 10);
+    const periodMatches = (!periodStart || referenceDate >= periodStart) && (!periodEnd || referenceDate <= periodEnd);
+    return statusMatches && queryMatches && periodMatches;
+  }), [items, statusFilter, financeQuery, periodStart, periodEnd]);
 
   // O financeiro é aberto direto (atalho "Financeiro" na ficha do contato), então
   // pode chegar aqui antes da visão 360 terminar de carregar em segundo plano.
@@ -808,6 +859,12 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
           </button>
         ))}
       </div>
+      <div style={s.financeSearchBar}>
+        <label style={s.financeSearchField}><Search size={15} /><input value={financeQuery} onChange={(event) => setFinanceQuery(event.target.value)} placeholder="Buscar NF, título, contrato ou nosso número" aria-label="Buscar títulos financeiros" /></label>
+        <label style={s.financePeriodField}><span>De</span><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></label>
+        <label style={s.financePeriodField}><span>Até</span><input type="date" value={periodEnd} min={periodStart || undefined} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
+        {(financeQuery || periodStart || periodEnd) ? <button type="button" style={s.clearFinanceFilters} onClick={() => { setFinanceQuery(''); setPeriodStart(''); setPeriodEnd(''); }}>Limpar</button> : null}
+      </div>
       <div style={s.financeList}>
         {!visibleItems.length ? (
           <div style={s.emptyState}>Nenhum título {statusFilter === 'overdue' ? 'vencido' : statusFilter === 'open' ? 'em aberto' : statusFilter === 'paid' ? 'pago' : ''} para este cliente.</div>
@@ -880,17 +937,17 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
                     return (
                       <article className="crm-document-card" key={document.type} style={{ ...s.documentCard, ...(document.available === false ? s.documentUnavailable : {}) }}>
                         <label style={s.documentSelect}>
-                          <input
-                            type="checkbox"
-                            checked={checkedDocuments.includes(document.type)}
-                            onChange={() => toggleDocument(document.type)}
-                            disabled={document.available === false}
-                            aria-label={`Selecionar ${document.label}`}
-                          />
+                          {canSend ? <input
+                              type="checkbox"
+                              checked={checkedDocuments.includes(document.type)}
+                              onChange={() => toggleDocument(document.type)}
+                              disabled={document.available === false}
+                              aria-label={`Selecionar ${document.label}`}
+                            /> : null}
                           <span style={s.documentIcon}>{billingDocumentIcon(document.type)}</span>
                           <span style={s.documentIdentity}>
                             <strong>{document.label}</strong>
-                            <small>{billingDocumentStatus(document)}</small>
+                            <small style={{ ...s.documentStatusBadge, ...billingDocumentStatusStyle(document) }}>{billingDocumentStatus(document)}</small>
                             {document.fileName ? <span title={document.fileName}>{document.fileName}</span> : null}
                           </span>
                         </label>
@@ -901,16 +958,16 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
                           <button type="button" title={`Baixar ${document.label}`} style={s.iconActionBtn} disabled={document.available === false || busy} onClick={() => accessDocument(document, 'download')}>
                             {documentActions[document.type] === 'download' ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
                           </button>
-                          <button type="button" title={`Reenviar ${document.label} pelo WhatsApp`} style={s.documentSendBtn} disabled={document.available === false || busy} onClick={() => requestSend(document.type)}><Send size={14} /> Reenviar</button>
+                          {canSend ? <button type="button" title={`Reenviar ${document.label} pelo WhatsApp`} style={s.documentSendBtn} disabled={document.available === false || busy} onClick={() => requestSend(document.type)}><Send size={14} /> Reenviar</button> : null}
                         </div>
                       </article>
                     );
                   })}
                 </div>
 
-                <button type="button" style={s.packageSendBtn} disabled={!documents.some((document) => document.available !== false)} onClick={() => requestSend()}>
+                {canSend ? <button type="button" style={s.packageSendBtn} disabled={!documents.some((document) => document.available !== false)} onClick={() => requestSend()}>
                   <Send size={16} /> Reenviar pacote pelo WhatsApp
-                </button>
+                </button> : <div style={s.permissionNotice}><ShieldCheck size={15} /> Você pode consultar e baixar documentos; o reenvio requer permissão financeira.</div>}
               </section>
 
               {showSendConfirmation ? (
@@ -947,8 +1004,10 @@ function FinancialTab({ financial, loading, customerId, ticketId }) {
 function EquipmentsTab({ equipments, evolution }) {
   const [selectedId, setSelectedId] = useState(equipments[0]?.id || null);
   const [filter, setFilter] = useState('');
-  const visible = useMemo(() => equipments.filter((equipment) => searchableEquipment(equipment).includes(filter.toLowerCase())), [equipments, filter]);
-  const selected = equipments.find((equipment) => equipment.id === selectedId) || visible[0] || null;
+  const [statusFilter, setStatusFilter] = useState('all');
+  const visible = useMemo(() => filterCrmEquipments(equipments, statusFilter)
+    .filter((equipment) => searchableEquipment(equipment).includes(filter.toLowerCase())), [equipments, filter, statusFilter]);
+  const selected = visible.find((equipment) => equipment.id === selectedId) || visible[0] || null;
 
   if (!equipments.length) return <Empty icon={<Printer size={28} />} title="Nenhum equipamento" text="Este cliente não possui equipamentos vinculados no CRM." />;
 
@@ -956,6 +1015,7 @@ function EquipmentsTab({ equipments, evolution }) {
     <div className="crm-equipment-layout" style={s.equipmentLayout}>
       <aside style={s.equipmentAside}>
         <div style={s.innerSearch}><Search size={16} /><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Modelo, série ou local" /></div>
+        <CrmEquipmentFilters equipments={equipments} value={statusFilter} onChange={setStatusFilter} />
         <div style={s.equipmentList}>
           {visible.map((equipment) => (
             <button key={equipment.id || equipment.externalId} type="button" style={{ ...s.equipmentCard, ...(selected?.id === equipment.id ? s.activeEquipmentCard : {}) }} onClick={() => setSelectedId(equipment.id)}>
@@ -1074,7 +1134,7 @@ function ContractsTab({ contracts }) {
               <Info label="Franquia de páginas" value={pageFranchise > 0 ? `${pageFranchise.toLocaleString('pt-BR')} páginas` : 'Sem franquia'} />
               <Info label="Valor do excedente" value={overageLabel} />
               <Info label="Faturamento" value={billingModeLabel} />
-              <Info label="Equipamentos" value={`${equipmentCount} vinculado${equipmentCount === 1 ? '' : 's'}`} />
+              <Info label="Equipamentos" value={equipmentCount > 0 ? `${equipmentCount} vinculado${equipmentCount === 1 ? '' : 's'}` : 'Vínculo não identificado'} />
               <Info label="Tipo" value={pick(contract, 'typeName', 'contractType', 'type')} />
             </div>
           </article>
@@ -1084,14 +1144,50 @@ function ContractsTab({ contracts }) {
   );
 }
 
-function OsTab({ serviceOrders, onRefresh }) {
+function OsTab({ customerId, serviceOrders, initialPage, onRefresh }) {
   const [status, setStatus] = useState('all');
+  const [query, setQuery] = useState('');
+  const [orders, setOrders] = useState(serviceOrders || []);
+  const [page, setPage] = useState(initialPage || {});
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sendingId, setSendingId] = useState(null);
   // Memoizado: o histórico de O.S. pode acumular anos de chamados e o filtro não
   // deve ser refeito a cada envio ao gestor (que só altera sendingId).
-  const filtered = useMemo(() => (
-    status === 'all' ? serviceOrders : serviceOrders.filter((order) => status === 'closed' ? isOrderClosed(order) : !isOrderClosed(order))
-  ), [serviceOrders, status]);
+  useEffect(() => {
+    setOrders(serviceOrders || []);
+    setPage(initialPage || {});
+  }, [serviceOrders, initialPage]);
+
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return orders.filter((order) => {
+      const statusMatches = status === 'all' || (status === 'closed' ? isOrderClosed(order) : !isOrderClosed(order));
+      const searchable = [order.number, order.externalId, order.typeName, order.serviceType, order.type, order.osType, order.defect, order.description, order.problem, order.reportedIssue, order.chamado, order.equipmentModel, order.equipment, order.model, order.technicianName, order.technician, order.assignedTo].filter(Boolean).join(' ').toLowerCase();
+      return statusMatches && (!normalizedQuery || searchable.includes(normalizedQuery));
+    });
+  }, [orders, query, status]);
+
+  async function loadMore() {
+    if (!customerId || loadingMore || !page.hasMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await getCrmCustomerServiceOrders(customerId, { limit: page.limit || 25, offset: page.nextOffset ?? orders.length });
+      const next = response.data || {};
+      const seen = new Set();
+      const merged = [...orders, ...arrayOf(next.items)].filter((order) => {
+        const key = String(order.id || order.externalId || order.number || JSON.stringify(order));
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setOrders(merged);
+      setPage(next);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Não foi possível carregar mais O.S.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function openPdf(order) {
     const identifier = order.id || order.externalId || order.number;
@@ -1115,11 +1211,12 @@ function OsTab({ serviceOrders, onRefresh }) {
     }
   }
 
-  if (!serviceOrders.length) return <Empty icon={<ClipboardList size={28} />} title="Nenhuma O.S. sincronizada" text="O histórico aparecerá aqui assim que a sincronização incremental importar os chamados do ILUX." />;
+  if (!orders.length) return <Empty icon={<ClipboardList size={28} />} title="Nenhuma O.S. sincronizada" text="O histórico aparecerá aqui assim que a sincronização incremental importar os chamados do ILUX." />;
   return (
     <div style={s.sectionStack}>
       <div style={s.osToolbar}>
-        <div style={s.toolbarTitle}><strong>Histórico de ordens de serviço</strong><span>{serviceOrders.length} registros sincronizados</span></div>
+        <div style={s.toolbarTitle}><strong>Histórico de ordens de serviço</strong><span>{page.total ?? orders.length} registros sincronizados{page.hasMore ? ` · exibindo ${orders.length}` : ''}</span></div>
+        <label style={s.osSearchField}><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar número, equipamento, defeito ou técnico" aria-label="Buscar ordens de serviço" /></label>
         <div style={s.filterGroup}>
           {[['all', 'Todas'], ['open', 'Abertas'], ['closed', 'Fechadas']].map(([value, label]) => <button key={value} type="button" style={{ ...s.filterBtn, ...(status === value ? s.activeFilterBtn : {}) }} onClick={() => setStatus(value)}>{label}</button>)}
         </div>
@@ -1156,6 +1253,7 @@ function OsTab({ serviceOrders, onRefresh }) {
         })}
         {!filtered.length ? <div style={s.noFilterResult}>Nenhuma O.S. neste filtro.</div> : null}
       </div>
+      {page.hasMore ? <button type="button" style={s.loadMoreBtn} onClick={loadMore} disabled={loadingMore}>{loadingMore ? <RefreshCw size={14} className="spin" /> : <ChevronDown size={14} />} {loadingMore ? 'Carregando...' : 'Carregar mais O.S.'}</button> : null}
     </div>
   );
 }
@@ -1182,8 +1280,17 @@ function Empty({ icon, title, text }) {
   return <div style={s.emptyContent}>{icon}<h3 style={s.emptyTitle}>{title}</h3><p style={s.emptyText}>{text}</p></div>;
 }
 
-function Tab({ active, icon, label, onClick }) {
-  return <button type="button" role="tab" aria-selected={active} style={{ ...s.tab, ...(active ? s.activeTab : {}) }} onClick={onClick}>{icon}{label}</button>;
+function TabSkeleton({ tab }) {
+  const labels = { os: 'Carregando histórico de O.S.', financial: 'Carregando títulos financeiros', contracts: 'Carregando contratos', units: 'Carregando unidades', contacts: 'Carregando contatos' };
+  return <div style={s.tabSkeleton} role="status" aria-live="polite"><span style={s.skeletonLineWide} /><span style={s.skeletonLine} /><span style={s.skeletonLineWide} /><small>{labels[tab] || 'Carregando informações atualizadas do ILUX'}…</small></div>;
+}
+
+function ResourceError({ onRetry }) {
+  return <div style={s.resourceError}><AlertCircle size={24} /><strong>Não foi possível carregar esta aba.</strong><span>Os dados anteriores não foram considerados vazios.</span><button type="button" style={s.retryBtn} onClick={onRetry}>Tentar novamente</button></div>;
+}
+
+function Tab({ active, icon, label, onClick, disabled = false }) {
+  return <button type="button" role="tab" aria-selected={active} aria-disabled={disabled} disabled={disabled} style={{ ...s.tab, ...(active ? s.activeTab : {}) }} onClick={onClick}>{icon}{label}</button>;
 }
 
 function Stat({ icon, label, value, formatted = false, tone }) {
@@ -1345,6 +1452,15 @@ function billingDocumentStatus(document) {
   return 'Disponível para gerar';
 }
 
+function billingDocumentStatusStyle(document) {
+  if (document.error || document.available === false || document.status === 'unavailable' || document.status === 'failed') {
+    return { color: 'var(--danger-text)', background: 'var(--danger-light)' };
+  }
+  if (document.status === 'pending') return { color: 'var(--warning-text)', background: 'var(--warning-light)' };
+  if (document.status === 'ready') return { color: 'var(--success-text)', background: 'var(--success-light)' };
+  return { color: 'var(--text-muted)', background: 'var(--bg-panel)' };
+}
+
 function billingDocumentIcon(type) {
   if (type === 'boleto') return <CreditCard size={17} />;
   if (type === 'statement') return <ClipboardList size={17} />;
@@ -1358,6 +1474,8 @@ const crmResponsiveCss = `
   .crm-profile-tabs button:focus-visible,
   .crm-page button:focus-visible,
   .crm-page input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .crm-profile-modal input:not([type='checkbox']) { min-width: 0; width: 100%; background: transparent; border: 0; outline: 0; color: var(--text-main); font: inherit; }
+  .crm-profile-modal input[type='date'] { width: auto; min-width: 132px; padding: .35rem .45rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-base); color: var(--text-main); }
   @media (max-width: 900px) {
     .crm-page { padding: 1.25rem !important; }
     .crm-page-header { align-items: stretch !important; }
@@ -1489,8 +1607,9 @@ const s = {
   headerMeta: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1rem', color: 'var(--text-muted)', fontSize: '0.76rem' },
   closeBtn: { width: 38, height: 38, display: 'grid', placeItems: 'center', borderRadius: 11, border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-main)', cursor: 'pointer' },
   tabs: { display: 'flex', alignItems: 'stretch', gap: '0.1rem', padding: '0 1.35rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', background: 'var(--bg-surface)', zIndex: 2 },
-  tabGroup: { display: 'flex', gap: '0.1rem' },
-  tabGroupSecondary: { display: 'flex', gap: '0.1rem' },
+  tabGroup: { display: 'flex', gap: '0.1rem', paddingRight: '0.55rem', borderRight: '1px solid var(--border-color)' },
+  tabGroupSecondary: { display: 'flex', gap: '0.1rem', paddingLeft: '0.55rem' },
+  tabGroupLabel: { display: 'none', color: 'var(--text-dim)', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', alignSelf: 'center', padding: '0 .35rem' },
   tab: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.9rem 0.75rem', border: 0, borderBottom: '2px solid transparent', background: 'transparent', color: 'var(--text-muted)', fontWeight: 650, cursor: 'pointer', whiteSpace: 'nowrap' },
   activeTab: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
   modalBody: { flex: 1, minHeight: 0, padding: '1.25rem 1.4rem', overflowY: 'auto' },
@@ -1501,6 +1620,10 @@ const s = {
   loadingInline: { display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.85rem', padding: '0.7rem 0.85rem', borderRadius: 10, color: 'var(--text-muted)', background: 'var(--bg-base)', border: '1px solid var(--border-color)', fontSize: '0.78rem' },
   errorBox: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem', padding: '0.75rem 0.85rem', borderRadius: 10, color: 'var(--danger-text)', background: 'var(--danger-light)', border: '1px solid var(--danger-border)', fontSize: '0.78rem' },
   retryBtn: { flex: '0 0 auto', border: '1px solid var(--danger-border)', borderRadius: 8, padding: '0.4rem 0.65rem', background: 'transparent', color: 'var(--danger-text)', fontWeight: 850, cursor: 'pointer' },
+  tabSkeleton: { display: 'grid', gap: '0.7rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 12, background: 'var(--bg-panel)' },
+  skeletonLineWide: { height: 52, borderRadius: 10, background: 'var(--bg-base)', border: '1px solid var(--border-color)' },
+  skeletonLine: { height: 30, width: '65%', borderRadius: 10, background: 'var(--bg-base)', border: '1px solid var(--border-color)' },
+  resourceError: { display: 'grid', gap: '0.55rem', justifyItems: 'start', padding: '1.2rem', border: '1px solid var(--danger-border)', borderRadius: 12, background: 'var(--danger-light)', color: 'var(--danger-text)' },
   sectionStack: { display: 'grid', gap: '1rem' },
   profileStats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '0.7rem' },
   healthyBox: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.85rem 1rem', borderRadius: 13, color: 'var(--success-text)', background: 'var(--success-light)', border: '1px solid var(--success-border)', fontSize: '0.8rem', fontWeight: 750 },
@@ -1552,6 +1675,10 @@ const s = {
   contactChannels: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 0.8rem', color: 'var(--text-muted)', fontSize: '0.74rem' },
   financialStats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '0.65rem' },
   financeFilterRow: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' },
+  financeSearchBar: { display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap', padding: '0.7rem', border: '1px solid var(--border-color)', borderRadius: 12, background: 'var(--bg-panel)' },
+  financeSearchField: { display: 'flex', alignItems: 'center', gap: '0.45rem', flex: '1 1 260px', minWidth: 200, color: 'var(--text-muted)' },
+  financePeriodField: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 700 },
+  clearFinanceFilters: { border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-main)', borderRadius: 9, padding: '0.45rem 0.6rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.72rem' },
   financeFilterChip: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', borderRadius: 999, border: '1px solid var(--border-color)', background: 'var(--bg-base)', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' },
   financeFilterChipActive: { color: 'var(--text-inverse)', background: 'var(--accent)', borderColor: 'var(--accent)' },
   financeFilterCount: { opacity: 0.75, fontSize: '0.72rem' },
@@ -1593,6 +1720,8 @@ const s = {
   deliveryActions: { display: 'flex', justifyContent: 'flex-end', gap: '0.55rem', flexWrap: 'wrap' },
   financeDetailFooter: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', padding: '0.9rem 1.25rem', borderTop: '1px solid var(--border-color)', background: 'var(--bg-base)' },
   noBoletoLabel: { color: 'var(--text-dim)', fontSize: '0.8rem', fontWeight: 700 },
+  documentStatusBadge: { display: 'inline-flex', width: 'fit-content', padding: '0.16rem 0.4rem', borderRadius: 999, fontSize: '0.68rem', fontWeight: 800 },
+  permissionNotice: { display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.65rem', borderRadius: 9, color: 'var(--text-muted)', background: 'var(--bg-base)', border: '1px dashed var(--border-color)', fontSize: '0.76rem' },
   meterGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.55rem' },
   meterCard: { display: 'grid', gap: 2, padding: '0.7rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-base)', fontVariantNumeric: 'tabular-nums' },
   maintenanceSummary: { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: '0.55rem', marginTop: '0.65rem' },
@@ -1620,7 +1749,9 @@ const s = {
   contractIcon: { width: 38, height: 38, display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-light)', borderRadius: 10 },
   contractTitle: { margin: '0.15rem 0 0', fontSize: 'var(--text-md)' },
   contractGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.8rem', paddingTop: '0.8rem' },
-  osToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' },
+  osToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' },
+  osSearchField: { display: 'flex', alignItems: 'center', gap: '0.45rem', flex: '1 1 260px', minWidth: 220, padding: '0.6rem 0.7rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-base)', color: 'var(--text-muted)' },
+  loadMoreBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.65rem', border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-panel)', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 800 },
   toolbarTitle: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.35rem 0.65rem' },
   filterGroup: { display: 'flex', padding: 3, background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: 10 },
   filterBtn: { border: 0, color: 'var(--text-muted)', background: 'transparent', borderRadius: 8, padding: '0.45rem 0.7rem', cursor: 'pointer', fontWeight: 800 },
