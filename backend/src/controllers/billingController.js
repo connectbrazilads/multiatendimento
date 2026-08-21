@@ -45,6 +45,39 @@ function getCpfCnpjVariations(query) {
   return [...new Set(variations)];
 }
 
+function normalizeBillingPhone(value) {
+  const normalized = evolutionService.normalizePhoneNumber(value);
+  if (!normalized || String(normalized).toLowerCase().endsWith('@g.us')) return '';
+
+  const digits = String(normalized).replace(/\D/g, '');
+  // O iLux desta operação usa números brasileiros: 55 + DDD + 8/9 dígitos.
+  // Impede transformar valores como "05101" em "5505101".
+  if (!digits.startsWith('55') || ![12, 13].includes(digits.length)) return '';
+  return digits;
+}
+
+function getBillingContactPhone(contact) {
+  for (const candidate of [contact?.whatsapp, contact?.whatsappJid, contact?.phone]) {
+    const normalized = normalizeBillingPhone(candidate);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function selectBillingContact(contacts) {
+  const validContacts = (contacts || []).filter((contact) => getBillingContactPhone(contact));
+  if (!validContacts.length) return null;
+
+  return [...validContacts].sort((left, right) => {
+    const score = (contact) => (
+      (contact.enableWhatsAppBilling ? 100 : 0)
+      + (contact.whatsapp || contact.whatsappJid ? 20 : 0)
+      + (contact.externalSource !== 'firebird' ? 10 : 0)
+    );
+    return score(right) - score(left);
+  })[0];
+}
+
 async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
   // 1. Tenta usar os contatos já vinculados ao CrmCustomer (passado como argumento)
   if (crmCustomer && crmCustomer.id) {
@@ -54,14 +87,8 @@ async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
     });
     if (crmWithContacts && crmWithContacts.whatsappContacts.length > 0) {
       // Prioridade 1: Contato com Opt-in E Telefone preenchido
-      let best = crmWithContacts.whatsappContacts.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
-      // Prioridade 2: Contato real (não firebird) com telefone
-      if (!best) best = crmWithContacts.whatsappContacts.find(c => c.externalSource !== 'firebird' && (c.whatsapp || c.phone));
-      // Prioridade 3: Primeiro contato que tenha telefone
-      if (!best) best = crmWithContacts.whatsappContacts.find(c => (c.whatsapp || c.phone));
-      
+      const best = selectBillingContact(crmWithContacts.whatsappContacts);
       if (best) return best;
-      return crmWithContacts.whatsappContacts[0];
     }
   }
 
@@ -82,12 +109,8 @@ async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
   });
 
   if (fallbackCrm && fallbackCrm.whatsappContacts.length > 0) {
-    let best = fallbackCrm.whatsappContacts.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
-    if (!best) best = fallbackCrm.whatsappContacts.find(c => c.externalSource !== 'firebird' && (c.whatsapp || c.phone));
-    if (!best) best = fallbackCrm.whatsappContacts.find(c => (c.whatsapp || c.phone));
-    
+    const best = selectBillingContact(fallbackCrm.whatsappContacts);
     if (best) return best;
-    return fallbackCrm.whatsappContacts[0];
   }
 
   // Fallback: Busca todos os contatos do tenant
@@ -106,9 +129,7 @@ async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
 
   if (matches.length > 0) {
     // Prioriza o que tem Opt-in e telefone
-    let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
-    if (!best) best = matches.find(c => (c.whatsapp || c.phone));
-    return best || matches[0];
+    return selectBillingContact(matches);
   }
 
   // 4. Tenta por raiz do CNPJ (primeiros 8 dígitos) no nome
@@ -122,9 +143,7 @@ async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
     });
 
     if (matches.length > 0) {
-      let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
-      if (!best) best = matches.find(c => (c.whatsapp || c.phone));
-      return best || matches[0];
+      return selectBillingContact(matches);
     }
   }
 
@@ -137,9 +156,7 @@ async function findContactForBilling(tenantId, crmCustomer, queryCpfCnpj) {
     });
 
     if (matches.length > 0) {
-      let best = matches.find(c => c.enableWhatsAppBilling && (c.whatsapp || c.phone));
-      if (!best) best = matches.find(c => (c.whatsapp || c.phone));
-      return best || matches[0];
+      return selectBillingContact(matches);
     }
   }
 
@@ -440,9 +457,9 @@ async function autoSendBilling(req, res) {
 
     if (!contact) {
       await prisma.billingLog.create({
-        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Nenhum contato de WhatsApp cadastrado para este cliente.' },
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Nenhum contato de WhatsApp com número válido cadastrado para este cliente.' },
       });
-      return res.json({ success: true, message: 'Documentos preparados, mas não há contato de WhatsApp para enviar automaticamente.' });
+      return res.json({ success: true, skipped: true, message: 'Documentos preparados, mas não há contato de WhatsApp com número válido para enviar automaticamente.' });
     }
     if (!isSendToAll && !contact.enableWhatsAppBilling) {
       await prisma.billingLog.create({
@@ -457,8 +474,13 @@ async function autoSendBilling(req, res) {
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       throw new Error('Integração com WhatsApp não configurada ou sem instâncias conectadas.');
     }
-    const phone = evolutionService.normalizePhoneNumber(contact.whatsapp || contact.phone || '');
-    if (!phone) throw new Error('Telefone do cliente inválido ou não cadastrado.');
+    const phone = getBillingContactPhone(contact);
+    if (!phone) {
+      await prisma.billingLog.create({
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: fileNames, status: 'SKIPPED', errorMessage: 'Telefone do contato inválido ou não cadastrado para WhatsApp.' },
+      });
+      return res.json({ success: true, skipped: true, message: 'Documentos preparados, mas o telefone do contato não é válido para WhatsApp.' });
+    }
 
     // Busca ou abre uma conversa para o cliente -- precisa funcionar mesmo com
     // quem nunca trocou mensagem no WhatsApp antes, como o fluxo antigo fazia.
@@ -790,5 +812,8 @@ module.exports = {
   _private: {
     buildBillingCoverageReport,
     normalizeBillingIdentity,
+    normalizeBillingPhone,
+    getBillingContactPhone,
+    selectBillingContact,
   }
 };

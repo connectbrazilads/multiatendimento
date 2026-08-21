@@ -29,3 +29,28 @@ test('compara clientes com opt-in e envios por cliente, sem duplicar contatos', 
   assert.equal(report.coverageAnalysis.find((item) => item.name === 'Cliente B').status, 'NO_PHONE');
   assert.equal(report.coverageAnalysis.find((item) => item.name === 'Cliente C').status, 'FAILED');
 });
+
+test('rejeita telefone curto do iLux e prioriza o contato WhatsApp válido', () => {
+  assert.equal(_private.normalizeBillingPhone('05101'), '');
+  assert.equal(_private.normalizeBillingPhone('5551999990001'), '5551999990001');
+
+  const selected = _private.selectBillingContact([
+    {
+      id: 'firebird',
+      externalSource: 'firebird',
+      phone: '5505101',
+      whatsapp: null,
+      enableWhatsAppBilling: true,
+    },
+    {
+      id: 'whatsapp',
+      externalSource: 'whatsapp',
+      phone: '5551999990001',
+      whatsapp: '5551999990001',
+      enableWhatsAppBilling: true,
+    },
+  ]);
+
+  assert.equal(selected.id, 'whatsapp');
+  assert.equal(_private.getBillingContactPhone(selected), '5551999990001');
+});
