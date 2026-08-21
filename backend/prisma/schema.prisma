@@ -42,6 +42,7 @@ model Tenant {
   crmTechnicians    CrmTechnician[]
   billingLogs       BillingLog[]
   revenueSnapshots  RevenueSnapshot[]
+  userTicketStates  UserTicketState[]
 }
 
 model TenantSettings {
@@ -125,6 +126,7 @@ model User {
   tenant                   Tenant            @relation(fields: [tenantId], references: [id])
   serviceOrders            ServiceOrder[]
   closedOrders             ServiceOrder[]    @relation("ClosedBy")
+  ticketStates             UserTicketState[]
 
   @@unique([tenantId, email])
 }
@@ -261,6 +263,7 @@ model Ticket {
   team          Team?          @relation(fields: [teamId], references: [id])
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   serviceOrders ServiceOrder[]
+  userStates    UserTicketState[]
 
   @@index([tenantId])
   @@index([tenantId, status, updatedAt])
@@ -270,6 +273,26 @@ model Ticket {
   @@index([contactId])
   @@index([status])
   @@index([createdAt])
+}
+
+model UserTicketState {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  ticketId     String
+  isPinned     Boolean  @default(false)
+  isUnread     Boolean  @default(false)
+  pinnedAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ticketId])
+  @@index([tenantId, userId, isPinned])
+  @@index([ticketId])
 }
 
 model TicketEvent {

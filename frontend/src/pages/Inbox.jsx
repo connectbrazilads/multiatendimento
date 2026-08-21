@@ -19,6 +19,7 @@ import api, {
   getSettings,
   forwardMessage,
   createTicketNote,
+  updateTicketPreferences,
 } from '../services/api';
 import { toast } from '../utils/toast';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -566,10 +567,28 @@ export default function Inbox() {
     if (isMobile) setView('chat');
     
     // Zera o contador localmente para feedback imediato
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, unreadCount: 0 } : t));
+    const ticket = tickets.find((item) => item.id === id);
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, unreadCount: 0, isUnread: false } : t));
+    if (ticket?.isUnread) updateTicketPreferences(id, { isUnread: false }).catch(() => {});
     
     // O backend ja zera ao chamar getMessages pelo useEffect do selectedId
-  }, [selectedId, historySearch, isMobile]);
+  }, [selectedId, historySearch, isMobile, tickets, setTickets]);
+
+  const handleTicketPreference = useCallback(async (ticketId, preference) => {
+    const previous = tickets.find((ticket) => ticket.id === ticketId);
+    if (!previous) return;
+    setTickets((current) => current.map((ticket) => ticket.id === ticketId ? { ...ticket, ...preference } : ticket));
+    try {
+      const { data } = await updateTicketPreferences(ticketId, preference);
+      setTickets((current) => current.map((ticket) => ticket.id === ticketId ? { ...ticket, ...data } : ticket));
+      toast.success(preference.isPinned !== undefined
+        ? (preference.isPinned ? 'Conversa fixada no topo' : 'Conversa desafixada')
+        : 'Conversa marcada como não lida');
+    } catch (error) {
+      setTickets((current) => current.map((ticket) => ticket.id === ticketId ? previous : ticket));
+      toast.error(error.response?.data?.error || 'Não foi possível atualizar a conversa.');
+    }
+  }, [tickets, setTickets]);
 
   if (!me) {
     return (
@@ -618,6 +637,7 @@ export default function Inbox() {
         counts={counts}
         filters={filters}
         isMobile={isMobile}
+        onTicketPreference={handleTicketPreference}
         search={search}
         selectedId={selectedId}
         selectTicket={selectTicket}
@@ -987,13 +1007,14 @@ export const inboxStyles = {
   rowActive: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderLeft: '1px solid var(--accent)' },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem', marginBottom: 2 },
-  rowName: { fontWeight: 650, fontSize: '0.9rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
+  rowName: { fontWeight: 650, fontSize: '0.9rem', color: 'var(--text-main)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 5 },
   rowTime: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0, fontVariantNumeric: 'tabular-nums' },
   rowPreview: { fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rowSub: { display: 'flex', alignItems: 'center', gap: '0.45rem', position: 'relative', flexWrap: 'wrap' },
   rowStatusPill: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   priorityPill: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   rowMetaLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.65rem', marginTop: '0.4rem' },
+  ticketQuickAction: { width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, flexShrink: 0 },
   rowOperationalLine: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.35rem', flexWrap: 'wrap' },
   awaitingCustomerPill: { color: 'var(--info)', background: 'var(--info-light)', border: '1px solid var(--info-border)', borderRadius: 'var(--radius-lg)', padding: '0.12rem 0.4rem', fontSize: '0.65rem', fontWeight: 700 },
   slaPill: { borderRadius: 'var(--radius-lg)', padding: '0.12rem 0.4rem', fontSize: '0.65rem', fontWeight: 700, border: '1px solid transparent' },
@@ -1112,6 +1133,10 @@ export const inboxStyles = {
   composerActionBtnMuted: { background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', minHeight: '36px', padding: '0 0.85rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' },
   composerHint: { minHeight: '36px', padding: '0 0.8rem', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--accent-border)', background: 'var(--accent-light)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' },
   composerInputRow: { display: 'flex', alignItems: 'flex-end', gap: '0.75rem', minWidth: 0 },
+  emojiPicker: { position: 'absolute', left: 0, bottom: 'calc(100% + 10px)', zIndex: 80, width: 'min(310px, calc(100vw - 32px))', padding: '0.75rem', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--bg-surface)', boxShadow: '0 18px 44px rgba(0,0,0,.32)' },
+  emojiPickerTitle: { color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '.55rem' },
+  emojiGrid: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 },
+  emojiButton: { width: 38, height: 38, border: '1px solid transparent', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: '1.25rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
   filePreview: { fontSize: '0.8rem', color: 'var(--accent)', padding: '8px 16px', background: 'var(--accent-light)', borderRadius: 'var(--radius-lg)', alignSelf: 'flex-start', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 },
   draftAttachmentList: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' },
   draftAttachmentCard: { display: 'flex', alignItems: 'center', gap: '0.7rem', minWidth: 0, maxWidth: '260px', padding: '0.55rem 0.7rem', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' },

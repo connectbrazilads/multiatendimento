@@ -5,6 +5,7 @@ const evolutionService = require('../services/evolutionService');
 const path = require('path');
 const fs = require('fs');
 const { hasPermission } = require('../auth/permissions');
+const { mergeTicketUserStates } = require('./ticketPreferencesController');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
@@ -394,6 +395,18 @@ async function list(req, res) {
   if (status === 'all') {
     tickets = dedupeTicketsByContact(tickets);
   }
+
+  const userStates = tickets.length
+    ? await prisma.userTicketState.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        ticketId: { in: tickets.map((ticket) => ticket.id) },
+      },
+      select: { ticketId: true, isUnread: true, isPinned: true, pinnedAt: true },
+    })
+    : [];
+  tickets = mergeTicketUserStates(tickets, userStates);
 
   refreshVisibleTicketAvatars(tickets);
 

@@ -88,6 +88,7 @@ export const createTicket = (contactId, instanceId) => api.post('/tickets', { co
 export const summarizeTicket = (id) => api.post(`/tickets/${id}/summarize`);
 export const createTicketNote = (ticketId, body) => api.post(`/tickets/${ticketId}/notes`, { body });
 export const updateTicket = (id, data) => api.patch(`/tickets/${id}`, data);
+export const updateTicketPreferences = (id, data) => api.patch(`/tickets/${id}/preferences`, data);
 export const reopenTicket = (contactId, instanceId) => api.post('/tickets/reopen', { contactId, instanceId });
 export const sendMediaMessage = (ticketId, file, caption = '', quotedMsgId = null) => {
   const form = new FormData();

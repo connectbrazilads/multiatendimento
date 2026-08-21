@@ -30,6 +30,10 @@ import {
   Lock,
   User,
   Users,
+  Pin,
+  PinOff,
+  Mail,
+  Smile,
 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { Empty, fmt, statusColor, statusLabel } from './helpers.jsx';
@@ -1182,7 +1186,7 @@ export function ForwardModal({ onClose, onForward, styles }) {
 // Item de lista memoizado: evita recriar/recomparar todas as linhas do inbox
 // quando so o item selecionado muda (troca de ticket) ou o texto do composer
 // atualiza o componente pai. Só a linha afetada volta a renderizar.
-const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, styles, now }) {
+const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, onPreference, styles, now }) {
   const priorityMeta = getPriorityMeta(ticket.priority);
   const statusMeta = getStatusMeta(ticket.status);
   const phoneLabel = getContactPhone(ticket.contact, 'Sem telefone');
@@ -1209,7 +1213,7 @@ const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, 
       <Avatar name={contactName} src={ticket.contact?.avatarUrl} size={36} />
       <div style={styles.rowInfo}>
         <div style={styles.rowTop}>
-          <span style={styles.rowName}>{contactName}</span>
+          <span style={styles.rowName}>{ticket.isPinned ? <Pin size={12} fill="currentColor" aria-label="Conversa fixada" /> : null}{contactName}</span>
           <span style={styles.rowTime} title={formatTicketTimestamp(ticket.lastMessageAt || ticket.updatedAt)}>
             {formatElapsed(ticket.lastMessageAt || ticket.updatedAt, now)}
           </span>
@@ -1241,7 +1245,7 @@ const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, 
               {priorityMeta.label}
             </span>
           ) : null}
-          {ticket.unreadCount > 0 ? <div style={styles.unreadBadge}>{ticket.unreadCount}</div> : null}
+          {(ticket.isUnread || ticket.unreadCount > 0) ? <div style={styles.unreadBadge}>{ticket.unreadCount > 0 ? ticket.unreadCount : '•'}</div> : null}
         </div>
 
         <div style={styles.rowOperationalLine}>
@@ -1269,6 +1273,14 @@ const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, 
           ) : (
             <span style={styles.rowMetaSpacer} />
           )}
+          <div style={{ display: 'inline-flex', gap: 4, marginLeft: 'auto' }}>
+            <button type="button" className="inbox-control" style={styles.ticketQuickAction} title={ticket.isPinned ? 'Desafixar conversa' : 'Fixar conversa no topo'} aria-label={ticket.isPinned ? 'Desafixar conversa' : 'Fixar conversa'} onClick={(event) => { event.stopPropagation(); onPreference(ticket.id, { isPinned: !ticket.isPinned }); }}>
+              {ticket.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+            </button>
+            <button type="button" className="inbox-control" style={styles.ticketQuickAction} title="Marcar como não lida" aria-label="Marcar conversa como não lida" onClick={(event) => { event.stopPropagation(); onPreference(ticket.id, { isUnread: true }); }}>
+              <Mail size={13} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1279,6 +1291,7 @@ export const TicketSidebar = React.memo(function TicketSidebar({
   counts,
   filters,
   isMobile,
+  onTicketPreference,
   search,
   selectedId,
   selectTicket,
@@ -1330,6 +1343,7 @@ export const TicketSidebar = React.memo(function TicketSidebar({
     const whatsapp = getSafeLowerText(ticket.contact?.whatsapp);
     return name.includes(query) || fantasyName.includes(query) || cpfCnpj.includes(query) || phone.includes(query) || whatsapp.includes(query);
   }).sort((left, right) => {
+    if (Boolean(left.isPinned) !== Boolean(right.isPinned)) return left.isPinned ? -1 : 1;
     if (sortBy === 'oldest') {
       const leftNeedsResponse = !isAwaitingCustomer(left) && left.status !== 'resolved';
       const rightNeedsResponse = !isAwaitingCustomer(right) && right.status !== 'resolved';
@@ -1346,28 +1360,19 @@ export const TicketSidebar = React.memo(function TicketSidebar({
       const rightDue = new Date(right.slaDueAt || '2999-12-31').getTime();
       return leftDue - rightDue;
     }
-    if (sortBy === 'unread') return (right.unreadCount || 0) - (left.unreadCount || 0) || getTicketActivityAt(left) - getTicketActivityAt(right);
+    if (sortBy === 'unread') {
+      const leftUnread = left.isUnread ? Math.max(1, left.unreadCount || 0) : (left.unreadCount || 0);
+      const rightUnread = right.isUnread ? Math.max(1, right.unreadCount || 0) : (right.unreadCount || 0);
+      return rightUnread - leftUnread || getTicketActivityAt(left) - getTicketActivityAt(right);
+    }
     return getTicketActivityAt(right) - getTicketActivityAt(left);
   }), [tickets, search, sortBy]);
-
-  const loadSummary = useMemo(() => {
-    const unread = filteredTickets.reduce((total, ticket) => total + (ticket.unreadCount > 0 ? 1 : 0), 0);
-    const overdue = filteredTickets.filter((ticket) => getSlaMeta(ticket, now)?.tone === 'danger').length;
-    const awaitingCustomer = filteredTickets.filter(isAwaitingCustomer).length;
-    return { unread, overdue, awaitingCustomer };
-  }, [filteredTickets, now]);
 
   const activeTabLabel = {
     mine: 'Minhas conversas',
     pending: 'Fila de espera',
     all: 'Todos os contatos',
   }[tab] || 'Inbox';
-
-  const loadScopeLabel = useMemo(() => {
-    if (filters.agentId) return users.find((user) => user.id === filters.agentId)?.name || 'atendente';
-    if (filters.teamId) return teams.find((team) => team.id === filters.teamId)?.name || 'equipe';
-    return activeTabLabel;
-  }, [filters.agentId, filters.teamId, users, teams, activeTabLabel]);
 
   const visibleTickets = filteredTickets.slice(0, visibleLimit);
 
@@ -1397,7 +1402,6 @@ export const TicketSidebar = React.memo(function TicketSidebar({
           <div style={styles.sidebarTitle}>Inbox</div>
           <div style={styles.sidebarSubtitle}>{activeTabLabel}</div>
         </div>
-        <div style={styles.sidebarCounter}>{filteredTickets.length}</div>
       </div>
 
       <div style={styles.tabsWrap}>
@@ -1444,13 +1448,6 @@ export const TicketSidebar = React.memo(function TicketSidebar({
             <SlidersHorizontal size={15} />
             {activeFilterCount ? <span>{activeFilterCount}</span> : null}
           </button>
-        </div>
-
-        <div style={styles.inboxOperationalBar}>
-          <span title={`Carga visível em ${loadScopeLabel}`}><strong>{filteredTickets.length}</strong> em {loadScopeLabel}</span>
-          <span title="Conversas com mensagens nao lidas"><strong>{loadSummary.unread}</strong> não lidas</span>
-          <span title="Conversas com SLA vencido"><strong>{loadSummary.overdue}</strong> SLA vencido</span>
-          <span title="Conversas aguardando retorno do cliente"><strong>{loadSummary.awaitingCustomer}</strong> aguardando cliente</span>
         </div>
 
         <div style={styles.sortBar}>
@@ -1532,6 +1529,7 @@ export const TicketSidebar = React.memo(function TicketSidebar({
             ticket={ticket}
             isSelected={selectedId === ticket.id}
             onSelect={selectTicket}
+            onPreference={onTicketPreference}
             styles={styles}
             now={now}
           />
@@ -2188,6 +2186,8 @@ export const MessageList = React.memo(function MessageList({
   );
 });
 
+const COMPOSER_EMOJIS = ['😀', '😃', '😊', '😉', '😍', '🥰', '😂', '🤣', '😅', '🙂', '🙌', '👏', '👍', '👎', '🙏', '🤝', '💪', '👋', '👌', '✅', '⚠️', '❌', '❤️', '💛', '🎉', '📌', '📎', '📞', '📄', '🖨️', '💳', '💰', '🕐', '🚚', '🔧', '💻'];
+
 export const MessageComposer = React.memo(function MessageComposer({
   files,
   filteredQuick,
@@ -2215,6 +2215,17 @@ export const MessageComposer = React.memo(function MessageComposer({
 }) {
   const fileInputRef = useRef(null);
   const textInputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  useEffect(() => {
+    if (!emojiOpen) return undefined;
+    const closeOutside = (event) => {
+      if (!emojiPickerRef.current?.contains(event.target)) setEmojiOpen(false);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    return () => document.removeEventListener('mousedown', closeOutside);
+  }, [emojiOpen]);
 
   useEffect(() => {
     const input = textInputRef.current;
@@ -2257,6 +2268,20 @@ export const MessageComposer = React.memo(function MessageComposer({
     event.preventDefault();
     appendFiles(imageFiles, 'colagem');
     toast.success(imageFiles.length === 1 ? 'Imagem colada no envio' : `${imageFiles.length} imagens coladas no envio`);
+  }
+
+  function insertEmoji(emoji) {
+    const input = textInputRef.current;
+    const start = input?.selectionStart ?? text.length;
+    const end = input?.selectionEnd ?? start;
+    const nextText = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
+    handleInput(nextText);
+    setEmojiOpen(false);
+    requestAnimationFrame(() => {
+      input?.focus();
+      const nextCursor = start + emoji.length;
+      input?.setSelectionRange(nextCursor, nextCursor);
+    });
   }
 
   return (
@@ -2374,6 +2399,20 @@ export const MessageComposer = React.memo(function MessageComposer({
                   <Paperclip size={18} strokeWidth={2.4} />
                 </button>
               )}
+
+              <div ref={emojiPickerRef} style={{ position: 'relative', flexShrink: 0 }}>
+                <button type="button" style={{ ...styles.attachBtn, width: isMobile ? '42px' : styles.attachBtn.width, height: isMobile ? '42px' : styles.attachBtn.height }} onClick={() => setEmojiOpen((open) => !open)} title="Inserir emoji" aria-label="Abrir seletor de emojis" aria-expanded={emojiOpen}>
+                  <Smile size={18} strokeWidth={2.4} />
+                </button>
+                {emojiOpen ? (
+                  <div style={styles.emojiPicker} role="dialog" aria-label="Selecionar emoji">
+                    <div style={styles.emojiPickerTitle}>Emojis</div>
+                    <div style={styles.emojiGrid}>
+                      {COMPOSER_EMOJIS.map((emoji) => <button type="button" key={emoji} style={styles.emojiButton} onClick={() => insertEmoji(emoji)} aria-label={`Inserir ${emoji}`}>{emoji}</button>)}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               <div style={styles.composerCenter}>
                 {files.length > 0 && !isNote ? (
