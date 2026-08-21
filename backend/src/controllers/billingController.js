@@ -663,7 +663,36 @@ async function getBillingDashboardStats(req, res) {
       }
     });
 
-    res.json({ stats, logs });
+    const optInContacts = await prisma.contact.findMany({
+      where: {
+        tenantId,
+        enableWhatsAppBilling: true
+      },
+      select: {
+        id: true,
+        name: true,
+        fantasyName: true,
+        phone: true,
+        cpfCnpj: true,
+        whatsapp: true
+      }
+    });
+
+    const successfulCpfs = new Set(logs.filter(l => l.status === 'SUCCESS' && l.cpfCnpj).map(l => l.cpfCnpj.replace(/\D/g, '')));
+
+    const coverageAnalysis = optInContacts.map(contact => {
+      const contactCpf = (contact.cpfCnpj || '').replace(/\D/g, '');
+      const hasReceived = contactCpf && successfulCpfs.has(contactCpf);
+      return {
+        id: contact.id,
+        name: contact.fantasyName || contact.name || 'Sem nome',
+        phone: contact.whatsapp || contact.phone || 'Sem telefone',
+        cpfCnpj: contact.cpfCnpj || 'Não informado',
+        status: hasReceived ? 'RECEIVED' : 'PENDING'
+      };
+    });
+
+    res.json({ stats, logs, coverageAnalysis });
   } catch (err) {
     console.error('[getBillingDashboardStats] erro:', err.message);
     res.status(500).json({ error: err.message });

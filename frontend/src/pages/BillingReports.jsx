@@ -16,7 +16,9 @@ import {
   UserX,
   Users,
   Clock,
-  Filter
+  Filter,
+  Printer,
+  Download
 } from 'lucide-react';
 
 const PERIOD_OPTIONS = [
@@ -35,13 +37,18 @@ const STATUS_COLORS = {
 export default function BillingReports() {
   const [period, setPeriod] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ stats: null, logs: [] });
+  const [data, setData] = useState({ stats: null, logs: [], coverageAnalysis: [] });
   const [filterType, setFilterType] = useState('ALL');
+  const [activeTab, setActiveTab] = useState('logs');
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
+
+  function handlePrint() {
+    window.print();
+  }
 
   async function loadData() {
     setLoading(true);
@@ -88,12 +95,26 @@ export default function BillingReports() {
   const deliveryRate = stats?.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
 
   return (
-    <div style={s.container}>
+    <div style={s.container} className="billing-report-container">
+      <style>{`
+        @media print {
+          nav, header, .no-print { display: none !important; }
+          .billing-report-container { padding: 0 !important; background: white !important; overflow: visible !important; }
+          .print-full { max-height: none !important; overflow: visible !important; border: none !important; }
+          table { width: 100% !important; border-collapse: collapse; }
+          th, td { border-bottom: 1px solid #ccc !important; padding: 8px !important; }
+          body { background: white !important; color: black !important; }
+        }
+      `}</style>
       <PageHeader
         title="Relatórios de Cobrança"
         subtitle="Analise a efetividade dos envios automáticos de boletos via WhatsApp."
         actions={
-          <div style={s.periodGroup}>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
+            <button onClick={handlePrint} className="no-print" style={s.printBtn}>
+              <Printer size={16} /> Salvar PDF
+            </button>
+            <div style={s.periodGroup} className="no-print">
             {PERIOD_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -188,70 +209,131 @@ export default function BillingReports() {
 
           {/* Audit Table */}
           <div style={s.tableBox}>
-            <div style={s.tableHeader}>
-              <h3 style={s.boxTitle}>Auditoria de Disparos</h3>
-              <div style={s.filterGroup}>
-                <Filter size={16} color="var(--text-muted)" />
-                <select
-                  style={s.select}
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
+            <div style={{ ...s.tableHeader, borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1rem' }} className="no-print">
+                <button 
+                  style={activeTab === 'logs' ? s.tabActive : s.tabInactive} 
+                  onClick={() => setActiveTab('logs')}
                 >
-                  <option value="ALL">Todos os Resultados</option>
-                  <option value="SUCCESS">Somente Sucesso</option>
-                  <option value="SKIPPED_OPTIN">Sem Opt-in (Caixinha)</option>
-                  <option value="SKIPPED_NOCONTACT">Sem Contato/Telefone</option>
-                  <option value="FAILED">Falha Técnica</option>
-                </select>
+                  Disparos (Logs)
+                </button>
+                <button 
+                  style={activeTab === 'coverage' ? s.tabActive : s.tabInactive} 
+                  onClick={() => setActiveTab('coverage')}
+                >
+                  Análise de Cobertura (Base x Enviados)
+                </button>
               </div>
+              <h3 style={s.boxTitle} className="only-print">Relatório de {activeTab === 'logs' ? 'Disparos' : 'Análise de Cobertura'}</h3>
+              
+              {activeTab === 'logs' && (
+                <div style={s.filterGroup} className="no-print">
+                  <Filter size={16} color="var(--text-muted)" />
+                  <select
+                    style={s.select}
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                  >
+                    <option value="ALL">Todos os Resultados</option>
+                    <option value="SUCCESS">Somente Sucesso</option>
+                    <option value="SKIPPED_OPTIN">Sem Opt-in (Caixinha)</option>
+                    <option value="SKIPPED_NOCONTACT">Sem Contato/Telefone</option>
+                    <option value="FAILED">Falha Técnica</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            <div style={s.tableWrapper}>
+            <div style={s.tableWrapper} className="print-full">
               <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Data / Hora</th>
-                    <th style={s.th}>Cliente (CPF/CNPJ)</th>
-                    <th style={s.th}>Status</th>
-                    <th style={s.th}>Detalhe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLogs.map((log) => {
-                    const isSuccess = log.status === 'SUCCESS';
-                    const isSkipped = log.status === 'SKIPPED';
-                    const isFailed = log.status === 'FAILED';
-                    const isOptin = log.errorMessage?.includes('Opt-in');
-                    const badgeColor = isSuccess ? STATUS_COLORS.SUCCESS : isFailed ? STATUS_COLORS.FAILED : (isOptin ? STATUS_COLORS.SKIPPED_OPTIN : STATUS_COLORS.SKIPPED_NOCONTACT);
-
-                    return (
-                      <tr key={log.id}>
-                        <td style={s.tdTime}>
-                          <Clock size={14} style={{ marginRight: '6px' }} />
-                          {new Date(log.sentAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                        </td>
-                        <td style={s.tdClient}>
-                          <strong>{log.clientName || 'N/A'}</strong>
-                          <br />
-                          <span style={s.cnpj}>{log.cpfCnpj}</span>
-                        </td>
-                        <td style={s.td}>
-                          <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
-                            {isSuccess ? 'Enviado' : isSkipped ? (isOptin ? 'Sem Permissão' : 'S/ Telefone') : 'Erro'}
-                          </span>
-                        </td>
-                        <td style={s.tdMessage}>{log.errorMessage || 'Enviado para o WhatsApp com sucesso.'}</td>
+                {activeTab === 'logs' ? (
+                  <>
+                    <thead>
+                      <tr>
+                        <th style={s.th}>Data / Hora</th>
+                        <th style={s.th}>Cliente (CPF/CNPJ)</th>
+                        <th style={s.th}>Status</th>
+                        <th style={s.th}>Detalhe</th>
                       </tr>
-                    );
-                  })}
-                  {filteredLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                        Nenhum registro encontrado para este filtro.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+                    </thead>
+                    <tbody>
+                      {filteredLogs.map((log) => {
+                        const isSuccess = log.status === 'SUCCESS';
+                        const isSkipped = log.status === 'SKIPPED';
+                        const isFailed = log.status === 'FAILED';
+                        const isOptin = log.errorMessage?.includes('Opt-in');
+                        const badgeColor = isSuccess ? STATUS_COLORS.SUCCESS : isFailed ? STATUS_COLORS.FAILED : (isOptin ? STATUS_COLORS.SKIPPED_OPTIN : STATUS_COLORS.SKIPPED_NOCONTACT);
+
+                        return (
+                          <tr key={log.id}>
+                            <td style={s.tdTime}>
+                              <Clock size={14} style={{ marginRight: '6px' }} className="no-print" />
+                              {new Date(log.sentAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                            </td>
+                            <td style={s.tdClient}>
+                              <strong>{log.clientName || 'N/A'}</strong>
+                              <br />
+                              <span style={s.cnpj}>{log.cpfCnpj}</span>
+                            </td>
+                            <td style={s.td}>
+                              <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
+                                {isSuccess ? 'Enviado' : isSkipped ? (isOptin ? 'Sem Permissão' : 'S/ Telefone') : 'Erro'}
+                              </span>
+                            </td>
+                            <td style={s.tdMessage}>{log.errorMessage || 'Enviado para o WhatsApp com sucesso.'}</td>
+                          </tr>
+                        );
+                      })}
+                      {filteredLogs.length === 0 && (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            Nenhum registro encontrado para este filtro.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </>
+                ) : (
+                  <>
+                    <thead>
+                      <tr>
+                        <th style={s.th}>Cliente</th>
+                        <th style={s.th}>Telefone / WhatsApp</th>
+                        <th style={s.th}>Envio no Período</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.coverageAnalysis && data.coverageAnalysis.map((contact) => {
+                        const isReceived = contact.status === 'RECEIVED';
+                        const badgeColor = isReceived ? STATUS_COLORS.SUCCESS : STATUS_COLORS.SKIPPED_NOCONTACT;
+                        return (
+                          <tr key={contact.id}>
+                            <td style={s.tdClient}>
+                              <strong>{contact.name}</strong>
+                              <br />
+                              <span style={s.cnpj}>{contact.cpfCnpj}</span>
+                            </td>
+                            <td style={s.tdMessage}>
+                              {contact.phone}
+                            </td>
+                            <td style={s.td}>
+                              <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
+                                {isReceived ? '✓ Recebeu' : '✕ Faltou Enviar'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {(!data.coverageAnalysis || data.coverageAnalysis.length === 0) && (
+                        <tr>
+                          <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            Nenhum cliente com opt-in encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </>
+                )}
               </table>
             </div>
           </div>
@@ -449,5 +531,36 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--text-muted)'
+  },
+  printBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    background: 'white',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+    color: 'var(--text-color)',
+    fontWeight: 600,
+    cursor: 'pointer'
+  },
+  tabActive: {
+    padding: '8px 16px',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-color)',
+    borderBottom: '2px solid var(--primary)',
+    color: 'var(--primary)',
+    fontWeight: 700,
+    cursor: 'pointer',
+    borderRadius: '8px 8px 0 0'
+  },
+  tabInactive: {
+    padding: '8px 16px',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+    cursor: 'pointer'
   }
 };
