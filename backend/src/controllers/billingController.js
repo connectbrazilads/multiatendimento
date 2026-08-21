@@ -411,6 +411,25 @@ async function autoSendBilling(req, res) {
       return res.json({ success: true, message: 'Já enviado hoje com sucesso.' });
     }
 
+    // Valida contato e opt-in antes de persistir/cachar os PDFs. Assim, uma
+    // repeticao para um contato sem permissao nao passa pelo cache e nao gera
+    // erro 500 antes de devolver skipped.
+    const requestedFileNames = documents.map((document) => document.fileName).join(', ');
+    const precheckContact = await findContactForBilling(tenant.id, crmCustomer, crmCustomer.cpfCnpj);
+    const precheckIsSendToAll = String(sendPolicy).toLowerCase() === 'todos';
+    if (!precheckContact) {
+      await prisma.billingLog.create({
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: requestedFileNames, status: 'SKIPPED', errorMessage: 'Nenhum contato de WhatsApp valido cadastrado para este cliente.' },
+      });
+      return res.json({ success: true, skipped: true, message: 'Documentos preparados, mas nao ha contato de WhatsApp valido para enviar automaticamente.' });
+    }
+    if (!precheckIsSendToAll && !precheckContact.enableWhatsAppBilling) {
+      await prisma.billingLog.create({
+        data: { tenantId: tenant.id, cpfCnpj: crmCustomer.cpfCnpj, clientName: customerName, fileName: requestedFileNames, status: 'SKIPPED', errorMessage: 'Opt-in de cobranca desativado para este contato.' },
+      });
+      return res.json({ success: true, skipped: true, message: 'Envio automatico nao habilitado para este contato.' });
+    }
+
     // Guarda cada documento do mesmo jeito que um clique manual no CRM guardaria
     // -- assim, se alguem abrir esse titulo no CRM depois, ja aparece pronto em
     // vez de pedir pro agente de novo. Os campos do "receivable" abaixo sao um

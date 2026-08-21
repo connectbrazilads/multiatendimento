@@ -124,7 +124,11 @@ test('nunca chama o WhatsApp quando o opt-in do contato esta desligado', async (
     return null;
   };
   prisma.contact.findMany = async () => [];
-  billingDocuments.queueDocumentRequest = async ({ documentType }) => ({ id: `req-${documentType}`, externalId: `x:${documentType}`, payload: { documentType } });
+  let queuedDocument = false;
+  billingDocuments.queueDocumentRequest = async ({ documentType }) => {
+    queuedDocument = true;
+    return { id: `req-${documentType}`, externalId: `x:${documentType}`, payload: { documentType } };
+  };
   billingDocuments.completeDocumentRequest = async () => {};
   prisma.externalSyncRecord.findUnique = async ({ where }) => ({
     payload: { fileName: 'BOLETO NF 14494 - POSTAL DIGITAL.pdf', mediaUrl: '/uploads/media/fake.pdf', mimeType: 'application/pdf', documentType: 'boleto' },
@@ -149,6 +153,8 @@ test('nunca chama o WhatsApp quando o opt-in do contato esta desligado', async (
   assert.equal(res.body.skipped, true);
   assert.equal(mediaSent, false, 'nao deveria ter enviado midia com opt-in desligado');
   assert.equal(textSent, false, 'nao deveria ter enviado texto com opt-in desligado');
+  // O endpoint deve validar o opt-in antes de persistir/cachar os PDFs.
+  assert.equal(queuedDocument, false);
   assert.equal(billingLogged.status, 'SKIPPED');
   assert.match(billingLogged.errorMessage, /desativado para este contato/);
 });
