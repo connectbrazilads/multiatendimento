@@ -5,6 +5,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import api from './services/api';
 import AuthSpecPage from './pages/AuthSpecPage';
+import Forbidden from './components/Forbidden';
+import { PermissionProvider, usePermissions } from './auth/PermissionContext';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
@@ -39,6 +41,17 @@ function PrivateRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/login" replace />;
   return children;
+}
+
+function RequirePermission({ permission, children }) {
+  const { can, loading } = usePermissions();
+  if (loading) return <RouteFallback />;
+  return can(permission) ? children : <Forbidden />;
+}
+
+function RequireRole({ role, children }) {
+  const currentRole = String(localStorage.getItem('role') || '').toLowerCase();
+  return currentRole === role ? children : <Forbidden />;
 }
 
 function RouteFallback() {
@@ -151,27 +164,27 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route
             element={(
               <PrivateRoute>
-                <Layout />
+                <PermissionProvider><Layout /></PermissionProvider>
               </PrivateRoute>
             )}
           >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route index element={<Dashboard />} />
-            <Route path="/inbox" element={<Inbox />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/crm" element={<CRM />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/teams" element={<Teams />} />
+            <Route path="/dashboard" element={<RequirePermission permission="dashboard.view"><Dashboard /></RequirePermission>} />
+            <Route index element={<RequirePermission permission="dashboard.view"><Dashboard /></RequirePermission>} />
+            <Route path="/inbox" element={<RequirePermission permission="inbox.view"><Inbox /></RequirePermission>} />
+            <Route path="/contacts" element={<RequirePermission permission="crm.view"><Contacts /></RequirePermission>} />
+            <Route path="/crm" element={<RequirePermission permission="crm.view"><CRM /></RequirePermission>} />
+            <Route path="/users" element={<RequirePermission permission="users.manage"><Users /></RequirePermission>} />
+            <Route path="/teams" element={<RequirePermission permission="teams.manage"><Teams /></RequirePermission>} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/connections" element={<Connections />} />
-            <Route path="/knowledge" element={<KnowledgeBase />} />
-            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/connections" element={<RequirePermission permission="connections.manage"><Connections /></RequirePermission>} />
+            <Route path="/knowledge" element={<RequirePermission permission="settings.bot.manage"><KnowledgeBase /></RequirePermission>} />
+            <Route path="/campaigns" element={<RequirePermission permission="campaigns.manage"><Campaigns /></RequirePermission>} />
             <Route path="/os" element={<Navigate to="/inbox" replace />} />
-            <Route path="/quick-responses" element={<QuickResponses />} />
-            <Route path="/superadmin" element={<SuperAdmin />} />
-            <Route path="/leads" element={<LeadScraper />} />
-            <Route path="/revenue" element={<RevGuard />} />
-            <Route path="/billing-reports" element={<BillingReports />} />
+            <Route path="/quick-responses" element={<RequirePermission permission="quick_responses.manage"><QuickResponses /></RequirePermission>} />
+            <Route path="/superadmin" element={<RequireRole role="superadmin"><SuperAdmin /></RequireRole>} />
+            <Route path="/leads" element={<RequirePermission permission="leads.manage"><LeadScraper /></RequirePermission>} />
+            <Route path="/revenue" element={<RequirePermission permission="revenue.view"><RevGuard /></RequirePermission>} />
+            <Route path="/billing-reports" element={<RequirePermission permission="billing.view"><BillingReports /></RequirePermission>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

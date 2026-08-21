@@ -63,7 +63,7 @@ export default function Login() {
       localStorage.setItem('tenantId', data.tenant?.id || '');
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('role', data.user.role);
-      navigate(data.user.role === 'superadmin' ? '/superadmin' : '/dashboard');
+      navigate(data.user.role === 'superadmin' ? '/superadmin' : (data.user.homePage || '/dashboard'));
     } catch (err) {
       if (!err?.response) {
         setError('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');

@@ -1,26 +1,27 @@
 const prisma = require('../lib/prisma');
 const { normalizePhoneNumber } = require('../services/evolutionService');
 const botPromptService = require('../services/botPromptService');
+const { filterSettingsOutput } = require('../auth/settingsAccess');
 
 async function getSettings(req, res) {
   const settings = await prisma.tenantSettings.findUnique({
     where: { tenantId: req.user.tenantId },
   });
 
-  if (!settings) return res.json({
+  if (!settings) return res.json(filterSettingsOutput(req.user, {
     evolutionUrl: process.env.DEFAULT_EVOLUTION_URL || '',
     evolutionKey: process.env.DEFAULT_EVOLUTION_KEY || '',
-  });
+  }));
 
   // Injeta os padrões do servidor se o tenant não tiver configurado
-  res.json({
+  res.json(filterSettingsOutput(req.user, {
     ...settings,
     evolutionUrl: settings.evolutionUrl || process.env.DEFAULT_EVOLUTION_URL || '',
     evolutionKey: settings.evolutionKey || process.env.DEFAULT_EVOLUTION_KEY || '',
     systemPrompt: settings.botSystemPrompt,
     transferKeyword: settings.botTransferWord,
     outOfOfficeMessage: settings.outOfOfficeMessage
-  });
+  }));
 }
 
 async function saveSettings(req, res) {
@@ -165,7 +166,7 @@ async function saveSettings(req, res) {
     },
   });
 
-  res.json(settings);
+  res.json(filterSettingsOutput(req.user, settings));
 }
 
 // Mostra o prompt COMPLETO que a IA de fato recebe - não só o texto que o

@@ -30,17 +30,19 @@ import { getMe, getMediaUrl, getInstances } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ToastContainer from './ToastContainer';
 import InternalChatDrawer from './InternalChatDrawer';
+import { usePermissions } from '../auth/PermissionContext';
 
 const PRIMARY_NAV_PATHS = ['/dashboard', '/inbox', '/crm'];
 
 const MOBILE_LINKS = [
-  { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash' },
-  { to: '/inbox', icon: <MessageSquare size={22} />, label: 'Chat' },
-  { to: '/crm', icon: <Database size={22} />, label: 'CRM' },
+  { to: '/dashboard', icon: <LayoutDashboard size={22} />, label: 'Dash', permission: 'dashboard.view' },
+  { to: '/inbox', icon: <MessageSquare size={22} />, label: 'Chat', permission: 'inbox.view' },
+  { to: '/crm', icon: <Database size={22} />, label: 'CRM', permission: 'crm.view' },
   { to: '/settings', icon: <Settings size={22} />, label: 'Ajustes' },
 ];
 
 export default function Layout() {
+  const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const [notification, setNotification] = useState(null);
@@ -200,23 +202,25 @@ export default function Layout() {
   );
 
   const desktopLinks = React.useMemo(() => [
-    { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', roles: ['admin', 'agent', 'superadmin'] },
-    { action: () => setIsChatOpen(true), icon: <MessageCircle size={18} />, label: 'Chat Interno', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexões', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/contacts', icon: <Users size={18} />, label: 'Clientes WhatsApp', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/crm', icon: <Database size={18} />, label: 'CRM', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rápidas', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', roles: ['admin', 'agent', 'superadmin'] },
-    { to: '/billing-reports', icon: <BarChart2 size={18} />, label: 'Relatórios de Cobrança', roles: ['admin', 'superadmin'] },
-    { to: '/revenue', icon: <Coins size={18} />, label: 'iLux Sentinela', roles: ['admin', 'superadmin'] },
-    { to: '/settings', icon: <Settings size={18} />, label: 'Ajustes', roles: ['admin', 'superadmin'] },
+    { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard', permission: 'dashboard.view', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/inbox', icon: <MessageSquare size={18} />, label: 'Chat', permission: 'inbox.view', roles: ['admin', 'agent', 'superadmin'] },
+    { action: () => setIsChatOpen(true), icon: <MessageCircle size={18} />, label: 'Chat Interno', permission: 'internal_chat.view', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/connections', icon: <LinkIcon size={18} />, label: 'Conexões', permission: 'connections.manage', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/contacts', icon: <Users size={18} />, label: 'Clientes WhatsApp', permission: 'crm.view', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/crm', icon: <Database size={18} />, label: 'CRM', permission: 'crm.view', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/campaigns', icon: <Megaphone size={18} />, label: 'Campanhas', permission: 'campaigns.manage', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/leads', icon: <Radar size={18} />, label: 'Prospecção', permission: 'leads.manage', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/quick-responses', icon: <Zap size={18} />, label: 'Respostas Rápidas', permission: 'quick_responses.manage', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/knowledge', icon: <HelpCircle size={18} />, label: 'Treinamento IA', permission: 'settings.bot.manage', roles: ['admin', 'agent', 'superadmin'] },
+    { to: '/billing-reports', icon: <BarChart2 size={18} />, label: 'Relatórios de Cobrança', permission: 'billing.view', roles: ['admin', 'superadmin'] },
+    { to: '/revenue', icon: <Coins size={18} />, label: 'iLux Sentinela', permission: 'revenue.view', roles: ['admin', 'superadmin'] },
+    { to: '/settings', icon: <Settings size={18} />, label: 'Ajustes', roles: ['admin', 'agent', 'superadmin'] },
     { to: '/superadmin', icon: <ShieldCheck size={18} />, label: 'Painel Admin', roles: ['superadmin'] },
   ], [setIsChatOpen]);
 
-  const visibleDesktopLinks = desktopLinks.filter((link) => link.roles.includes(role));
+  const visibleDesktopLinks = desktopLinks.filter((link) => (
+    link.to === '/superadmin' ? role === 'superadmin' : (!link.permission || can(link.permission))
+  ));
   const primaryDesktopLinks = visibleDesktopLinks.filter((link) => PRIMARY_NAV_PATHS.includes(link.to));
   const secondaryDesktopLinks = visibleDesktopLinks.filter((link) => !PRIMARY_NAV_PATHS.includes(link.to));
   const commandResults = visibleDesktopLinks.filter((link) => (
@@ -355,7 +359,7 @@ export default function Layout() {
 
       {isMobile ? (
         <div style={styles.bottomNav}>
-          {MOBILE_LINKS.map((link) => (
+          {MOBILE_LINKS.filter((link) => !link.permission || can(link.permission)).map((link) => (
             <NavLink key={link.to} to={link.to} style={({ isActive }) => ({ ...styles.bottomLink, ...(isActive ? styles.bottomLinkActive : {}) })}>
               {link.icon}
               <span style={styles.bottomLabel}>{link.label}</span>
@@ -416,7 +420,7 @@ export default function Layout() {
         </div>
       ) : null}
 
-      <InternalChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      {can('internal_chat.view') ? <InternalChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} /> : null}
       <ToastContainer />
     </div>
   );

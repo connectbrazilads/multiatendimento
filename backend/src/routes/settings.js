@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
-const isAdmin = require('../middlewares/isAdmin');
+const requirePermission = require('../middlewares/requirePermission');
+const filterSettingsAccess = require('../middlewares/filterSettingsAccess');
 const { getSettings, saveSettings, getSystemPromptPreview, getBusinessHours, saveBusinessHours, uploadLogo } = require('../controllers/settingsController');
 const multer = require('multer');
 const path = require('path');
@@ -30,11 +31,11 @@ const upload = multer({
 });
 
 router.use(authenticate);
-router.get('/', getSettings);
-router.post('/', isAdmin, saveSettings);
-router.post('/system-prompt-preview', isAdmin, getSystemPromptPreview);
+router.get('/', requirePermission('settings.bot.manage', 'settings.attendance.manage', 'settings.company.manage', 'settings.agent.manage', 'connections.manage', 'leads.manage', 'revenue.view'), getSettings);
+router.post('/', requirePermission('settings.bot.manage', 'settings.attendance.manage', 'settings.company.manage', 'settings.agent.manage', 'connections.manage', 'leads.manage', 'revenue.view'), filterSettingsAccess, saveSettings);
+router.post('/system-prompt-preview', requirePermission('settings.bot.manage'), getSystemPromptPreview);
 router.get('/business-hours', getBusinessHours);
-router.post('/business-hours', isAdmin, saveBusinessHours);
-router.post('/logo', isAdmin, upload.single('file'), uploadLogo);
+router.post('/business-hours', requirePermission('settings.attendance.manage'), saveBusinessHours);
+router.post('/logo', requirePermission('settings.company.manage'), upload.single('file'), uploadLogo);
 
 module.exports = router;

@@ -14,7 +14,6 @@ async function list(req, res) {
 }
 
 async function create(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { name } = req.body;
 
   const team = await prisma.team.create({
@@ -27,7 +26,6 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { id } = req.params;
   const { name } = req.body;
 
@@ -46,7 +44,6 @@ async function update(req, res) {
 }
 
 async function remove(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { id } = req.params;
 
   try {
@@ -63,7 +60,6 @@ async function remove(req, res) {
 }
 
 async function addMember(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { teamId, userId } = req.body;
 
   // Valida se a equipe pertence ao tenant
@@ -82,7 +78,6 @@ async function addMember(req, res) {
 }
 
 async function removeMember(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { teamId, userId } = req.params;
 
   // Valida se a equipe pertence ao tenant

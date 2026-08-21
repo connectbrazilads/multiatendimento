@@ -109,6 +109,9 @@ model User {
   email                    String
   password                 String
   role                     String            @default("agent")
+  accessProfile            String            @default("agent")
+  permissions              Json?
+  homePage                 String?
   phone                    String?
   firebirdSupportName      String?
   active                   Boolean           @default(true)
@@ -143,6 +146,7 @@ model TeamMember {
   user   User   @relation(fields: [userId], references: [id])
 
   @@unique([teamId, userId])
+  @@index([userId])
 }
 
 model WaInstance {

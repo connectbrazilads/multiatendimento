@@ -3,6 +3,7 @@ const { pushBatch, getPendingCommands, commandCallback } = require('../controlle
 const { sendBilling, autoSendBilling, logTestBilling, triggerBillingProcess, getBillingLogs, saveBillingSettings, getBillingDashboardStats } = require('../controllers/billingController');
 const upload = require('../middlewares/upload');
 const authenticate = require('../middlewares/authenticate');
+const requirePermission = require('../middlewares/requirePermission');
 
 router.post('/push', pushBatch);
 router.get('/pending-commands', getPendingCommands);
@@ -13,9 +14,9 @@ router.post('/ping', require('../controllers/firebirdSyncController').agentPing)
 router.post('/send-billing', upload.array('media'), sendBilling);
 router.post('/auto-send-billing', autoSendBilling);
 router.post('/log-test-billing', logTestBilling);
-router.post('/trigger-billing-process', authenticate, triggerBillingProcess);
-router.get('/billing-logs', authenticate, getBillingLogs);
-router.post('/billing-settings', authenticate, saveBillingSettings);
-router.get('/billing-reports', authenticate, getBillingDashboardStats);
+router.post('/trigger-billing-process', authenticate, requirePermission('billing.reprocess'), triggerBillingProcess);
+router.get('/billing-logs', authenticate, requirePermission('billing.view'), getBillingLogs);
+router.post('/billing-settings', authenticate, requirePermission('billing.reprocess'), saveBillingSettings);
+router.get('/billing-reports', authenticate, requirePermission('billing.view'), getBillingDashboardStats);
 
 module.exports = router;

@@ -24,8 +24,14 @@ import {
 import Users from './Users';
 import Teams from './Teams';
 import ModalShell from '../components/ui/ModalShell';
+import { usePermissions } from '../auth/PermissionContext';
 
 const TABS = ['Robô IA', 'Atendimento', 'Atendentes', 'Equipes', 'Empresa', 'Respostas rápidas', 'Etiquetas', 'iLux Sentinela', 'Minha conta', 'Agente Local'];
+const TAB_PERMISSIONS = [
+  'settings.bot.manage', 'settings.attendance.manage', 'users.manage', 'teams.manage',
+  'settings.company.manage', 'quick_responses.manage', 'tags.manage', 'revenue.view',
+  null, 'settings.agent.manage',
+];
 const TAB_GROUPS = [
   { label: 'Automação', indexes: [0, 1, 5, 6] },
   { label: 'Equipe', indexes: [2, 3] },
@@ -35,9 +41,13 @@ const TAB_GROUPS = [
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default function Settings() {
+  const { can } = usePermissions();
   const isMobile = window.innerWidth <= 768;
   const isAdmin = localStorage.getItem('role') === 'admin' || localStorage.getItem('role') === 'superadmin';
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(() => {
+    const firstAllowed = TAB_PERMISSIONS.findIndex((permission) => !permission || can(permission));
+    return firstAllowed >= 0 ? firstAllowed : 8;
+  });
   const [form, setForm] = useState({
     botEnabled: false,
     botName: '',
@@ -98,6 +108,11 @@ export default function Settings() {
   const [testingIntegration, setTestingIntegration] = useState(false);
   const [syncingIntegration, setSyncingIntegration] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const visibleTabIndexes = TABS.map((_, index) => index).filter((index) => !TAB_PERMISSIONS[index] || can(TAB_PERMISSIONS[index]));
+
+  useEffect(() => {
+    if (!visibleTabIndexes.includes(tab)) setTab(visibleTabIndexes[0] ?? 8);
+  }, [tab, visibleTabIndexes.join(',')]);
 
   useEffect(() => {
     load();
@@ -356,11 +371,11 @@ export default function Settings() {
         <label className="settings-mobile-select" style={s.mobileSelectWrap}>
           <span style={s.mobileSelectLabel}>Seção atual</span>
           <select style={s.mobileSelect} value={tab} onChange={(event) => setTab(Number(event.target.value))}>
-            {TABS.map((item, index) => <option key={item} value={index}>{item}</option>)}
+            {visibleTabIndexes.map((index) => <option key={TABS[index]} value={index}>{TABS[index]}</option>)}
           </select>
         </label>
         <div className="settings-desktop-groups" style={s.tabGroups}>
-          {TAB_GROUPS.map((group) => (
+          {TAB_GROUPS.map((group) => ({ ...group, indexes: group.indexes.filter((index) => visibleTabIndexes.includes(index)) })).filter((group) => group.indexes.length).map((group) => (
             <div key={group.label} style={s.tabGroup}>
               <span style={s.tabGroupLabel}>{group.label}</span>
               <div style={s.tabGroupButtons}>
@@ -1185,16 +1200,19 @@ const settingsResponsiveCss = `
   .settings-container textarea:focus-visible,
   .settings-container select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .settings-mobile-select { display: none !important; }
+  .settings-nav ~ * { margin-left: 244px; }
   @media (max-width: 1050px) {
     .settings-container { padding: 1.5rem !important; }
-    .settings-desktop-groups { gap: .8rem !important; }
+    .settings-nav { width: 194px !important; }
+    .settings-nav ~ * { margin-left: 214px; }
   }
   @media (max-width: 760px) {
     .settings-container { padding: 1rem !important; }
     .settings-header { margin-bottom: 1.25rem !important; }
     .settings-desktop-groups { display: none !important; }
     .settings-mobile-select { display: grid !important; }
-    .settings-nav { padding: .65rem !important; margin: 0 -1rem 1rem !important; border-radius: 0 !important; top: 0 !important; }
+    .settings-nav { float: none !important; width: auto !important; padding: .65rem !important; margin: 0 -1rem 1rem !important; border-radius: 0 !important; top: 0 !important; }
+    .settings-nav ~ * { margin-left: 0; }
     .settings-container section, .settings-container form { min-width: 0; }
     .settings-container table { min-width: 620px; }
   }
@@ -1215,11 +1233,11 @@ const s = {
   },
   title: { fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem', fontFamily: 'var(--font-display)' },
   subtitle: { fontSize: 'var(--text-md)', color: 'var(--text-muted)', lineHeight: 'var(--leading-normal)' },
-  tabs: { position: 'sticky', top: '-2rem', zIndex: 20, display: 'block', margin: '0 -0.35rem 1.5rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-base)', boxShadow: '0 10px 30px rgba(0,0,0,.12)' },
-  tabGroups: { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: '1.15rem', overflowX: 'auto' },
-  tabGroup: { display: 'grid', alignContent: 'start', gap: '0.45rem', minWidth: 'max-content' },
+  tabs: { position: 'sticky', top: '1rem', zIndex: 20, float: 'left', width: '224px', margin: '0 20px 1.5rem 0', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-panel)', boxShadow: '0 10px 30px rgba(0,0,0,.12)' },
+  tabGroups: { display: 'grid', alignItems: 'stretch', gap: '1rem' },
+  tabGroup: { display: 'grid', alignContent: 'start', gap: '0.45rem', minWidth: 0 },
   tabGroupLabel: { paddingLeft: '0.4rem', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase' },
-  tabGroupButtons: { display: 'flex', gap: '0.25rem', paddingRight: '0.9rem', borderRight: '1px solid var(--border-color)' },
+  tabGroupButtons: { display: 'grid', gap: '0.25rem' },
   tab: {
     padding: '0.58rem 0.72rem',
     border: '1px solid transparent',
@@ -1230,7 +1248,9 @@ const s = {
     color: 'var(--text-muted)',
     transition: 'all 0.2s',
     fontWeight: 800,
-    whiteSpace: 'nowrap',
+    whiteSpace: 'normal',
+    textAlign: 'left',
+    width: '100%',
     outline: 'none',
   },
   tabActive: { color: 'var(--text-main)', borderColor: 'var(--accent-border)', background: 'var(--accent-light)' },

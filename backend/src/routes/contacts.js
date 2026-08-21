@@ -1,9 +1,10 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
+const requirePermission = require('../middlewares/requirePermission');
 const upload = require('../middlewares/upload');
 const { list, getHistory, updateContact, getMedia, create, getTags, importExcel, deleteContact } = require('../controllers/contactController');
 
-router.use(authenticate);
+router.use(authenticate, requirePermission('inbox.view', 'crm.view'));
 router.get('/', list);
 router.post('/', create);
 router.post('/import', upload.single('file'), importExcel);

@@ -29,6 +29,7 @@ import { CrmCustomerProfileModal } from './CRM';
 import { ChatHeader, ContactPanel, ForwardModal, MessageComposer, MessageList, TicketSidebar, TransferModal } from './inbox/components';
 import { Empty } from './inbox/helpers.jsx';
 import { useInboxMessages, useInboxRealtime, useInboxTickets } from './inbox/hooks';
+import { usePermissions } from '../auth/PermissionContext';
 
 class InboxSectionErrorBoundary extends React.Component {
   constructor(props) {
@@ -75,6 +76,7 @@ class InboxSectionErrorBoundary extends React.Component {
 }
 
 export default function Inbox() {
+  const { can } = usePermissions();
   const MESSAGE_PAGE_SIZE = 60;
   const [selectedId, setSelectedId] = useState(null);
   const [text, setText] = useState('');
@@ -648,6 +650,10 @@ export default function Inbox() {
           <>
             <InboxSectionErrorBoundary key={`header-${selectedTicket.id}`} label="cabecalho da conversa">
               <ChatHeader
+                canCreateOs={can('inbox.create_os')}
+                canResolve={can('inbox.resolve')}
+                canReopen={can('inbox.reopen')}
+                canTransfer={can('inbox.assign') || can('inbox.transfer')}
                 botName={botName}
                 handleReopen={handleReopen}
                 handleResolve={handleResolve}
@@ -677,6 +683,7 @@ export default function Inbox() {
 
             <InboxSectionErrorBoundary key={`messages-${selectedTicket.id}`} label="historico da conversa">
               <MessageList
+                canDeleteMessage={can('inbox.delete_message')}
                 botName={botName}
                 handleCopyMessage={handleCopyMessage}
                 handleDeleteMessage={handleDeleteMessage}
@@ -845,7 +852,7 @@ export default function Inbox() {
       )}
 
 
-      {transferModal && (
+      {transferModal && (can('inbox.assign') || can('inbox.transfer')) && (
         <TransferModal 
           users={users}
           teams={teams}
@@ -872,7 +879,7 @@ export default function Inbox() {
         />
       )}
 
-      {showOsModal && selectedTicket && (
+      {showOsModal && selectedTicket && can('inbox.create_os') && (
         <CreateOsModal
           ticket={selectedTicket}
           onClose={() => setShowOsModal(false)}
@@ -969,6 +976,10 @@ export const inboxStyles = {
   filterToggleBtn: { minWidth: '42px', minHeight: '42px', padding: '0 0.7rem', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 650, fontSize: '0.78rem' },
   filterToggleActive: { color: 'var(--accent)', borderColor: 'var(--accent-border)', background: 'var(--accent-light)' },
   filterBar: { display: 'flex', gap: '6px', flexWrap: 'wrap' },
+  inboxOperationalBar: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.1rem 0', color: 'var(--text-muted)', fontSize: '0.68rem', flexWrap: 'wrap' },
+  sortBar: { display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.55rem' },
+  sortSelect: { flex: 1, minWidth: 0, background: 'var(--bg-panel)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', minHeight: '34px', padding: '0 0.45rem', fontSize: '0.7rem', fontWeight: 600 },
+  saveFilterBtn: { minHeight: '34px', padding: '0 0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 },
   filterSelect: { flex: '1 1 84px', minWidth: 0, background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '8px 9px', color: 'var(--text-muted)', fontSize: '0.75rem', outline: 'none', fontWeight: 600 },
   filtersClearBtn: { flex: '1 0 100%', minHeight: '34px', background: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' },
   list: { flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem 0.75rem' },
@@ -983,6 +994,13 @@ export const inboxStyles = {
   rowStatusPill: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   priorityPill: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.2 },
   rowMetaLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.65rem', marginTop: '0.4rem' },
+  rowOperationalLine: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.35rem', flexWrap: 'wrap' },
+  awaitingCustomerPill: { color: 'var(--info)', background: 'var(--info-light)', border: '1px solid var(--info-border)', borderRadius: 'var(--radius-lg)', padding: '0.12rem 0.4rem', fontSize: '0.65rem', fontWeight: 700 },
+  slaPill: { borderRadius: 'var(--radius-lg)', padding: '0.12rem 0.4rem', fontSize: '0.65rem', fontWeight: 700, border: '1px solid transparent' },
+  slaDanger: { color: 'var(--danger)', background: 'var(--danger-light)', borderColor: 'var(--danger)' },
+  slaWarning: { color: 'var(--warning)', background: 'var(--warning-light)', borderColor: 'var(--warning)' },
+  slaOk: { color: 'var(--success)', background: 'var(--success-light)', borderColor: 'var(--success-border)' },
+  loadMoreTicketsBtn: { width: '100%', padding: '0.75rem', marginTop: '0.5rem', background: 'var(--bg-panel)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem' },
   rowOwner: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
   rowTags: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' },
   rowTag: { fontSize: '0.75rem', background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', fontWeight: 600, border: '1px solid rgba(255,255,255,0.08)' },
@@ -1013,6 +1031,8 @@ export const inboxStyles = {
   chatStatusPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '26px', padding: '0 0.7rem', borderRadius: 'var(--radius-lg)', fontSize: '0.7rem', fontWeight: 600, flexShrink: 0 },
   chatMetaRow: { display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' },
   chatMetaText: { fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, padding: '0.2rem 0.55rem', background: 'var(--chat-meta-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--chat-meta-border)' },
+  chatAwaitingCustomer: { fontSize: '0.72rem', color: 'var(--info)', fontWeight: 700, padding: '0.2rem 0.55rem', background: 'var(--info-light)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--info-border)' },
+  chatSlaText: { fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.55rem', borderRadius: 'var(--radius-lg)', border: '1px solid transparent' },
   headerActions: { marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 },
   headerGhostBtn: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', minHeight: '40px', padding: '0 0.9rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.76rem' },
   headerPrimaryOutlineBtn: { background: 'var(--accent-light)', border: '1px solid var(--accent-border)', color: 'var(--accent)', minHeight: '40px', padding: '0 0.9rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', fontWeight: 650, fontSize: '0.8rem' },

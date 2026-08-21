@@ -4,6 +4,7 @@ const geminiService = require('../services/geminiService');
 const evolutionService = require('../services/evolutionService');
 const path = require('path');
 const fs = require('fs');
+const { hasPermission } = require('../auth/permissions');
 let io;
 function setIo(socketIo) { io = socketIo; }
 
@@ -179,7 +180,19 @@ function getRecentConversation(messages = [], hours = 24, maxItems = 30) {
 }
 
 async function getUserVisibilityFilter(user) {
-  return null;
+  if (hasPermission(user, 'inbox.view_all')) return null;
+  const memberships = await prisma.teamMember.findMany({
+    where: { userId: user.userId },
+    select: { teamId: true },
+  });
+  const teamIds = memberships.map((item) => item.teamId);
+  return {
+    OR: [
+      { agentId: user.userId },
+      { agentId: null },
+      ...(teamIds.length ? [{ teamId: { in: teamIds } }] : []),
+    ],
+  };
 }
 
 function buildWhere(conditions) {
@@ -523,6 +536,15 @@ async function getMessages(req, res) {
 async function assign(req, res) {
   const { id } = req.params;
   const { agentId, teamId, note } = req.body;
+  const isSelfAssignment = agentId === req.user.userId && !teamId;
+  const neededPermission = isSelfAssignment ? 'inbox.assign' : 'inbox.transfer';
+  if (!hasPermission(req.user, neededPermission)) {
+    return res.status(403).json({
+      error: isSelfAssignment
+        ? 'Voce nao possui permissao para assumir atendimentos.'
+        : 'Voce nao possui permissao para transferir atendimentos.',
+    });
+  }
 
   const existing = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!existing) return res.status(404).json({ error: 'Ticket não encontrado' });
@@ -603,6 +625,13 @@ async function assign(req, res) {
 async function update(req, res) {
   const { id } = req.params;
   const { priority, status } = req.body;
+
+  if (status === 'resolved' && !hasPermission(req.user, 'inbox.resolve')) {
+    return res.status(403).json({ error: 'Voce nao possui permissao para encerrar atendimentos.' });
+  }
+  if (status && status !== 'resolved' && !hasPermission(req.user, 'inbox.reopen')) {
+    return res.status(403).json({ error: 'Voce nao possui permissao para alterar o status do atendimento.' });
+  }
 
   const existing = await prisma.ticket.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!existing) return res.status(404).json({ error: 'Ticket não encontrado' });

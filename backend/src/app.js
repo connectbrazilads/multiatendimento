@@ -111,8 +111,10 @@ app.use('/api/integrations/firebird', firebirdSyncRoutes);
 app.use('/api/integrations', integrationRoutes);
 
 const jwt = require('jsonwebtoken');
+const prisma = require('./lib/prisma');
+const { resolveUserAccess, hasPermission } = require('./auth/permissions');
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth.token || socket.handshake.query.token;
   if (!token) return next(new Error('Autenticação requerida'));
   
@@ -123,7 +125,20 @@ io.use((socket, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.user = decoded;
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true, tenantId: true, role: true, active: true,
+        accessProfile: true, permissions: true,
+        tenant: { select: { active: true } },
+      },
+    });
+    if (!user || !user.active || !user.tenant?.active) return next(new Error('Usuario inativo'));
+    const access = resolveUserAccess(user);
+    socket.user = {
+      userId: user.id, tenantId: user.tenantId, role: user.role,
+      accessProfile: access.profile, permissions: access.permissions,
+    };
     next();
   } catch (err) {
     next(new Error('Token inválido'));
@@ -138,6 +153,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_internal', (message) => {
+    if (!hasPermission(socket.user, 'internal_chat.view')) return;
     socket.to(tenantId).emit('new_internal', message);
   });
 });

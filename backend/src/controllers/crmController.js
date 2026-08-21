@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { hasPermission } = require('../auth/permissions');
 const billingDocuments = require('../services/billingDocumentService');
 
 const HISTORY_DEFAULT_LIMIT = 25;
@@ -675,7 +676,7 @@ async function getCustomer360(req, res) {
 
   const contactIds = customer.whatsappContacts.map((contact) => contact.id);
   const equipmentExternalIds = customer.equipments.map((equipment) => text(equipment.externalId)).filter(Boolean);
-  const canViewFinancial = ['admin', 'superadmin'].includes(String(req.user.role || '').toLowerCase());
+  const canViewFinancial = hasPermission(req.user, 'crm.financial.view');
   const [contracts, orders, settings, tickets, receivableRecords, meterRecords] = await Promise.all([
     loadContracts(tenantId, customer.externalId),
     loadCustomerOrders(tenantId, customer, HISTORY_MAX_LIMIT),
@@ -933,7 +934,7 @@ async function getCustomer360(req, res) {
 
 async function getReceivableBoleto(req, res) {
   const tenantId = req.user.tenantId;
-  if (!['admin', 'superadmin'].includes(String(req.user.role || '').toLowerCase())) {
+  if (!hasPermission(req.user, 'crm.financial.view')) {
     return res.status(403).json({ error: 'Informacoes financeiras disponiveis apenas para administradores.' });
   }
 

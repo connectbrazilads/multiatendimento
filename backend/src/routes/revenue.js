@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
+const requirePermission = require('../middlewares/requirePermission');
 const { 
   getRevenueDashboard, 
   getBenchmark, 
@@ -9,7 +10,7 @@ const {
   getDrilldown
 } = require('../controllers/revenueController');
 
-router.use(authenticate);
+router.use(authenticate, requirePermission('revenue.view'));
 router.get('/stats', getRevenueDashboard);
 router.get('/benchmark', getBenchmark);
 router.get('/detective', getDetective);

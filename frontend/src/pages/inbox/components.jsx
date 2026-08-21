@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import api, {
   updateContact,
@@ -98,6 +98,36 @@ function formatTicketTimestamp(value) {
   return isSameDay
     ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function getTicketActivityAt(ticket) {
+  return new Date(ticket?.lastMessageAt || ticket?.updatedAt || ticket?.createdAt || 0).getTime();
+}
+
+function formatElapsed(value, now = Date.now()) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '--';
+  const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60 ? `${minutes % 60}min` : ''}`.trim();
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function isAwaitingCustomer(ticket) {
+  if (ticket?.status !== 'open' || !ticket?.lastMessageAt || !ticket?.lastCustomerMessageAt) return false;
+  return new Date(ticket.lastMessageAt).getTime() > new Date(ticket.lastCustomerMessageAt).getTime() + 1000;
+}
+
+function getSlaMeta(ticket, now = Date.now()) {
+  if (!ticket?.slaDueAt || ticket?.status === 'resolved') return null;
+  const dueAt = new Date(ticket.slaDueAt).getTime();
+  if (!Number.isFinite(dueAt)) return null;
+  const remainingMinutes = Math.ceil((dueAt - now) / 60000);
+  if (remainingMinutes <= 0) return { label: `SLA vencido ${formatElapsed(dueAt, now)}`, tone: 'danger', value: remainingMinutes };
+  if (remainingMinutes <= 60) return { label: `SLA em ${remainingMinutes} min`, tone: 'warning', value: remainingMinutes };
+  return { label: `SLA em ${formatElapsed(now - remainingMinutes * 60000, now)}`, tone: 'ok', value: remainingMinutes };
 }
 
 function getPriorityMeta(priority) {
@@ -1152,13 +1182,15 @@ export function ForwardModal({ onClose, onForward, styles }) {
 // Item de lista memoizado: evita recriar/recomparar todas as linhas do inbox
 // quando so o item selecionado muda (troca de ticket) ou o texto do composer
 // atualiza o componente pai. Só a linha afetada volta a renderizar.
-const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, styles }) {
+const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, styles, now }) {
   const priorityMeta = getPriorityMeta(ticket.priority);
   const statusMeta = getStatusMeta(ticket.status);
   const phoneLabel = getContactPhone(ticket.contact, 'Sem telefone');
   const ownerLabel = ticket.agent?.name || ticket.team?.name || 'Sem responsavel';
   const tags = getSafeTags(ticket.contact?.tags).slice(0, 2);
   const contactName = getContactDisplayName(ticket.contact);
+  const slaMeta = getSlaMeta(ticket, now);
+  const awaitingCustomer = isAwaitingCustomer(ticket);
 
   return (
     <div
@@ -1178,7 +1210,9 @@ const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, 
       <div style={styles.rowInfo}>
         <div style={styles.rowTop}>
           <span style={styles.rowName}>{contactName}</span>
-          <span style={styles.rowTime}>{formatTicketTimestamp(ticket.updatedAt)}</span>
+          <span style={styles.rowTime} title={formatTicketTimestamp(ticket.lastMessageAt || ticket.updatedAt)}>
+            {formatElapsed(ticket.lastMessageAt || ticket.updatedAt, now)}
+          </span>
         </div>
 
         <div style={styles.rowPreview}>{phoneLabel}</div>
@@ -1208,6 +1242,15 @@ const TicketRow = React.memo(function TicketRow({ ticket, isSelected, onSelect, 
             </span>
           ) : null}
           {ticket.unreadCount > 0 ? <div style={styles.unreadBadge}>{ticket.unreadCount}</div> : null}
+        </div>
+
+        <div style={styles.rowOperationalLine}>
+          {awaitingCustomer ? <span style={styles.awaitingCustomerPill}>Aguardando cliente</span> : null}
+          {slaMeta ? (
+            <span style={{ ...styles.slaPill, ...(slaMeta.tone === 'danger' ? styles.slaDanger : slaMeta.tone === 'warning' ? styles.slaWarning : styles.slaOk) }}>
+              {slaMeta.label}
+            </span>
+          ) : null}
         </div>
 
         <div style={styles.rowMetaLine}>
@@ -1250,7 +1293,31 @@ export const TicketSidebar = React.memo(function TicketSidebar({
   view,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const filteredTickets = tickets.filter((ticket) => {
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem('inbox:sort') || 'recent');
+  const [savedFilters, setSavedFilters] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('inbox:saved-filters') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [visibleLimit, setVisibleLimit] = useState(80);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('inbox:sort', sortBy);
+  }, [sortBy]);
+
+  useEffect(() => {
+    setVisibleLimit(80);
+  }, [tickets, search, filters, sortBy]);
+
+  const filteredTickets = useMemo(() => tickets.filter((ticket) => {
     const query = getSafeLowerText(search);
     if (!query) return true;
     // Mesmos campos usados na busca do backend (nome, fantasia, CPF/CNPJ,
@@ -1262,13 +1329,56 @@ export const TicketSidebar = React.memo(function TicketSidebar({
     const phone = getSafeLowerText(ticket.contact?.phone);
     const whatsapp = getSafeLowerText(ticket.contact?.whatsapp);
     return name.includes(query) || fantasyName.includes(query) || cpfCnpj.includes(query) || phone.includes(query) || whatsapp.includes(query);
-  });
+  }).sort((left, right) => {
+    if (sortBy === 'oldest') {
+      const leftNeedsResponse = !isAwaitingCustomer(left) && left.status !== 'resolved';
+      const rightNeedsResponse = !isAwaitingCustomer(right) && right.status !== 'resolved';
+      if (leftNeedsResponse !== rightNeedsResponse) return leftNeedsResponse ? -1 : 1;
+      return new Date(left.lastCustomerMessageAt || left.lastMessageAt || left.updatedAt || 0).getTime()
+        - new Date(right.lastCustomerMessageAt || right.lastMessageAt || right.updatedAt || 0).getTime();
+    }
+    if (sortBy === 'priority') {
+      const weight = { urgent: 4, high: 3, medium: 2, low: 1 };
+      return (weight[right.priority] || 0) - (weight[left.priority] || 0) || getTicketActivityAt(left) - getTicketActivityAt(right);
+    }
+    if (sortBy === 'sla') {
+      const leftDue = new Date(left.slaDueAt || '2999-12-31').getTime();
+      const rightDue = new Date(right.slaDueAt || '2999-12-31').getTime();
+      return leftDue - rightDue;
+    }
+    if (sortBy === 'unread') return (right.unreadCount || 0) - (left.unreadCount || 0) || getTicketActivityAt(left) - getTicketActivityAt(right);
+    return getTicketActivityAt(right) - getTicketActivityAt(left);
+  }), [tickets, search, sortBy]);
+
+  const loadSummary = useMemo(() => {
+    const unread = filteredTickets.reduce((total, ticket) => total + (ticket.unreadCount > 0 ? 1 : 0), 0);
+    const overdue = filteredTickets.filter((ticket) => getSlaMeta(ticket, now)?.tone === 'danger').length;
+    const awaitingCustomer = filteredTickets.filter(isAwaitingCustomer).length;
+    return { unread, overdue, awaitingCustomer };
+  }, [filteredTickets, now]);
 
   const activeTabLabel = {
     mine: 'Minhas conversas',
     pending: 'Fila de espera',
     all: 'Todos os contatos',
   }[tab] || 'Inbox';
+
+  const loadScopeLabel = useMemo(() => {
+    if (filters.agentId) return users.find((user) => user.id === filters.agentId)?.name || 'atendente';
+    if (filters.teamId) return teams.find((team) => team.id === filters.teamId)?.name || 'equipe';
+    return activeTabLabel;
+  }, [filters.agentId, filters.teamId, users, teams, activeTabLabel]);
+
+  const visibleTickets = filteredTickets.slice(0, visibleLimit);
+
+  function saveCurrentFilter() {
+    const name = window.prompt('Nome para este filtro:');
+    if (!name?.trim()) return;
+    const next = [...savedFilters.filter((item) => item.name !== name.trim()), { name: name.trim(), filters, sortBy }].slice(-8);
+    setSavedFilters(next);
+    localStorage.setItem('inbox:saved-filters', JSON.stringify(next));
+  }
+
   const activeFilterCount = [filters.priority, filters.agentId, filters.teamId].filter(Boolean).length;
 
   return (
@@ -1336,6 +1446,42 @@ export const TicketSidebar = React.memo(function TicketSidebar({
           </button>
         </div>
 
+        <div style={styles.inboxOperationalBar}>
+          <span title={`Carga visível em ${loadScopeLabel}`}><strong>{filteredTickets.length}</strong> em {loadScopeLabel}</span>
+          <span title="Conversas com mensagens nao lidas"><strong>{loadSummary.unread}</strong> não lidas</span>
+          <span title="Conversas com SLA vencido"><strong>{loadSummary.overdue}</strong> SLA vencido</span>
+          <span title="Conversas aguardando retorno do cliente"><strong>{loadSummary.awaitingCustomer}</strong> aguardando cliente</span>
+        </div>
+
+        <div style={styles.sortBar}>
+          <select style={styles.sortSelect} value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Ordenar conversas">
+            <option value="recent">Mais recentes</option>
+            <option value="oldest">Mais antigas sem resposta</option>
+            <option value="priority">Maior prioridade</option>
+            <option value="sla">SLA mais próximo</option>
+            <option value="unread">Não lidas primeiro</option>
+          </select>
+          {savedFilters.length ? (
+            <select
+              style={styles.sortSelect}
+              defaultValue=""
+              aria-label="Aplicar filtro salvo"
+              onChange={(event) => {
+                const saved = savedFilters.find((item) => item.name === event.target.value);
+                if (saved) {
+                  setFilters(saved.filters || { priority: '', agentId: '', teamId: '' });
+                  setSortBy(saved.sortBy || 'recent');
+                }
+                event.target.value = '';
+              }}
+            >
+              <option value="">Filtros salvos</option>
+              {savedFilters.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+            </select>
+          ) : null}
+          <button type="button" className="inbox-control" style={styles.saveFilterBtn} onClick={saveCurrentFilter} title="Salvar filtros e ordenação atuais">Salvar</button>
+        </div>
+
         {filtersOpen ? <div style={{ ...styles.filterBar, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <select
             style={{ ...styles.filterSelect, minWidth: isMobile ? 'calc(50% - 3px)' : undefined }}
@@ -1380,15 +1526,21 @@ export const TicketSidebar = React.memo(function TicketSidebar({
       </div>
 
       <div style={styles.list}>
-        {filteredTickets.map((ticket) => (
+        {visibleTickets.map((ticket) => (
           <TicketRow
             key={ticket.id}
             ticket={ticket}
             isSelected={selectedId === ticket.id}
             onSelect={selectTicket}
             styles={styles}
+            now={now}
           />
         ))}
+        {visibleTickets.length < filteredTickets.length ? (
+          <button type="button" className="inbox-control" style={styles.loadMoreTicketsBtn} onClick={() => setVisibleLimit((current) => current + 80)}>
+            Mostrar mais {Math.min(80, filteredTickets.length - visibleTickets.length)} conversas
+          </button>
+        ) : null}
         {filteredTickets.length === 0 ? (
           <Empty>
             {search.trim() ? (
@@ -1426,6 +1578,10 @@ export const TicketSidebar = React.memo(function TicketSidebar({
 
 export const ChatHeader = React.memo(function ChatHeader({
   botName,
+  canCreateOs,
+  canResolve,
+  canReopen,
+  canTransfer,
   handleReopen,
   handleResolve,
   handleSummarize,
@@ -1445,6 +1601,8 @@ export const ChatHeader = React.memo(function ChatHeader({
   const contactPhone = getContactPhone(selectedTicket.contact);
   const [actionsOpen, setActionsOpen] = useState(false);
   const statusMeta = getStatusMeta(selectedTicket.status);
+  const slaMeta = getSlaMeta(selectedTicket);
+  const awaitingCustomer = isAwaitingCustomer(selectedTicket);
   const ownerLabel = selectedTicket.agent?.name
     ? `Com ${selectedTicket.agent.name}`
     : selectedTicket.team?.name
@@ -1521,11 +1679,14 @@ export const ChatHeader = React.memo(function ChatHeader({
           {contactPhone ? <span style={styles.chatMetaText}>{contactPhone}</span> : null}
           <span style={styles.chatMetaText}>{getInstanceLabel(selectedTicket)}</span>
           {!isMobile ? <span style={styles.chatMetaText}>{ownerLabel}</span> : null}
+          {!isMobile ? <span style={styles.chatMetaText}>{getPriorityMeta(selectedTicket.priority)?.label || 'Sem prioridade'}</span> : null}
+          {awaitingCustomer ? <span style={styles.chatAwaitingCustomer}>Aguardando cliente</span> : null}
+          {slaMeta ? <span style={{ ...styles.chatSlaText, ...(slaMeta.tone === 'danger' ? styles.slaDanger : slaMeta.tone === 'warning' ? styles.slaWarning : styles.slaOk) }}>{slaMeta.label}</span> : null}
         </div>
       </div>
 
       <div style={styles.headerActions}>
-        <button
+        {canCreateOs ? <button
           type="button"
           className="inbox-control"
           style={isMobile || isCompactDesktop ? styles.headerGhostIconBtn : styles.headerPrimaryOutlineBtn}
@@ -1535,14 +1696,14 @@ export const ChatHeader = React.memo(function ChatHeader({
         >
           <ClipboardList size={16} strokeWidth={2.2} />
           {isMobile || isCompactDesktop ? null : 'Gerar O.S.'}
-        </button>
+        </button> : null}
 
-        {selectedTicket.status !== 'resolved' ? (
+        {selectedTicket.status !== 'resolved' && canResolve ? (
           <button className="inbox-control" style={styles.resolveBtn} onClick={handleResolve} aria-label="Encerrar atendimento" title="Encerrar atendimento">
             <CheckCheck size={16} strokeWidth={2.2} />
             {isMobile || isCompactDesktop ? null : 'Encerrar'}
           </button>
-        ) : (
+        ) : selectedTicket.status === 'resolved' && canReopen ? (
           <button
             className="inbox-control"
             style={{ ...styles.resolveBtn, background: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: 'none' }}
@@ -1552,7 +1713,7 @@ export const ChatHeader = React.memo(function ChatHeader({
           >
             {isMobile || isCompactDesktop ? 'Abrir' : 'Reabrir'}
           </button>
-        )}
+        ) : null}
 
         <button
           type="button"
@@ -1588,7 +1749,7 @@ export const ChatHeader = React.memo(function ChatHeader({
                 <Sparkles size={15} strokeWidth={2.2} />
                 {summarizing ? 'Gerando resumo...' : 'Resumo IA'}
               </button>
-              {selectedTicket.status !== 'resolved' ? (
+              {selectedTicket.status !== 'resolved' && canTransfer ? (
                 <button type="button" className="inbox-control" style={styles.headerMenuItem} onClick={() => { setTransferModal(true); setActionsOpen(false); }}>
                   <ArrowRightLeft size={15} strokeWidth={2.2} />
                   Transferir conversa
@@ -1604,6 +1765,7 @@ export const ChatHeader = React.memo(function ChatHeader({
 
 export const MessageList = React.memo(function MessageList({
   botName,
+  canDeleteMessage,
   handleCopyMessage,
   handleDeleteMessage,
   handleLoadMoreMessages,
@@ -2014,7 +2176,7 @@ export const MessageList = React.memo(function MessageList({
               Baixar
             </button>
           )}
-          {openMenuMessage.fromMe && (
+          {openMenuMessage.fromMe && canDeleteMessage && (
             <button type="button" style={{ ...styles.messageMenuItem, ...styles.messageMenuItemDanger }} onClick={() => { handleDeleteMessage(openMenuMessage.id); setOpenMenu(null); }}>
               Apagar para o cliente
             </button>

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/authenticate');
+const requirePermission = require('../middlewares/requirePermission');
 const leadController = require('../controllers/leadController');
 
-router.use(auth);
+router.use(auth, requirePermission('leads.manage'));
 
 router.get('/', leadController.getLeads);
 router.get('/instances', leadController.getLeadInstances);

@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const knowledgeController = require('../controllers/knowledgeController');
 const authenticate = require('../middlewares/authenticate');
-const isAdmin = require('../middlewares/isAdmin');
+const requirePermission = require('../middlewares/requirePermission');
 
-router.use(authenticate, isAdmin);
+router.use(authenticate, requirePermission('settings.bot.manage'));
 
 router.get('/', knowledgeController.list);
 router.post('/', knowledgeController.create);

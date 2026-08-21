@@ -1,9 +1,9 @@
 const router = require('express').Router();
 const authenticate = require('../middlewares/authenticate');
-const isAdmin = require('../middlewares/isAdmin');
+const requirePermission = require('../middlewares/requirePermission');
 const { list, create, getQrCode, repair, remove } = require('../controllers/instanceController');
 
-router.use(authenticate, isAdmin);
+router.use(authenticate, requirePermission('connections.manage'));
 router.get('/list', list);
 router.post('/create', create);
 router.post('/:id/repair', repair);

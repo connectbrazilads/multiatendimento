@@ -4,6 +4,16 @@ import { toast } from '../utils/toast';
 import api, { getUsers, createUser, updateUser, deleteUser, getTeams } from '../services/api';
 import PageHeader from '../components/ui/PageHeader';
 import ActionButton from '../components/ui/ActionButton';
+import { ACCESS_PROFILES, PERMISSION_GROUPS, PERMISSION_LABELS } from '../auth/permissions';
+
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '', accessProfile: 'agent', permissions: ACCESS_PROFILES.agent.permissions, homePage: '/inbox' };
+const HOME_PAGES = [
+  { value: '/dashboard', label: 'Dashboard', permission: 'dashboard.view' },
+  { value: '/inbox', label: 'Atendimento', permission: 'inbox.view' },
+  { value: '/crm', label: 'CRM', permission: 'crm.view' },
+  { value: '/billing-reports', label: 'Relatórios de cobrança', permission: 'billing.view' },
+  { value: '/settings', label: 'Minha conta', permission: null },
+];
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -13,7 +23,7 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState(null);
 
@@ -42,12 +52,42 @@ export default function Users() {
   function openModal(user = null) {
     if (user) {
       setModal(user);
-      setForm({ name: user.name, email: user.email, password: '', role: user.role, active: user.active, firebirdSupportName: user.firebirdSupportName || '' });
+      const accessProfile = user.accessProfile || (user.role === 'admin' ? 'admin' : 'agent');
+      setForm({ name: user.name, email: user.email, password: '', role: user.role, active: user.active, firebirdSupportName: user.firebirdSupportName || '', accessProfile, permissions: Array.isArray(user.permissions) ? user.permissions : ACCESS_PROFILES[accessProfile]?.permissions || [], homePage: user.homePage || ACCESS_PROFILES[accessProfile]?.homePage || '/inbox' });
       return;
     }
 
     setModal('new');
-    setForm({ name: '', email: '', password: '', role: 'agent', active: true, firebirdSupportName: '' });
+    setForm({ ...EMPTY_FORM, permissions: [...EMPTY_FORM.permissions] });
+  }
+
+  function selectProfile(accessProfile) {
+    const selected = ACCESS_PROFILES[accessProfile] || ACCESS_PROFILES.agent;
+    setForm((current) => ({
+      ...current,
+      accessProfile,
+      role: accessProfile === 'admin' ? 'admin' : 'agent',
+      permissions: [...selected.permissions],
+      homePage: selected.homePage,
+    }));
+  }
+
+  function togglePermission(permission) {
+    setForm((current) => {
+      const permissions = current.permissions.includes(permission)
+        ? current.permissions.filter((item) => item !== permission)
+        : [...current.permissions, permission];
+      const allowedHomePages = HOME_PAGES.filter((page) => !page.permission || permissions.includes(page.permission));
+      return {
+        ...current,
+        accessProfile: 'personalizado',
+        role: 'agent',
+        permissions,
+        homePage: allowedHomePages.some((page) => page.value === current.homePage)
+          ? current.homePage
+          : (allowedHomePages[0]?.value || ''),
+      };
+    });
   }
 
   async function handleSave(e) {
@@ -161,6 +201,7 @@ export default function Users() {
             <tbody>
               {filtered.map((user) => {
                 const isAdmin = user.role === 'admin';
+                const profile = user.accessProfile || (isAdmin ? 'admin' : 'agent');
                 return (
                   <tr key={user.id} style={s.tr}>
                     <td style={s.td}>
@@ -183,7 +224,7 @@ export default function Users() {
                         }}
                       >
                         {isAdmin ? <Shield size={14} /> : <UserRound size={14} />}
-                        {isAdmin ? 'Administrador' : 'Operador'}
+                        {ACCESS_PROFILES[profile]?.label || (isAdmin ? 'Administrador' : 'Atendente')}
                       </span>
                     </td>
                     <td style={s.td}>
@@ -276,10 +317,16 @@ export default function Users() {
                 </div>
 
                 <div style={s.field}>
-                  <label style={s.label}>Cargo</label>
-                  <select style={s.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                    <option value="agent">Operador (acesso aos chats)</option>
-                    <option value="admin">Administrador (acesso total)</option>
+                  <label style={s.label}>Perfil de acesso</label>
+                  <select style={s.input} value={form.accessProfile} onChange={(e) => selectProfile(e.target.value)}>
+                    {Object.entries(ACCESS_PROFILES).map(([value, profile]) => <option key={value} value={value}>{profile.label}</option>)}
+                  </select>
+                </div>
+
+                <div style={s.field}>
+                  <label style={s.label}>Página inicial após o login</label>
+                  <select style={s.input} value={form.homePage} onChange={(e) => setForm({ ...form, homePage: e.target.value })}>
+                    {HOME_PAGES.filter((page) => !page.permission || form.permissions.includes(page.permission)).map((page) => <option key={page.value} value={page.value}>{page.label}</option>)}
                   </select>
                 </div>
 
@@ -293,6 +340,26 @@ export default function Users() {
                   </select>
                 </div>
               </div>
+
+              <section style={s.permissionSection}>
+                <div style={s.permissionHeader}>
+                  <div><strong>Permissões deste usuário</strong><p>Escolha um perfil pronto ou ajuste ações individualmente.</p></div>
+                  <span style={s.permissionCount}>{form.permissions.length} permissões</span>
+                </div>
+                <div style={s.permissionGrid}>
+                  {PERMISSION_GROUPS.map((group) => (
+                    <fieldset key={group.label} style={s.permissionGroup} disabled={form.accessProfile === 'admin'}>
+                      <legend style={s.permissionLegend}>{group.label}</legend>
+                      {group.keys.map((permission) => (
+                        <label key={permission} style={s.permissionItem}>
+                          <input type="checkbox" checked={form.permissions.includes(permission)} onChange={() => togglePermission(permission)} />
+                          <span>{PERMISSION_LABELS[permission]}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ))}
+                </div>
+              </section>
 
               <div style={s.modalFooter}>
                 <button type="button" style={s.cancelBtn} onClick={() => setModal(null)}>
@@ -567,7 +634,9 @@ const s = {
     background: 'var(--bg-surface)',
     borderRadius: '24px',
     width: '100%',
-    maxWidth: '34rem',
+    maxWidth: '64rem',
+    maxHeight: '92vh',
+    overflowY: 'auto',
     border: '1px solid var(--border-color)',
     boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
   },
@@ -604,12 +673,21 @@ const s = {
   },
   form: {
     padding: '1.8rem',
+    display: 'grid',
+    gap: '1.5rem',
   },
   formGrid: {
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
     gap: '1.2rem',
   },
+  permissionSection: { border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1rem', background: 'var(--bg-base)' },
+  permissionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem', color: 'var(--text-main)' },
+  permissionCount: { color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 999, padding: '.35rem .65rem', fontSize: '.75rem', fontWeight: 800, whiteSpace: 'nowrap' },
+  permissionGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '.8rem' },
+  permissionGroup: { display: 'grid', alignContent: 'start', gap: '.45rem', border: '1px solid var(--border-color)', borderRadius: 12, padding: '.75rem', margin: 0, minWidth: 0 },
+  permissionLegend: { color: 'var(--text-main)', fontSize: '.78rem', fontWeight: 800, padding: '0 .35rem' },
+  permissionItem: { display: 'flex', alignItems: 'flex-start', gap: '.55rem', color: 'var(--text-muted)', fontSize: '.78rem', lineHeight: 1.35, cursor: 'pointer' },
   field: {
     display: 'flex',
     flexDirection: 'column',

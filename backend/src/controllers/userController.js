@@ -1,20 +1,55 @@
 const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
+const { normalizeProfile, normalizePermissionList, resolveUserAccess, resolveHomePage, hasPermission } = require('../auth/permissions');
+
+const publicUserSelect = {
+  id: true, name: true, email: true, role: true, active: true, createdAt: true,
+  firebirdSupportName: true, accessProfile: true, permissions: true, homePage: true,
+};
+
+function serializeUser(user) {
+  const access = resolveUserAccess(user);
+  return {
+    ...user,
+    accessProfile: access.profile,
+    permissions: access.permissions,
+    homePage: resolveHomePage(user.homePage, access),
+  };
+}
+
+function accessData(body, currentUser) {
+  if (body.accessProfile === undefined && body.permissions === undefined && body.role === undefined) return {};
+  const requestedProfile = body.accessProfile !== undefined
+    ? body.accessProfile
+    : (body.role || currentUser?.accessProfile || currentUser?.role);
+  const profile = normalizeProfile(requestedProfile, requestedProfile === 'admin' ? 'admin' : 'agent');
+  const role = profile === 'admin' ? 'admin' : 'agent';
+  return {
+    role,
+    accessProfile: profile,
+    permissions: profile === 'personalizado' ? normalizePermissionList(body.permissions) : null,
+  };
+}
+
+function canDelegateAccess(requester, access) {
+  if (requester.role === 'admin' || requester.role === 'superadmin') return true;
+  if (access.role === 'admin') return false;
+  const requestedPermissions = resolveUserAccess(access).permissions;
+  return requestedPermissions.every((permission) => requester.permissions.includes(permission));
+}
 
 async function list(req, res) {
-  // Removido bloqueio estrito de admin para permitir que agentes vejam colegas para transferencia
-
+  const canManageUsers = hasPermission(req.user, 'users.manage');
   const users = await prisma.user.findMany({
     where: { tenantId: req.user.tenantId },
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true, firebirdSupportName: true },
+    select: canManageUsers ? publicUserSelect : { id: true, name: true, active: true },
     orderBy: { name: 'asc' },
   });
-  res.json(users);
+  res.json(canManageUsers ? users.map(serializeUser) : users);
 }
 
 async function create(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
-  const { name, email, password, role, firebirdSupportName } = req.body;
+  const { name, email, password, role, accessProfile, permissions, homePage, firebirdSupportName } = req.body;
 
   const tenant = await prisma.tenant.findUnique({ where: { id: req.user.tenantId } });
   const count = await prisma.user.count({ where: { tenantId: req.user.tenantId } });
@@ -29,29 +64,32 @@ async function create(req, res) {
   if (exists) return res.status(400).json({ error: 'Email ja cadastrado para esta empresa' });
 
   const hash = await bcrypt.hash(password, 10);
+  const requestedAccess = accessData({ role, accessProfile, permissions });
+  if (!canDelegateAccess(req.user, requestedAccess)) {
+    return res.status(403).json({ error: 'Nao e permitido conceder um nivel de acesso superior ao seu.' });
+  }
   const user = await prisma.user.create({
     data: {
       tenantId: req.user.tenantId,
       name,
       email,
       password: hash,
-      role: role || 'agent',
+      ...requestedAccess,
+      homePage: resolveHomePage(homePage, resolveUserAccess(requestedAccess)),
       firebirdSupportName,
     },
-    select: { id: true, name: true, email: true, role: true, active: true, firebirdSupportName: true },
+    select: publicUserSelect,
   });
-  res.json(user);
+  res.json(serializeUser(user));
 }
 
 async function update(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { id } = req.params;
-  const { name, email, password, role, active, firebirdSupportName } = req.body;
+  const { name, email, password, role, accessProfile, permissions, homePage, active, firebirdSupportName } = req.body;
 
   const data = {
     ...(name && { name }),
     ...(email && { email }),
-    ...(role && { role }),
     ...(active !== undefined && { active }),
     ...(firebirdSupportName !== undefined && { firebirdSupportName }),
   };
@@ -63,16 +101,27 @@ async function update(req, res) {
   const existing = await prisma.user.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!existing) return res.status(404).json({ error: 'Usuario nao encontrado' });
 
+  const requestedAccess = accessData({ role, accessProfile, permissions }, existing);
+  if (
+    !canDelegateAccess(req.user, requestedAccess)
+    || (existing.role === 'admin' && !['admin', 'superadmin'].includes(req.user.role))
+  ) {
+    return res.status(403).json({ error: 'Nao e permitido alterar este nivel de acesso.' });
+  }
+  Object.assign(data, requestedAccess);
+  if (homePage !== undefined || Object.keys(requestedAccess).length) {
+    data.homePage = resolveHomePage(homePage ?? existing.homePage, resolveUserAccess({ ...existing, ...requestedAccess }));
+  }
+
   const user = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, name: true, email: true, role: true, active: true, firebirdSupportName: true },
+    select: publicUserSelect,
   });
-  res.json(user);
+  res.json(serializeUser(user));
 }
 
 async function remove(req, res) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
   const { id } = req.params;
 
   if (id === req.user.userId) {
@@ -81,6 +130,9 @@ async function remove(req, res) {
 
   const existing = await prisma.user.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!existing) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  if (existing.role === 'admin' && !['admin', 'superadmin'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Nao e permitido remover um administrador.' });
+  }
 
   const sentInternalCount = await prisma.internalMessage.count({ where: { senderId: id } });
   if (sentInternalCount > 0) {

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
+const { PERMISSIONS, PROFILE_PERMISSIONS, resolveUserAccess, resolveHomePage } = require('../auth/permissions');
 
 async function login(req, res) {
   const { email, password, slug } = req.body;
@@ -11,7 +12,7 @@ async function login(req, res) {
     include: { tenant: true },
   });
 
-  if (!user || !user.active) return res.status(401).json({ error: 'Credenciais inválidas' });
+  if (!user || !user.active || !user.tenant?.active) return res.status(401).json({ error: 'Credenciais inválidas' });
 
   // Se o login for feito via portal de empresa, validar se o usuário pertence a ela
   if (slug && user.tenant.slug !== slug) {
@@ -27,14 +28,19 @@ async function login(req, res) {
   if (!valid) return res.status(401).json({ error: 'Credenciais inválidas' });
 
   const token = jwt.sign(
-    { userId: user.id, tenantId: user.tenantId, role: user.role },
+    { userId: user.id },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
+  const access = resolveUserAccess(user);
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      accessProfile: access.profile, permissions: access.permissions,
+      homePage: resolveHomePage(user.homePage, access),
+    },
     tenant: { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug },
   });
 }
@@ -44,12 +50,27 @@ async function me(req, res) {
     where: { id: req.user.userId },
     select: {
       id: true, name: true, email: true, role: true, tenantId: true,
+      accessProfile: true, permissions: true, homePage: true, active: true,
       tenant: {
         select: { id: true, name: true, slug: true, primaryColor: true, logoUrl: true }
       }
     },
   });
-  res.json(user);
+  if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  const access = resolveUserAccess(user);
+  res.json({
+    ...user,
+    accessProfile: access.profile,
+    permissions: access.permissions,
+    homePage: resolveHomePage(user.homePage, access),
+  });
+}
+
+function accessOptions(req, res) {
+  res.json({
+    permissions: PERMISSIONS,
+    profiles: Object.entries(PROFILE_PERMISSIONS).map(([id, permissions]) => ({ id, permissions })),
+  });
 }
 
 async function getTenantBySlug(req, res) {
@@ -62,4 +83,4 @@ async function getTenantBySlug(req, res) {
   res.json(tenant);
 }
 
-module.exports = { login, me, getTenantBySlug };
+module.exports = { login, me, getTenantBySlug, accessOptions };
