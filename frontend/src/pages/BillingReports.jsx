@@ -32,12 +32,16 @@ const STATUS_COLORS = {
   SKIPPED_OPTIN: 'var(--warning, #f59e0b)',
   SKIPPED_NOCONTACT: 'var(--danger, #ef4444)',
   FAILED: 'var(--text-muted, #94a3b8)',
+  RECEIVED: 'var(--success, #10b981)',
+  NOT_SENT: 'var(--danger, #ef4444)',
+  NO_PHONE: 'var(--danger, #ef4444)',
+  SKIPPED: 'var(--warning, #f59e0b)',
 };
 
 export default function BillingReports() {
   const [period, setPeriod] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ stats: null, logs: [], coverageAnalysis: [] });
+  const [data, setData] = useState({ stats: null, logs: [], coverageAnalysis: [], coverageSummary: null });
   const [filterType, setFilterType] = useState('ALL');
   const [activeTab, setActiveTab] = useState('logs');
 
@@ -100,10 +104,16 @@ export default function BillingReports() {
         @media print {
           nav, header, .no-print { display: none !important; }
           .billing-report-container { padding: 0 !important; background: white !important; overflow: visible !important; }
+          .billing-report-container, .billing-report-container .content, .billing-report-container .table-box { height: auto !important; min-height: 0 !important; overflow: visible !important; }
           .print-full { max-height: none !important; overflow: visible !important; border: none !important; }
           .main-section-print { display: block !important; grid-template-columns: 1fr !important; }
           table { width: 100% !important; border-collapse: collapse; }
-          th, td { border-bottom: 1px solid #ccc !important; padding: 8px !important; }
+          th, td { border-bottom: 1px solid #ccc !important; padding: 8px !important; color: #222 !important; background: #fff !important; }
+          th { background: #f2f2f2 !important; }
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; }
+          .coverage-summary { color: #111 !important; border-color: #bbb !important; }
+          .coverage-summary span { display: block; font-size: 11px; color: #555 !important; }
           body { background: white !important; color: black !important; }
         }
       `}</style>
@@ -210,7 +220,7 @@ export default function BillingReports() {
           </div>
 
           {/* Audit Table */}
-          <div style={s.tableBox}>
+          <div style={s.tableBox} className="table-box">
             <div style={{ ...s.tableHeader, borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '1rem' }} className="no-print">
                 <button 
@@ -245,6 +255,21 @@ export default function BillingReports() {
                 </div>
               )}
             </div>
+
+            {activeTab === 'coverage' && (
+              <div style={s.coverageSummary} className="coverage-summary">
+                <div style={s.coverageIntro}>
+                  <strong>Conferência de cobertura</strong>
+                  <span>Clientes com cobrança autorizada no CRM x envios concluídos no período</span>
+                </div>
+                <div style={s.coverageMetrics}>
+                  <div style={s.coverageMetric}><strong>{data.coverageSummary?.expected || 0}</strong><span>Deveriam receber</span></div>
+                  <div style={{ ...s.coverageMetric, color: STATUS_COLORS.RECEIVED }}><strong>{data.coverageSummary?.received || 0}</strong><span>Receberam</span></div>
+                  <div style={{ ...s.coverageMetric, color: STATUS_COLORS.NOT_SENT }}><strong>{data.coverageSummary?.notReceived || 0}</strong><span>Não receberam</span></div>
+                  <div style={{ ...s.coverageMetric, color: STATUS_COLORS.RECEIVED }}><strong>{data.coverageSummary?.rate || 0}%</strong><span>Cobertura</span></div>
+                </div>
+              </div>
+            )}
 
             <div style={s.tableWrapper} className="print-full">
               <table style={s.table}>
@@ -302,12 +327,12 @@ export default function BillingReports() {
                         <th style={s.th}>Cliente</th>
                         <th style={s.th}>Telefone / WhatsApp</th>
                         <th style={s.th}>Envio no Período</th>
+                        <th style={s.th}>Detalhe</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.coverageAnalysis && data.coverageAnalysis.map((contact) => {
-                        const isReceived = contact.status === 'RECEIVED';
-                        const badgeColor = isReceived ? STATUS_COLORS.SUCCESS : STATUS_COLORS.SKIPPED_NOCONTACT;
+                        const badgeColor = STATUS_COLORS[contact.status] || STATUS_COLORS.FAILED;
                         return (
                           <tr key={contact.id}>
                             <td style={s.tdClient}>
@@ -316,19 +341,24 @@ export default function BillingReports() {
                               <span style={s.cnpj}>{contact.cpfCnpj}</span>
                             </td>
                             <td style={s.tdMessage}>
-                              {contact.phone}
+                              {contact.phone || 'Sem telefone'}
                             </td>
                             <td style={s.td}>
                               <span style={{ ...s.badge, backgroundColor: badgeColor + '20', color: badgeColor }}>
-                                {isReceived ? '✓ Recebeu' : '✕ Faltou Enviar'}
+                                {contact.status === 'RECEIVED' ? '✓ Recebeu' : contact.status === 'NO_PHONE' ? 'Sem telefone' : contact.status === 'FAILED' ? 'Falha no envio' : 'Faltou enviar'}
                               </span>
+                            </td>
+                            <td style={s.tdMessage}>
+                              {contact.status === 'RECEIVED' && contact.lastSentAt
+                                ? `Enviado em ${new Date(contact.lastSentAt).toLocaleString('pt-BR')}`
+                                : contact.lastError || (contact.status === 'NO_PHONE' ? 'Contato sem telefone cadastrado.' : 'Nenhum envio concluído no período.')}
                             </td>
                           </tr>
                         );
                       })}
                       {(!data.coverageAnalysis || data.coverageAnalysis.length === 0) && (
                         <tr>
-                          <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             Nenhum cliente com opt-in encontrado.
                           </td>
                         </tr>
@@ -438,6 +468,34 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden'
+  },
+  coverageSummary: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 'var(--space-4)',
+    padding: 'var(--space-4)',
+    marginBottom: 'var(--space-4)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    background: 'var(--bg-base)',
+  },
+  coverageMetrics: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(80px, 1fr))',
+    gap: 'var(--space-4)',
+    textAlign: 'center',
+  },
+  coverageIntro: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  coverageMetric: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '3px',
+    fontSize: '0.75rem',
   },
   boxTitle: {
     margin: '0 0 var(--space-4) 0',

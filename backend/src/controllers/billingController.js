@@ -618,6 +618,72 @@ async function getBillingLogs(req, res) {
   }
 }
 
+function normalizeBillingIdentity(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function buildBillingCoverageReport(contacts, logs) {
+  const successful = new Set();
+  const latestByIdentity = new Map();
+  const customerRows = new Map();
+
+  for (const log of logs) {
+    const identity = normalizeBillingIdentity(log.cpfCnpj);
+    if (!identity) continue;
+    if (log.status === 'SUCCESS') successful.add(identity);
+    const previous = latestByIdentity.get(identity);
+    if (!previous || new Date(log.sentAt || 0) > new Date(previous.sentAt || 0)) {
+      latestByIdentity.set(identity, log);
+    }
+  }
+
+  for (const contact of contacts) {
+    const realCpfCnpj = contact.cpfCnpj || contact.crmCustomer?.cpfCnpj || '';
+    const identity = normalizeBillingIdentity(realCpfCnpj) || `contact:${contact.id}`;
+    const existing = customerRows.get(identity);
+    if (existing && (existing.phone || !contact.whatsapp && !contact.phone)) continue;
+    customerRows.set(identity, {
+      id: contact.id,
+      name: contact.fantasyName || contact.name || contact.crmCustomer?.fantasyName || contact.crmCustomer?.name || 'Sem nome',
+      phone: contact.whatsapp || contact.phone || '',
+      cpfCnpj: realCpfCnpj || 'Não informado',
+      identity,
+    });
+  }
+
+  const coverageAnalysis = [...customerRows.values()].map((customer) => {
+    const logIdentity = customer.identity.replace(/^contact:/, '');
+    const log = latestByIdentity.get(logIdentity);
+    let status = 'NOT_SENT';
+    if (successful.has(logIdentity)) status = 'RECEIVED';
+    else if (!customer.phone) status = 'NO_PHONE';
+    else if (log?.status === 'FAILED') status = 'FAILED';
+    else if (log?.status === 'SKIPPED') status = 'SKIPPED';
+    return {
+      ...customer,
+      status,
+      lastSentAt: log?.sentAt || null,
+      lastError: log?.errorMessage || null,
+    };
+  });
+
+  const count = (status) => coverageAnalysis.filter((item) => item.status === status).length;
+  const received = count('RECEIVED');
+  return {
+    coverageAnalysis,
+    coverageSummary: {
+      expected: coverageAnalysis.length,
+      received,
+      notReceived: coverageAnalysis.length - received,
+      notSent: count('NOT_SENT'),
+      noPhone: count('NO_PHONE'),
+      failed: count('FAILED'),
+      skipped: count('SKIPPED'),
+      rate: coverageAnalysis.length ? Math.round((received / coverageAnalysis.length) * 100) : 0,
+    },
+  };
+}
+
 async function getBillingDashboardStats(req, res) {
   const { tenantId } = req.user;
   const { period = 30 } = req.query;
@@ -635,6 +701,7 @@ async function getBillingDashboardStats(req, res) {
       orderBy: { sentAt: 'desc' }
     });
 
+    const operationalLogs = logs.filter((log) => log.status !== 'TEST');
     const totalOptIn = await prisma.contact.count({
       where: {
         tenantId,
@@ -643,15 +710,16 @@ async function getBillingDashboardStats(req, res) {
     });
 
     const stats = {
-      total: logs.length,
+      total: operationalLogs.length,
       success: 0,
       skippedOptIn: 0,
       skippedNoContact: 0,
       failed: 0,
+      test: logs.length - operationalLogs.length,
       totalOptIn
     };
 
-    logs.forEach(log => {
+    operationalLogs.forEach(log => {
       if (log.status === 'SUCCESS') stats.success++;
       else if (log.status === 'FAILED') stats.failed++;
       else if (log.status === 'SKIPPED') {
@@ -677,30 +745,17 @@ async function getBillingDashboardStats(req, res) {
         whatsapp: true,
         crmCustomer: {
           select: {
-            cpfCnpj: true
+            cpfCnpj: true,
+            name: true,
+            fantasyName: true
           }
         }
       }
     });
 
-    const successfulCpfs = new Set(logs.filter(l => l.status === 'SUCCESS' && l.cpfCnpj).map(l => l.cpfCnpj.replace(/\D/g, '')));
-
-    const coverageAnalysis = optInContacts.map(contact => {
-      // Tenta usar o CPF do Contato ou então o CPF da Ficha do CRM vinculada
-      const realCpfCnpj = contact.cpfCnpj || contact.crmCustomer?.cpfCnpj || '';
-      const contactCpf = realCpfCnpj.replace(/\D/g, '');
-      const hasReceived = contactCpf && successfulCpfs.has(contactCpf);
-      
-      return {
-        id: contact.id,
-        name: contact.fantasyName || contact.name || 'Sem nome',
-        phone: contact.whatsapp || contact.phone || 'Sem telefone',
-        cpfCnpj: realCpfCnpj || 'Não informado',
-        status: hasReceived ? 'RECEIVED' : 'PENDING'
-      };
-    });
-
-    res.json({ stats, logs, coverageAnalysis });
+    const coverage = buildBillingCoverageReport(optInContacts, operationalLogs);
+    stats.totalOptIn = coverage.coverageSummary.expected;
+    res.json({ stats, logs, ...coverage });
   } catch (err) {
     console.error('[getBillingDashboardStats] erro:', err.message);
     res.status(500).json({ error: err.message });
@@ -731,5 +786,9 @@ module.exports = {
   triggerBillingProcess,
   getBillingLogs,
   saveBillingSettings,
-  getBillingDashboardStats
+  getBillingDashboardStats,
+  _private: {
+    buildBillingCoverageReport,
+    normalizeBillingIdentity,
+  }
 };
