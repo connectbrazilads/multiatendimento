@@ -125,6 +125,7 @@ export default function BillingReports() {
                 {opt.label}
               </button>
             ))}
+            </div>
           </div>
         }
       />
