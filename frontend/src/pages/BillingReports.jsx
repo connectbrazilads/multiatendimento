@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   PhoneOff,
   UserX,
+  Users,
   Clock,
   Filter
 } from 'lucide-react';
@@ -130,11 +131,20 @@ export default function BillingReports() {
 
           <div style={s.kpiCard}>
             <div style={s.kpiHeader}>
-              <span style={s.kpiTitle}>Sem Permissão (Opt-in)</span>
+              <span style={s.kpiTitle}>Base Opt-in CRM</span>
+              <Users size={18} color="var(--accent, #3b82f6)" />
+            </div>
+            <div style={{ ...s.kpiValue, color: 'var(--accent, #3b82f6)' }}>{stats?.totalOptIn || 0}</div>
+            <div style={s.kpiSub}>Total de clientes que aceitam cobrança no CRM</div>
+          </div>
+
+          <div style={s.kpiCard}>
+            <div style={s.kpiHeader}>
+              <span style={s.kpiTitle}>Sem Permissão (Falta Opt-in)</span>
               <UserX size={18} color={STATUS_COLORS.SKIPPED_OPTIN} />
             </div>
             <div style={{ ...s.kpiValue, color: STATUS_COLORS.SKIPPED_OPTIN }}>{stats?.skippedOptIn || 0}</div>
-            <div style={s.kpiSub}>Caixinha de Envio Desmarcada no CRM</div>
+            <div style={s.kpiSub}>Caixinha desmarcada na hora do envio</div>
           </div>
 
           <div style={s.kpiCard}>
@@ -375,6 +385,8 @@ const s = {
   },
   tableWrapper: {
     overflowX: 'auto',
+    overflowY: 'auto',
+    maxHeight: '400px',
     border: '1px solid var(--border-color)',
     borderRadius: '8px'
   },
@@ -389,7 +401,10 @@ const s = {
     borderBottom: '1px solid var(--border-color)',
     color: 'var(--text-muted)',
     fontWeight: 600,
-    background: 'var(--bg-base)'
+    background: 'var(--bg-base)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 1
   },
   td: {
     padding: 'var(--space-3) var(--space-4)',

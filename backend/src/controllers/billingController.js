@@ -635,12 +635,20 @@ async function getBillingDashboardStats(req, res) {
       orderBy: { sentAt: 'desc' }
     });
 
+    const totalOptIn = await prisma.contact.count({
+      where: {
+        tenantId,
+        enableWhatsAppBilling: true
+      }
+    });
+
     const stats = {
       total: logs.length,
       success: 0,
       skippedOptIn: 0,
       skippedNoContact: 0,
       failed: 0,
+      totalOptIn
     };
 
     logs.forEach(log => {
