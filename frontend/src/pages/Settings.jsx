@@ -537,19 +537,12 @@ export default function Settings() {
             <h2 style={s.cardTitle}>Horário de atendimento</h2>
             <div style={s.form}>
               {hours.map((hour, index) => (
-                <div
-                  key={hour.dayOfWeek}
-                  style={{
-                    ...s.hourRow,
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: isMobile ? 'flex-start' : 'center',
-                  }}
-                >
-                  <div style={{ width: '100px', fontWeight: 800, marginBottom: isMobile ? 'var(--space-2)' : 0 }}>
+                <div key={hour.dayOfWeek} className="settings-hour-row" style={s.hourRow}>
+                  <div className="settings-hour-day" style={s.hourDay}>
                     {DAYS[hour.dayOfWeek]}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', flexWrap: 'wrap' }}>
+                  <div className="settings-hour-controls" style={s.hourControls}>
                     <input
                       type="checkbox"
                       checked={hour.active}
@@ -570,7 +563,7 @@ export default function Settings() {
                         setHours(next);
                       }}
                     />
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>ate</span>
+                    <span className="settings-hour-until" style={s.hourUntil}>ate</span>
                     <input
                       type="time"
                       style={s.hourInput}
@@ -1199,6 +1192,9 @@ const settingsResponsiveCss = `
   .settings-container input:focus-visible,
   .settings-container textarea:focus-visible,
   .settings-container select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .settings-nav button:hover:not(:disabled) { background: var(--bg-panel-hover) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
+  .settings-nav button:focus:not(:focus-visible) { outline: none !important; box-shadow: none !important; }
+  .settings-hour-controls input[type='time'] { width: 100%; min-width: 0; }
   .settings-mobile-select { display: none !important; }
   .settings-nav ~ * { margin-left: 244px; }
   @media (max-width: 1050px) {
@@ -1215,6 +1211,8 @@ const settingsResponsiveCss = `
     .settings-nav ~ * { margin-left: 0; }
     .settings-container section, .settings-container form { min-width: 0; }
     .settings-container table { min-width: 620px; }
+    .settings-hour-row { grid-template-columns: 1fr !important; gap: .55rem !important; align-items: stretch !important; }
+    .settings-hour-day { width: auto !important; }
   }
 `;
 
@@ -1240,9 +1238,9 @@ const s = {
   tabGroupButtons: { display: 'grid', gap: '0.25rem' },
   tab: {
     padding: '0.58rem 0.72rem',
-    border: '1px solid transparent',
+    border: '1px solid var(--border-color)',
     borderRadius: '9px',
-    background: 'transparent',
+    background: 'var(--bg-surface)',
     cursor: 'pointer',
     fontSize: 'var(--text-xs)',
     color: 'var(--text-muted)',
@@ -1252,8 +1250,9 @@ const s = {
     textAlign: 'left',
     width: '100%',
     outline: 'none',
+    boxShadow: 'none',
   },
-  tabActive: { color: 'var(--text-main)', borderColor: 'var(--accent-border)', background: 'var(--accent-light)' },
+  tabActive: { color: 'var(--text-main)', borderColor: 'var(--accent-border)', background: 'var(--accent-light)', boxShadow: 'inset 0 0 0 1px var(--accent-border)' },
   mobileSelectWrap: { gap: '0.35rem' },
   mobileSelectLabel: { color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' },
   mobileSelect: { width: '100%', padding: '0.72rem', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'var(--text-main)', background: 'var(--bg-surface)', fontWeight: 600 },
@@ -1404,7 +1403,10 @@ const s = {
     padding: '0.55rem 0.85rem',
     fontWeight: 700,
   },
-  hourRow: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.9rem 0', borderBottom: '1px solid var(--border-color)' },
+  hourRow: { display: 'grid', gridTemplateColumns: '88px minmax(0, 1fr)', alignItems: 'center', gap: '0.75rem', padding: '0.9rem 0', borderBottom: '1px solid var(--border-color)' },
+  hourDay: { fontWeight: 800, minWidth: 0 },
+  hourControls: { display: 'grid', gridTemplateColumns: '24px minmax(80px, 1fr) auto minmax(80px, 1fr)', alignItems: 'center', gap: '0.55rem', minWidth: 0 },
+  hourUntil: { color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' },
   hourInput: {
     background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
@@ -1412,7 +1414,6 @@ const s = {
     padding: '0.45rem 0.65rem',
     color: 'var(--text-main)',
     outline: 'none',
-    colorScheme: 'dark',
   },
   logoPreview: {
     width: '160px',
