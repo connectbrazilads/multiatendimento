@@ -1,6 +1,49 @@
 const prisma = require('../lib/prisma');
 const crmController = require('./crmController');
 
+const SENTINELA_SYNC_STALE_AFTER_MINUTES = 15;
+
+function asFiniteNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value === undefined || value === null || value === '') return null;
+  const normalized = String(value).trim().replace(/\./g, (match, offset, input) => {
+    // Mantem pontos decimais; remove apenas separadores de milhar quando a
+    // string tambem possui virgula decimal (ex.: 1.234,56).
+    return input.includes(',') ? '' : match;
+  }).replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function positiveNumber(value) {
+  const parsed = asFiniteNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : 0;
+}
+
+function customerMonthlyValue(customer) {
+  const raw = customer?.raw && typeof customer.raw === 'object' ? customer.raw : {};
+  return positiveNumber(
+    raw.total_mensalidade ?? raw.totalMensalidade ?? raw.monthlyValue ?? raw.monthly_value
+  );
+}
+
+function buildSyncHealth(settings) {
+  const lastSyncedAt = settings?.firebirdLastSyncAt ? new Date(settings.firebirdLastSyncAt) : null;
+  const validLastSyncedAt = lastSyncedAt && !Number.isNaN(lastSyncedAt.getTime()) ? lastSyncedAt : null;
+  const ageMinutes = validLastSyncedAt
+    ? Math.max(0, Math.floor((Date.now() - validLastSyncedAt.getTime()) / 60000))
+    : null;
+  return {
+    source: 'firebird-agent-cache',
+    status: settings?.firebirdLastSyncStatus || 'unknown',
+    lastSyncedAt: validLastSyncedAt,
+    ageMinutes,
+    stale: ageMinutes === null || ageMinutes > SENTINELA_SYNC_STALE_AFTER_MINUTES,
+    staleAfterMinutes: SENTINELA_SYNC_STALE_AFTER_MINUTES,
+    error: settings?.firebirdLastSyncError || null,
+  };
+}
+
 async function getRevenueDashboard(req, res) {
   const tenantId = req.user.tenantId;
 
@@ -8,6 +51,9 @@ async function getRevenueDashboard(req, res) {
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
     const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
     const reincidentThreshold = settings?.kpiReincidentThreshold ?? 2;
+    const manualContractFallback = positiveNumber(settings?.kpiContractValue);
+    const manualServiceFallback = positiveNumber(settings?.kpiServiceValue);
+    const synchronization = buildSyncHealth(settings);
     const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -89,16 +135,52 @@ async function getRevenueDashboard(req, res) {
     );
     const uniqueClientsAtRisk = [...new Set(criticalOS.map(o => o.clientExternalId).filter(Boolean))];
 
+    // O cadastro sincronizado do cliente pode conter a mensalidade mesmo
+    // quando o registro de contrato ainda não informa um valor. Carregamos
+    // tudo de uma vez para evitar uma consulta por cliente.
+    const crmCustomersAtRisk = uniqueClientsAtRisk.length > 0
+      ? await prisma.crmCustomer.findMany({
+          where: { tenantId, externalId: { in: uniqueClientsAtRisk } },
+          select: { externalId: true, raw: true },
+        })
+      : [];
+    const crmCustomerMap = new Map(crmCustomersAtRisk.map(customer => [String(customer.externalId), customer]));
+
     let mrrInRisk = 0;
     const mrrRiskBands = { band1to3: 0, band3to7: 0, bandOver7: 0 };
     let clientsAtRiskList = [];
+    const mrrValueSources = { firebird: 0, crm: 0, manual_estimate: 0, missing: 0 };
 
     for (const clientExtId of uniqueClientsAtRisk) {
       try {
         const contracts = await crmController.loadContracts(tenantId, clientExtId);
         const activeContracts = contracts.filter(c => c.isActive);
-        if (activeContracts.length > 0) {
-          const clientMRR = activeContracts.reduce((sum, c) => sum + (c.monthlyValue || 0), 0);
+        const firebirdMRR = activeContracts.reduce((sum, contract) => {
+          // monthlyValue é a mensalidade oficial. Só usamos value em
+          // snapshots antigos que ainda não possuíam monthlyValue; não
+          // transformamos um total anual em MRR por engano.
+          const monthly = positiveNumber(contract.monthlyValue);
+          if (monthly > 0) return sum + monthly;
+          if (contract.monthlyValue === undefined || contract.monthlyValue === null) {
+            return sum + positiveNumber(contract.value);
+          }
+          return sum;
+        }, 0);
+        const crmMRR = customerMonthlyValue(crmCustomerMap.get(String(clientExtId)));
+        let clientMRR = firebirdMRR;
+        let valueSource = 'firebird';
+        if (clientMRR <= 0 && crmMRR > 0) {
+          clientMRR = crmMRR;
+          valueSource = 'crm';
+        }
+        if (clientMRR <= 0 && manualContractFallback > 0) {
+          clientMRR = manualContractFallback;
+          valueSource = 'manual_estimate';
+        }
+        if (clientMRR <= 0) valueSource = 'missing';
+        mrrValueSources[valueSource] += 1;
+
+        if (activeContracts.length > 0 || clientMRR > 0) {
           mrrInRisk += clientMRR;
 
           // Encontrar a O.S. mais antiga pendente deste cliente
@@ -116,6 +198,7 @@ async function getRevenueDashboard(req, res) {
             clientExternalId: clientExtId,
             clientName: oldestOS.clientName || `Cliente #${clientExtId}`,
             mrr: clientMRR,
+            valueSource,
             daysLate: daysLate,
             oldestOSExternalId: oldestOS.externalId
           });
@@ -148,19 +231,25 @@ async function getRevenueDashboard(req, res) {
     // ───────────────────────────────────────────────────────────────
     // VALOR ESTIMADO DE UMA O.S. (peças/serviço, quando o Firebird informa)
     // ───────────────────────────────────────────────────────────────
-    function estimateValue(payload) {
+    function resolveServiceOrderValue(payload, fallbackValue = 0) {
       const raw = payload?.raw || payload || {};
-      const val = parseFloat(raw.vltotal || raw.vlservico || raw.vlpecas || payload?.totalValue);
-      return Number.isFinite(val) ? val : 0;
-    }
-    function hasAnyValueField(payload) {
-      const raw = payload?.raw || payload || {};
-      return raw.vltotal != null || raw.vlservico != null || raw.vlpecas != null || payload?.totalValue != null;
+      const parsedValues = [raw.vltotal, raw.vlservico, raw.vlpecas, payload?.totalValue]
+        .map(asFiniteNumber)
+        .filter((value) => value !== null);
+      const parsed = parsedValues.find((value) => value > 0) ?? parsedValues[0] ?? null;
+      if (parsed !== null) return { value: Math.max(0, parsed), source: 'firebird' };
+      if (fallbackValue > 0) return { value: fallbackValue, source: 'manual_estimate' };
+      return { value: 0, source: 'missing' };
     }
 
     // Valor dos orçamentos avulsos parados (aguardando aprovação do cliente)
     let stalledEstimatesValue = 0;
-    for (const o of aguardando) stalledEstimatesValue += estimateValue(o.payload);
+    const stalledValueSources = { firebird: 0, manual_estimate: 0, missing: 0 };
+    for (const o of aguardando) {
+      const resolved = resolveServiceOrderValue(o.payload, manualServiceFallback);
+      stalledEstimatesValue += resolved.value;
+      stalledValueSources[resolved.source] += 1;
+    }
 
     // ───────────────────────────────────────────────────────────────
     // VAZAMENTO DO FUNIL (Perda Estimada)
@@ -172,9 +261,14 @@ async function getRevenueDashboard(req, res) {
     const vazamentoMes = vazamento.length;
     let vazamentoValor = 0;
     let vazamentoSemValorCount = 0;
+    let vazamentoFallbackValueCount = 0;
+    const leakageValueSources = { firebird: 0, manual_estimate: 0, missing: 0 };
     for (const o of vazamento) {
-      if (!hasAnyValueField(o.payload)) { vazamentoSemValorCount++; continue; }
-      vazamentoValor += estimateValue(o.payload);
+      const resolved = resolveServiceOrderValue(o.payload, manualServiceFallback);
+      leakageValueSources[resolved.source] += 1;
+      if (resolved.source === 'missing') vazamentoSemValorCount++;
+      if (resolved.source === 'manual_estimate') vazamentoFallbackValueCount++;
+      vazamentoValor += resolved.value;
     }
 
     // Taxa de resolução real: das O.S. abertas nos últimos 30 dias, quantas já foram finalizadas
@@ -225,7 +319,30 @@ async function getRevenueDashboard(req, res) {
       stalledEstimatesCount: aguardando.length,
       stalledEstimatesValue,
       trend,
-      kpis: { kpiSlaLimitHours, kpiReincidentThreshold: reincidentThreshold },
+      synchronization,
+      dataQuality: {
+        mrr: {
+          valueSources: mrrValueSources,
+          manualFallbackConfigured: manualContractFallback > 0,
+          manualFallbackValue: manualContractFallback,
+        },
+        stalledEstimates: {
+          valueSources: stalledValueSources,
+          manualFallbackConfigured: manualServiceFallback > 0,
+          manualFallbackValue: manualServiceFallback,
+        },
+        leakage: {
+          valueSources: leakageValueSources,
+          manualFallbackConfigured: manualServiceFallback > 0,
+          manualFallbackValue: manualServiceFallback,
+        },
+      },
+      kpis: {
+        kpiSlaLimitHours,
+        kpiReincidentThreshold: reincidentThreshold,
+        kpiContractValue: manualContractFallback,
+        kpiServiceValue: manualServiceFallback,
+      },
       causas: [
         { id: '1', descricao: 'Chamados pendentes sem técnico designado', quantidade: noTechnicianCount, prioridade: 'alta' },
         { id: '2', descricao: 'Orçamentos de peças/serviço aguardando aprovação', quantidade: aguardando.length, prioridade: 'media' },
@@ -241,7 +358,8 @@ async function getRevenueDashboard(req, res) {
         resolutionRatePct,
         vazamentoMes,
         vazamentoValor,
-        vazamentoSemValorCount
+        vazamentoSemValorCount,
+        vazamentoFallbackValueCount,
       }
     });
   } catch (error) {
@@ -720,6 +838,7 @@ async function getDrilldown(req, res) {
   try {
     const settings = await prisma.tenantSettings.findUnique({ where: { tenantId } });
     const kpiSlaLimitHours = settings?.kpiSlaLimitHours ?? 24;
+    const reincidentThreshold = settings?.kpiReincidentThreshold ?? 2;
     const slaLimitDate = new Date(Date.now() - kpiSlaLimitHours * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -832,7 +951,7 @@ async function getDrilldown(req, res) {
         }
       }
       results = Object.entries(equipCounts)
-        .filter(([, v]) => v.count > 2)
+        .filter(([, v]) => v.count > reincidentThreshold)
         .map(([equipId, v]) => ({
           externalId: equipId,
           equipmentModel: v.model,

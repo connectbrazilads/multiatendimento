@@ -939,7 +939,7 @@ export default function Settings() {
             <h2 style={s.cardTitle}>Configurações de KPIs do iLux Sentinela</h2>
             <form onSubmit={handleSave} style={s.form}>
               <div style={s.field}>
-                <label style={s.label}>Valor do Contrato de Locação (R$/mês)</label>
+                <label style={s.label}>Fallback de contrato sem valor (R$/mês)</label>
                 <input
                   style={s.input}
                   type="number"
@@ -949,11 +949,11 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, kpiContractValue: e.target.value })}
                   placeholder="1200.00"
                 />
-                <p style={s.hint}>Valor médio mensal estimado do contrato de locação por cliente.</p>
+                <p style={s.hint}>Usado somente quando Firebird e CRM não informarem a mensalidade real. O valor fica identificado como estimativa.</p>
               </div>
 
               <div style={s.field}>
-                <label style={s.label}>Valor Médio de Serviço Avulso (R$)</label>
+                <label style={s.label}>Fallback de O.S. sem valor (R$)</label>
                 <input
                   style={s.input}
                   type="number"
@@ -963,7 +963,7 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, kpiServiceValue: e.target.value })}
                   placeholder="350.00"
                 />
-                <p style={s.hint}>Valor médio faturado por cada ordem de serviço avulsa executada.</p>
+                <p style={s.hint}>Usado somente quando a O.S. não trouxer valor do Firebird. O valor fica identificado como estimativa.</p>
               </div>
 
               <div style={s.field}>

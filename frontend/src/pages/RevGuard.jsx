@@ -191,6 +191,31 @@ export default function RevGuard() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   };
 
+  const sourceLabel = (source) => ({
+    firebird: 'Firebird',
+    crm: 'cadastro CRM',
+    manual_estimate: 'estimativa manual',
+    missing: 'sem valor',
+  }[source] || source);
+
+  const sourceSummary = (quality) => {
+    const sources = quality?.valueSources || {};
+    const parts = [];
+    if (sources.firebird) parts.push(`${sources.firebird} Firebird`);
+    if (sources.crm) parts.push(`${sources.crm} CRM`);
+    if (sources.manual_estimate) parts.push(`${sources.manual_estimate} estimada${sources.manual_estimate === 1 ? '' : 's'}`);
+    if (sources.missing) parts.push(`${sources.missing} sem valor`);
+    return parts.join(' · ') || 'Nenhum valor disponível';
+  };
+
+  const syncState = crisisData?.synchronization;
+  const syncIsHealthy = syncState && !syncState.stale && ['ok', 'online'].includes(String(syncState.status).toLowerCase());
+  const syncStatusLabel = !syncState
+    ? 'Monitoramento ativo'
+    : syncState.stale
+      ? 'Agente Firebird desatualizado'
+      : `Firebird sincronizado${syncState.ageMinutes != null ? ` há ${syncState.ageMinutes} min` : ''}`;
+
   // Selo de tendência (hoje vs. última data com snapshot registrado). Para
   // métricas "quanto menor melhor" (risco, vazamento) increaseIsBad=true;
   // increaseIsBad=false para o inverso (ex.: taxa de resolução).
@@ -262,8 +287,8 @@ export default function RevGuard() {
           <h1 style={s.title}>Painel de Inteligência de Receita</h1>
           <p style={s.subtitle}>Monitore SLAs técnicos, gargalos operacionais e audite atendimentos automaticamente.</p>
         </div>
-        <div style={s.statusBadge}>
-          <span style={s.dot} /> Monitoramento Ativo
+        <div style={s.statusBadge} title={syncState?.error || undefined}>
+          <span style={{ ...s.dot, background: syncIsHealthy === false ? '#f59e0b' : '#10b981', boxShadow: syncIsHealthy === false ? '0 0 10px rgba(245,158,11,0.4)' : '0 0 10px rgba(16,185,129,0.4)' }} /> {syncStatusLabel}
         </div>
       </header>
 
@@ -279,6 +304,20 @@ export default function RevGuard() {
           </button>
         ))}
       </div>
+
+      {syncState && (
+        <div style={{ ...s.syncBanner, ...(syncState.stale ? s.syncBannerStale : {}) }}>
+          <div>
+            <strong>{syncState.stale ? 'Atenção: os indicadores podem estar desatualizados.' : 'Dados operacionais sincronizados do iLux.'}</strong>
+            <span>
+              {syncState.lastSyncedAt
+                ? ` Última leitura: ${new Date(syncState.lastSyncedAt).toLocaleString('pt-BR')}.`
+                : ' O agente ainda não enviou uma leitura.'}
+            </span>
+          </div>
+          {syncState.error && <span title={syncState.error} style={s.syncError}>Ver erro</span>}
+        </div>
+      )}
 
       {/* ABA 0: CENTRO DE CRISE */}
       {activeTab === 0 && (
@@ -332,6 +371,7 @@ export default function RevGuard() {
                     </div>
                   </div>
                 )}
+                <span style={s.sourceHint}>Origem dos valores: {sourceSummary(crisisData.dataQuality?.mrr)}</span>
               </div>
 
               <div 
@@ -347,6 +387,7 @@ export default function RevGuard() {
                       ? `${formatCurrency(crisisData.stalledEstimatesValue)} aguardando aprovação do cliente`
                       : 'Aguardando aprovação do cliente (iLux)'}
                   </span>
+                  <span style={s.sourceHint}>Origem dos valores: {sourceSummary(crisisData.dataQuality?.stalledEstimates)}</span>
                 </div>
               </div>
 
@@ -473,6 +514,7 @@ export default function RevGuard() {
                           </td>
                           <td style={{ ...s.td, color: '#ef4444', fontWeight: 'bold' }}>
                             {formatCurrency(client.mrr)}
+                            <span style={s.inlineSource}>{sourceLabel(client.valueSource)}</span>
                           </td>
                           <td style={s.td}>
                             {typeof client.daysLate === 'number' ? client.daysLate.toFixed(1) : 0} dias
@@ -561,6 +603,11 @@ export default function RevGuard() {
                 {crisisData.funnel.vazamentoSemValorCount > 0 && (
                   <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
                     ⚠️ {crisisData.funnel.vazamentoSemValorCount} de {crisisData.funnel.vazamentoMes} O.S. vazadas não têm valor de peças/serviço informado pelo Firebird — o valor acima é uma estimativa parcial, o vazamento real pode ser maior.
+                  </p>
+                )}
+                {crisisData.funnel.vazamentoFallbackValueCount > 0 && (
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#f59e0b', lineHeight: 1.4 }}>
+                    {crisisData.funnel.vazamentoFallbackValueCount} O.S. sem valor no Firebird usaram o valor mÃ©dio configurado como estimativa ({formatCurrency(crisisData.dataQuality?.leakage?.manualFallbackValue || 0)}).
                   </p>
                 )}
                 <div style={{ ...s.causeRow, background: 'rgba(16,185,129,0.04)', borderColor: 'rgba(16,185,129,0.2)' }}>
@@ -1092,6 +1139,9 @@ const s = {
   subtitle: { color: 'var(--text-muted)', fontSize: '0.88rem' },
   statusBadge: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', padding: '0.55rem 0.95rem', borderRadius: '100px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px rgba(16,185,129,0.4)' },
+  syncBanner: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', padding: '0.7rem 1rem', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.22)', background: 'rgba(16,185,129,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem' },
+  syncBannerStale: { borderColor: 'rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)' },
+  syncError: { color: '#f59e0b', fontWeight: 800, cursor: 'help', flexShrink: 0 },
   
   tabs: { display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '2rem', overflowX: 'auto', scrollbarWidth: 'none' },
   tab: { padding: '0.8rem 1.1rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-muted)', borderBottom: '2px solid transparent', transition: 'all 0.2s', fontWeight: 600, whiteSpace: 'nowrap' },
@@ -1113,6 +1163,8 @@ const s = {
   kpiLabel: { color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
   kpiValue: { fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' },
   kpiHint: { color: 'var(--text-dim)', fontSize: '0.72rem' },
+  sourceHint: { color: 'var(--text-dim)', fontSize: '0.65rem', lineHeight: 1.35, textAlign: 'center' },
+  inlineSource: { display: 'block', color: 'var(--text-dim)', fontSize: '0.62rem', fontWeight: 600, marginTop: '2px' },
 
   mainGrid: { display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem' },
   chartSection: { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0 },

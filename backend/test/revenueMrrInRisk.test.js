@@ -11,22 +11,22 @@ function fakeRes() {
   return res;
 }
 
-test('mrrInRisk prioriza contrato ativo real, depois total_mensalidade, depois fallback generico', async (context) => {
+test('MRR usa Firebird, depois mensalidade do CRM e por fim fallback manual', async (context) => {
   const originalSettingsFindUnique = prisma.tenantSettings.findUnique;
-  const originalServiceOrderFindMany = prisma.serviceOrder.findMany;
-  const originalServiceOrderCount = prisma.serviceOrder.count;
-  const originalServiceOrderGroupBy = prisma.serviceOrder.groupBy;
-  const originalContactFindMany = prisma.contact.findMany;
+  const originalExternalFindMany = prisma.externalSyncRecord.findMany;
+  const originalCustomerFindMany = prisma.crmCustomer.findMany;
   const originalTicketCount = prisma.ticket.count;
+  const originalSnapshotUpsert = prisma.revenueSnapshot.upsert;
+  const originalSnapshotFindFirst = prisma.revenueSnapshot.findFirst;
   const originalLoadContracts = crmController.loadContracts;
 
   context.after(() => {
     prisma.tenantSettings.findUnique = originalSettingsFindUnique;
-    prisma.serviceOrder.findMany = originalServiceOrderFindMany;
-    prisma.serviceOrder.count = originalServiceOrderCount;
-    prisma.serviceOrder.groupBy = originalServiceOrderGroupBy;
-    prisma.contact.findMany = originalContactFindMany;
+    prisma.externalSyncRecord.findMany = originalExternalFindMany;
+    prisma.crmCustomer.findMany = originalCustomerFindMany;
     prisma.ticket.count = originalTicketCount;
+    prisma.revenueSnapshot.upsert = originalSnapshotUpsert;
+    prisma.revenueSnapshot.findFirst = originalSnapshotFindFirst;
     crmController.loadContracts = originalLoadContracts;
   });
 
@@ -34,33 +34,31 @@ test('mrrInRisk prioriza contrato ativo real, depois total_mensalidade, depois f
     kpiContractValue: 1200,
     kpiServiceValue: 350,
     kpiSlaLimitHours: 24,
+    kpiReincidentThreshold: 2,
+    firebirdLastSyncAt: new Date(),
+    firebirdLastSyncStatus: 'ok',
   });
 
-  prisma.serviceOrder.findMany = async ({ where }) => {
-    // criticalServiceOrders usa status: { in: [...] }; waitingApprovalOrders usa status: 'AGUARDANDO_RETORNO'.
-    if (where.status && Array.isArray(where.status.in)) {
-      return [
-        { contactId: 'contact-real-contract' },
-        { contactId: 'contact-total-mensalidade' },
-        { contactId: 'contact-fallback' },
-      ];
-    }
-    return [];
+  const openedAt = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  prisma.externalSyncRecord.findMany = async ({ where }) => {
+    if (where?.entity !== 'serviceOrders') return [];
+    return [
+      { externalId: 'os-1', receivedAt: new Date(), payload: { raw: { status: 'E', dtinclusao: openedAt, cdcliente: 'ext-1', nmcliente: 'Contrato Firebird', cdequipamento: 'eq-1' } } },
+      { externalId: 'os-2', receivedAt: new Date(), payload: { raw: { status: 'E', dtinclusao: openedAt, cdcliente: 'ext-2', nmcliente: 'Mensalidade CRM', cdequipamento: 'eq-2' } } },
+      { externalId: 'os-3', receivedAt: new Date(), payload: { raw: { status: 'E', dtinclusao: openedAt, cdcliente: 'ext-3', nmcliente: 'Fallback manual', cdequipamento: 'eq-3' } } },
+    ];
   };
-  prisma.serviceOrder.count = async () => 0;
-  prisma.serviceOrder.groupBy = async () => [];
+
+  prisma.crmCustomer.findMany = async () => [
+    { externalId: 'ext-1', raw: { total_mensalidade: '999,99' } },
+    { externalId: 'ext-2', raw: { total_mensalidade: '850,00' } },
+    { externalId: 'ext-3', raw: {} },
+  ];
   prisma.ticket.count = async () => 0;
+  prisma.revenueSnapshot.upsert = async () => ({});
+  prisma.revenueSnapshot.findFirst = async () => null;
 
-  prisma.contact.findMany = async ({ where }) => {
-    const byId = {
-      'contact-real-contract': { crmCustomer: { externalId: 'ext-1', raw: { total_mensalidade: '999.99' } } },
-      'contact-total-mensalidade': { crmCustomer: { externalId: 'ext-2', raw: { total_mensalidade: '850,00' } } },
-      'contact-fallback': { crmCustomer: { externalId: 'ext-3', raw: {} } },
-    };
-    return where.id.in.map((id) => byId[id]);
-  };
-
-  crmController.loadContracts = async (tenantId, externalId) => {
+  crmController.loadContracts = async (_tenantId, externalId) => {
     if (externalId === 'ext-1') {
       return [
         { isActive: true, monthlyValue: 500 },
@@ -68,16 +66,47 @@ test('mrrInRisk prioriza contrato ativo real, depois total_mensalidade, depois f
         { isActive: false, monthlyValue: 10000 },
       ];
     }
-    // ext-2 e ext-3 nao tem contrato ativo encontrado.
     return [];
   };
 
-  const req = { user: { tenantId: 'tenant-1' } };
   const res = fakeRes();
-  await getRevenueDashboard(req, res);
+  await getRevenueDashboard({ user: { tenantId: 'tenant-1' } }, res);
 
-  // contact-real-contract: soma dos contratos ativos (500 + 300 = 800), ignora total_mensalidade.
-  // contact-total-mensalidade: sem contrato ativo -> usa total_mensalidade (850).
-  // contact-fallback: sem contrato ativo e sem total_mensalidade -> usa kpiContractValue (1200).
   assert.equal(res.body.mrrInRisk, 800 + 850 + 1200);
+  assert.deepEqual(res.body.dataQuality.mrr.valueSources, {
+    firebird: 1,
+    crm: 1,
+    manual_estimate: 1,
+    missing: 0,
+  });
+  assert.equal(res.body.rankingClientsAtRisk.find((item) => item.clientExternalId === 'ext-1').valueSource, 'firebird');
+  assert.equal(res.body.rankingClientsAtRisk.find((item) => item.clientExternalId === 'ext-2').valueSource, 'crm');
+  assert.equal(res.body.rankingClientsAtRisk.find((item) => item.clientExternalId === 'ext-3').valueSource, 'manual_estimate');
+  assert.equal(res.body.synchronization.stale, false);
+});
+
+test('reincidência respeita o limite configurado no detalhamento', async (context) => {
+  const originalSettingsFindUnique = prisma.tenantSettings.findUnique;
+  const originalExternalFindMany = prisma.externalSyncRecord.findMany;
+  const originalCustomerFindMany = prisma.crmCustomer.findMany;
+  context.after(() => {
+    prisma.tenantSettings.findUnique = originalSettingsFindUnique;
+    prisma.externalSyncRecord.findMany = originalExternalFindMany;
+    prisma.crmCustomer.findMany = originalCustomerFindMany;
+  });
+
+  prisma.tenantSettings.findUnique = async () => ({ kpiSlaLimitHours: 8, kpiReincidentThreshold: 3 });
+  const openedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  prisma.externalSyncRecord.findMany = async ({ where }) => where?.entity === 'serviceOrders'
+    ? [1, 2, 3].map((id) => ({ externalId: `os-${id}`, payload: { raw: { status: 'E', dtinclusao: openedAt, cdcliente: 'ext-1', cdequipamento: 'eq-1', modelo: 'Laser' } } }))
+    : [];
+  prisma.crmCustomer.findMany = async () => [{ externalId: 'ext-1', fantasyName: 'Cliente', name: 'Cliente' }];
+
+  const res = fakeRes();
+  await require('../src/controllers/revenueController').getDrilldown({
+    user: { tenantId: 'tenant-1' },
+    params: { type: 'reincident_equipments' },
+  }, res);
+
+  assert.deepEqual(res.body, []);
 });
